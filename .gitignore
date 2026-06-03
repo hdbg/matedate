@@ -2,3 +2,4 @@
 config.toml
 !.cargo/config.toml
 models/
+.DS_Store

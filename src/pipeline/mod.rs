@@ -1,5 +1,6 @@
 pub mod bubble_analysis;
 mod image_utils;
+pub mod llm_classification;
 pub mod ocr;
 pub mod transcript_processing;
 
