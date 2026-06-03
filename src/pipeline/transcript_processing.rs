@@ -1,6 +1,20 @@
 use super::{AnnotatedMessage, Side};
 use tracing::{debug, info};
 
+#[derive(kameo::Actor, Clone, Default)]
+pub struct TranscriptProcessor;
+
+#[kameo::messages]
+impl TranscriptProcessor {
+    #[message]
+    pub fn analyze(
+        &mut self,
+        messages: Vec<AnnotatedMessage>,
+    ) -> anyhow::Result<Vec<AnnotatedMessage>> {
+        analyze(messages)
+    }
+}
+
 const MIN_QUOTED_LINE_CHARS: usize = 4;
 const SHORT_QUOTED_LINE_MAX_CHARS: usize = 8;
 const SHORT_QUOTED_LINE_MATCH_THRESHOLD: f32 = 0.9;

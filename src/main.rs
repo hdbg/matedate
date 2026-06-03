@@ -1,7 +1,6 @@
-use std::sync::Arc;
-
 use anyhow::Context as _;
 use image::DynamicImage;
+use kameo::actor::{ActorRef, Spawn};
 use teloxide::{
     Bot,
     dispatching::{MessageFilterExt as _, UpdateFilterExt as _},
@@ -13,7 +12,10 @@ use teloxide::{
 };
 use tracing::info;
 
-use crate::pipeline::llm_classification::{LLMAnalysis, LLMContext};
+use crate::pipeline::{
+    llm_classification::LLMAnalysis,
+    orchestrator::{PipelineOrchestrator, PipelineOrchestratorArgs},
+};
 
 const CONFIG_FILE: &str = "config.toml";
 const CONFIG_ENV_PREIFX: &str = "BOT";
@@ -40,7 +42,14 @@ async fn main() -> anyhow::Result<()> {
 
     let settings: Config = settings.try_deserialize()?;
     let bot = Bot::new(settings.token);
-    let llm_context = Arc::new(LLMContext::new(&settings.llm)?);
+    let pipeline_ref = PipelineOrchestrator::spawn(PipelineOrchestratorArgs { llm: settings.llm });
+    pipeline_ref.wait_for_startup().await;
+    if let Some(error) = pipeline_ref
+        .with_startup_result(|result| result.err().map(|error| format!("{error:?}")))
+        .flatten()
+    {
+        anyhow::bail!("pipeline orchestrator failed to start: {error}");
+    }
 
     info!("boot");
 
@@ -61,10 +70,10 @@ async fn main() -> anyhow::Result<()> {
             })
             .endpoint(
                 async |bot: Bot,
-                       llm_context: Arc<LLMContext>,
+                       pipeline_ref: ActorRef<PipelineOrchestrator>,
                        (message, media): (Message, MediaPhoto)|
                        -> anyhow::Result<()> {
-                    handle_transcript_photo(bot, llm_context, message, media).await
+                    handle_transcript_photo(bot, pipeline_ref, message, media).await
                 },
             ),
         )
@@ -83,7 +92,7 @@ async fn main() -> anyhow::Result<()> {
             },
         ));
     Dispatcher::builder(bot, schema)
-        .dependencies(dptree::deps![llm_context])
+        .dependencies(dptree::deps![pipeline_ref])
         .build()
         .dispatch()
         .await;
@@ -93,7 +102,7 @@ async fn main() -> anyhow::Result<()> {
 
 async fn handle_transcript_photo(
     bot: Bot,
-    llm_context: Arc<LLMContext>,
+    pipeline_ref: ActorRef<PipelineOrchestrator>,
     message: Message,
     media: MediaPhoto,
 ) -> anyhow::Result<()> {
@@ -117,57 +126,20 @@ async fn handle_transcript_photo(
     );
     let images = vec![image];
 
-    let messages = pipeline::bubble_analysis::analyze(&images)?;
-    let sent_count = messages
-        .iter()
-        .filter(|m| matches!(m.side, pipeline::Side::Us))
-        .count();
-    let received_count = messages.len() - sent_count;
-    let total_bbox_area: i64 = messages
-        .iter()
-        .map(|m| {
-            i64::from(m.bbox.top_right.0 - m.bbox.top_left.0)
-                * i64::from(m.bbox.top_right.1 - m.bbox.top_left.1)
-        })
-        .sum();
-    let total_crop_pixels: u64 = messages
-        .iter()
-        .map(|m| u64::from(m.crop.width()) * u64::from(m.crop.height()))
-        .sum();
-    let annotated_messages = messages
-        .iter()
-        .cloned()
-        .map(pipeline::ocr::analyze)
-        .collect::<anyhow::Result<Vec<_>>>()?;
-    let annotated_messages = pipeline::transcript_processing::analyze(annotated_messages)?;
-    let recognized_char_count: usize = annotated_messages
-        .iter()
-        .map(|m| m.transcript.chars().count())
-        .sum();
-    let analysis = pipeline::llm_classification::analyze(&llm_context, annotated_messages).await?;
-    let annotated_image =
-        pipeline::annotation::render_marked_messages(&images[0], &analysis.moves)?;
-    info!(
-        message_count = messages.len(),
-        sent_count,
-        received_count,
-        total_bbox_area,
-        total_crop_pixels,
-        recognized_message_count = analysis.moves.len(),
-        recognized_char_count,
-        elo = analysis.elo,
-        "processed all images"
-    );
+    let output = pipeline_ref
+        .ask(pipeline::orchestrator::Analyze { images })
+        .await
+        .map_err(|_| anyhow::anyhow!("pipeline orchestrator request failed"))?;
     info!(
         chat_id = %message.chat.id,
-        image_bytes = annotated_image.len(),
+        image_bytes = output.annotated_image.len(),
         "sending analysis response"
     );
     bot.send_photo(
         message.chat.id,
-        InputFile::memory(annotated_image).file_name(ANNOTATED_IMAGE_NAME),
+        InputFile::memory(output.annotated_image).file_name(ANNOTATED_IMAGE_NAME),
     )
-    .caption(format_analysis(&analysis))
+    .caption(format_analysis(&output.analysis))
     .parse_mode(ParseMode::Html)
     .await?;
     info!(chat_id = %message.chat.id, "photo processing finished");

@@ -9,10 +9,22 @@ use tracing::{debug, info, warn};
 
 use super::{MOVE_IMAGES, MarkedMessage, MoveKind, Side};
 
-pub fn render_marked_messages(
-    image: &DynamicImage,
-    marked: &[MarkedMessage],
-) -> anyhow::Result<Vec<u8>> {
+#[derive(kameo::Actor, Clone, Default)]
+pub struct AnnotationProcessor;
+
+#[kameo::messages]
+impl AnnotationProcessor {
+    #[message]
+    pub fn analyze(
+        &mut self,
+        image: DynamicImage,
+        marked: Vec<MarkedMessage>,
+    ) -> anyhow::Result<Vec<u8>> {
+        analyze(&image, &marked)
+    }
+}
+
+pub fn analyze(image: &DynamicImage, marked: &[MarkedMessage]) -> anyhow::Result<Vec<u8>> {
     info!(
         marked_message_count = marked.len(),
         width = image.width(),

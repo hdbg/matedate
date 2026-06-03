@@ -13,7 +13,7 @@ use crate::pipeline::{AnnotatedMessage, MarkedMessage, MoveKind, Side};
 static DEFAULT_MODEL: &str = "openai/gpt-4o";
 static PROMPT: &str = include_str!("PROMPT.txt");
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct LLMConfig {
     pub token: String,
     pub model: Option<String>,
@@ -21,6 +21,35 @@ pub struct LLMConfig {
 
 pub struct LLMContext {
     model: Agent<openrouter::CompletionModel, ()>,
+}
+
+pub struct LLMProcessor {
+    context: LLMContext,
+}
+
+impl kameo::Actor for LLMProcessor {
+    type Args = LLMConfig;
+    type Error = anyhow::Error;
+
+    async fn on_start(
+        config: Self::Args,
+        _actor_ref: kameo::actor::ActorRef<Self>,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            context: LLMContext::new(&config)?,
+        })
+    }
+}
+
+#[kameo::messages]
+impl LLMProcessor {
+    #[message]
+    pub async fn analyze(
+        &mut self,
+        conversation: Vec<AnnotatedMessage>,
+    ) -> anyhow::Result<LLMAnalysis> {
+        analyze(&self.context, conversation).await
+    }
 }
 
 impl LLMContext {

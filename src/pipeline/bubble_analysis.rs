@@ -8,6 +8,17 @@ use opencv::{
 };
 use tracing::{debug, info};
 
+#[derive(kameo::Actor, Clone, Default)]
+pub struct BubbleAnalysisProcessor;
+
+#[kameo::messages]
+impl BubbleAnalysisProcessor {
+    #[message]
+    pub fn analyze(&mut self, images: Vec<image::DynamicImage>) -> anyhow::Result<Vec<Message>> {
+        analyze(&images)
+    }
+}
+
 const SIDE_SPLIT_DIVISOR: i32 = 2;
 const MASK_ON: u8 = 255;
 const SINGLE_CHANNEL_COUNT: i32 = 1;

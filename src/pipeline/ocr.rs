@@ -8,6 +8,17 @@ use tracing::{debug, info};
 
 use super::{AnnotatedMessage, Message};
 
+#[derive(kameo::Actor, Clone, Default)]
+pub struct OcrProcessor;
+
+#[kameo::messages]
+impl OcrProcessor {
+    #[message]
+    pub fn analyze(&mut self, messages: Vec<Message>) -> anyhow::Result<Vec<AnnotatedMessage>> {
+        messages.into_iter().map(analyze).collect()
+    }
+}
+
 const MODEL_DIR: &str = "models/ocr";
 const DET_MODEL: &str = "PP-OCRv5_mobile_det.mnn";
 const EN_REC_MODEL: &str = "en_PP-OCRv5_mobile_rec_infer.mnn";

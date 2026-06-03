@@ -7,6 +7,7 @@ pub mod bubble_analysis;
 mod image_utils;
 pub mod llm_classification;
 pub mod ocr;
+pub mod orchestrator;
 pub mod transcript_processing;
 
 static MOVE_IMAGES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/assets");
@@ -54,4 +55,10 @@ pub struct AnnotatedMessage {
 pub struct MarkedMessage {
     pub annotated: AnnotatedMessage,
     pub kind: MoveKind,
+}
+
+#[derive(Debug)]
+pub struct PipelineOutput {
+    pub analysis: llm_classification::LLMAnalysis,
+    pub annotated_image: Vec<u8>,
 }
