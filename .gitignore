@@ -1,2 +1,4 @@
 /target
 config.toml
+!.cargo/config.toml
+models/
