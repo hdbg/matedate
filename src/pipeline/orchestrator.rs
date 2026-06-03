@@ -6,6 +6,7 @@ use kameo::{
     actor::{Actor, ActorRef, Spawn},
     supervision::{RestartPolicy, SupervisionStrategy},
 };
+use sha2::{Digest as _, Sha256};
 use tracing::info;
 
 use super::{
@@ -96,6 +97,7 @@ impl PipelineOrchestrator {
             .first()
             .cloned()
             .context("pipeline received no images")?;
+        let hash = hash_images(&images)?;
         let messages = self
             .bubble_analysis
             .ask(bubble_analysis::Analyze { images })
@@ -154,6 +156,7 @@ impl PipelineOrchestrator {
             .map_err(|_| anyhow::anyhow!("annotation actor request failed"))?;
 
         info!(
+            hash = %hash,
             message_count,
             sent_count,
             received_count,
@@ -166,8 +169,80 @@ impl PipelineOrchestrator {
         );
 
         Ok(PipelineOutput {
+            hash,
             analysis,
             annotated_image,
         })
+    }
+}
+
+fn hash_images(images: &[DynamicImage]) -> anyhow::Result<String> {
+    anyhow::ensure!(!images.is_empty(), "cannot hash empty image list");
+
+    let image_hashes: Vec<_> = images.iter().map(hash_image).collect();
+    if image_hashes.len() == 1 {
+        return Ok(hex_digest(&image_hashes[0]));
+    }
+
+    let mut hasher = Sha256::new();
+    for image_hash in image_hashes {
+        hasher.update(image_hash);
+    }
+
+    Ok(hex_digest(&hasher.finalize()))
+}
+
+fn hash_image(image: &DynamicImage) -> [u8; 32] {
+    let rgba = image.to_rgba8();
+    let mut hasher = Sha256::new();
+    hasher.update(rgba.width().to_le_bytes());
+    hasher.update(rgba.height().to_le_bytes());
+    hasher.update(rgba.as_raw());
+    hasher.finalize().into()
+}
+
+fn hex_digest(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+
+    for byte in bytes {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+
+    output
+}
+
+#[cfg(test)]
+mod tests {
+    use image::{DynamicImage, RgbaImage};
+
+    use super::*;
+
+    fn image_with_pixel(pixel: [u8; 4]) -> DynamicImage {
+        DynamicImage::ImageRgba8(RgbaImage::from_pixel(1, 1, image::Rgba(pixel)))
+    }
+
+    #[test]
+    fn single_image_hash_is_hash_of_image() -> anyhow::Result<()> {
+        let image = image_with_pixel([1, 2, 3, 255]);
+        let expected = hex_digest(&hash_image(&image));
+
+        assert_eq!(hash_images(&[image])?, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn multiple_image_hash_hashes_image_hashes_in_order() -> anyhow::Result<()> {
+        let first = image_with_pixel([1, 2, 3, 255]);
+        let second = image_with_pixel([4, 5, 6, 255]);
+        let forward = hash_images(&[first.clone(), second.clone()])?;
+        let reverse = hash_images(&[second, first])?;
+
+        assert_ne!(forward, reverse);
+        assert_eq!(forward.len(), 64);
+
+        Ok(())
     }
 }

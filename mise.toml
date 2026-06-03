@@ -1,4 +1,5 @@
 [tools]
 "cargo:cargo-features-manager" = "0.12.0"
 "cargo:cargo-watch" = "8.5.3"
+"cargo:diesel_cli" = { version = "2.3.7", features = "sqlite,sqlite-bundled", default-features = "false" }
 rust = "1.95.0"

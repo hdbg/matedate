@@ -22,6 +22,8 @@ const CONFIG_ENV_PREIFX: &str = "BOT";
 const EMPTY_TRANSCRIPT_MESSAGE: &str = "No message bubbles recognized.";
 const ANNOTATED_IMAGE_NAME: &str = "annotated_messages.png";
 
+#[allow(dead_code)]
+mod db;
 mod pipeline;
 
 #[derive(serde::Deserialize)]
@@ -41,6 +43,8 @@ async fn main() -> anyhow::Result<()> {
         .build()?;
 
     let settings: Config = settings.try_deserialize()?;
+    let database_pool = db::create_pool(None).await?;
+    info!("database pool initialized successfully");
     let bot = Bot::new(settings.token);
     let pipeline_ref = PipelineOrchestrator::spawn(PipelineOrchestratorArgs { llm: settings.llm });
     pipeline_ref.wait_for_startup().await;
@@ -92,7 +96,7 @@ async fn main() -> anyhow::Result<()> {
             },
         ));
     Dispatcher::builder(bot, schema)
-        .dependencies(dptree::deps![pipeline_ref])
+        .dependencies(dptree::deps![pipeline_ref, database_pool])
         .build()
         .dispatch()
         .await;
@@ -132,6 +136,7 @@ async fn handle_transcript_photo(
         .map_err(|_| anyhow::anyhow!("pipeline orchestrator request failed"))?;
     info!(
         chat_id = %message.chat.id,
+        hash = %output.hash,
         image_bytes = output.annotated_image.len(),
         "sending analysis response"
     );

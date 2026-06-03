@@ -59,6 +59,7 @@ pub struct MarkedMessage {
 
 #[derive(Debug)]
 pub struct PipelineOutput {
+    pub hash: String,
     pub analysis: llm_classification::LLMAnalysis,
     pub annotated_image: Vec<u8>,
 }
