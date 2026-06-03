@@ -24,7 +24,6 @@ Your task:
 4. You are always replying in chess style
 5. Try to ignore OCR recognition mistakes and/or change meaning of some similar to write words if you detect an error
 6. You MUST annotate every text in order (incuding both "They" and "Us" texts). So if you got 7 texts, you need to send 7 annotations in order for each text.
-7. But you shoudln't mention OCR errors in your result
 
 Evaluation criteria:
 - Clarity: Is the intent understandable?

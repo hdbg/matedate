@@ -1,8 +1,7 @@
-use std::{io::Cursor, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Context as _;
-use image::{DynamicImage, ImageFormat, Rgba};
-use imageproc::{drawing::draw_hollow_rect_mut, rect::Rect as ImageRect};
+use image::DynamicImage;
 use teloxide::{
     Bot,
     dispatching::{MessageFilterExt as _, UpdateFilterExt as _},
@@ -18,9 +17,7 @@ use crate::pipeline::llm_classification::{LLMAnalysis, LLMContext};
 const CONFIG_FILE: &str = "config.toml";
 const CONFIG_ENV_PREIFX: &str = "BOT";
 const EMPTY_TRANSCRIPT_MESSAGE: &str = "No message bubbles recognized.";
-const DETECTED_BUBBLES_IMAGE_NAME: &str = "detected_bubbles.png";
-const RECTANGLE_STROKE_WIDTH: i32 = 3;
-const RECTANGLE_COLOR: Rgba<u8> = Rgba([255, 0, 0, 255]);
+const ANNOTATED_IMAGE_NAME: &str = "annotated_messages.png";
 
 mod pipeline;
 
@@ -126,7 +123,6 @@ async fn handle_transcript_photo(
         .iter()
         .map(|m| u64::from(m.crop.width()) * u64::from(m.crop.height()))
         .sum();
-    let annotated_image = render_detected_bubbles(&images[0], &messages)?;
     let annotated_messages = messages
         .iter()
         .cloned()
@@ -139,6 +135,7 @@ async fn handle_transcript_photo(
         .sum();
     let analysis =
         pipeline::llm_classification::analyze(&llm_context, annotated_messages).await?;
+    let annotated_image = pipeline::annotation::render_marked_messages(&images[0], &analysis.moves)?;
     info!(
         message_count = messages.len(),
         sent_count,
@@ -154,7 +151,7 @@ async fn handle_transcript_photo(
         .await?;
     bot.send_photo(
         message.chat.id,
-        InputFile::memory(annotated_image).file_name(DETECTED_BUBBLES_IMAGE_NAME),
+        InputFile::memory(annotated_image).file_name(ANNOTATED_IMAGE_NAME),
     )
     .await?;
 
@@ -167,38 +164,6 @@ async fn download_photo(bot: &Bot, photo: PhotoSize) -> anyhow::Result<DynamicIm
     bot.download_file(&file.path, &mut buf).await?;
 
     image::load_from_memory(&buf).context("failed to decode Telegram photo")
-}
-
-fn render_detected_bubbles(
-    image: &DynamicImage,
-    replies: &[pipeline::Message],
-) -> anyhow::Result<Vec<u8>> {
-    let mut annotated = image.to_rgba8();
-
-    for reply in replies {
-        let rect_width = u32::try_from(reply.bbox.top_right.0 - reply.bbox.top_left.0)?;
-        let rect_height = u32::try_from(reply.bbox.top_right.1 - reply.bbox.top_left.1)?;
-
-        for offset in 0..RECTANGLE_STROKE_WIDTH {
-            let x = reply.bbox.top_left.0 - offset;
-            let y = reply.bbox.top_left.1 - offset;
-            let width = rect_width + u32::try_from(offset * 2)?;
-            let height = rect_height + u32::try_from(offset * 2)?;
-
-            draw_hollow_rect_mut(
-                &mut annotated,
-                ImageRect::at(x, y).of_size(width, height),
-                RECTANGLE_COLOR,
-            );
-        }
-    }
-
-    let mut output = Vec::new();
-    DynamicImage::ImageRgba8(annotated)
-        .write_to(&mut Cursor::new(&mut output), ImageFormat::Png)
-        .context("failed to encode annotated image")?;
-
-    Ok(output)
 }
 
 fn format_analysis(analysis: &LLMAnalysis) -> String {

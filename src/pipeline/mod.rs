@@ -2,6 +2,7 @@ use include_dir::{Dir, include_dir};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+pub mod annotation;
 pub mod bubble_analysis;
 mod image_utils;
 pub mod llm_classification;
