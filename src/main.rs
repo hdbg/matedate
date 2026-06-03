@@ -1,4 +1,4 @@
-use std::io::Cursor;
+use std::{io::Cursor, sync::Arc};
 
 use anyhow::Context as _;
 use image::{DynamicImage, ImageFormat, Rgba};
@@ -12,6 +12,8 @@ use teloxide::{
     types::{InputFile, MediaKind, MediaPhoto, Message, MessageKind, PhotoSize, Update},
 };
 use tracing::info;
+
+use crate::pipeline::llm_classification::{LLMAnalysis, LLMContext};
 
 const CONFIG_FILE: &str = "config.toml";
 const CONFIG_ENV_PREIFX: &str = "BOT";
@@ -40,6 +42,7 @@ async fn main() -> anyhow::Result<()> {
 
     let settings: Config = settings.try_deserialize()?;
     let bot = Bot::new(settings.token);
+    let llm_context = Arc::new(LLMContext::new(&settings.llm)?);
 
     info!("boot");
 
@@ -59,8 +62,11 @@ async fn main() -> anyhow::Result<()> {
                 Some((msg, media))
             })
             .endpoint(
-                async |bot: Bot, (message, media): (Message, MediaPhoto)| -> anyhow::Result<()> {
-                    handle_transcript_photo(bot, message, media).await
+                async |bot: Bot,
+                       llm_context: Arc<LLMContext>,
+                       (message, media): (Message, MediaPhoto)|
+                       -> anyhow::Result<()> {
+                    handle_transcript_photo(bot, llm_context, message, media).await
                 },
             ),
         )
@@ -78,13 +84,18 @@ async fn main() -> anyhow::Result<()> {
                 Ok(())
             },
         ));
-    Dispatcher::builder(bot, schema).build().dispatch().await;
+    Dispatcher::builder(bot, schema)
+        .dependencies(dptree::deps![llm_context])
+        .build()
+        .dispatch()
+        .await;
 
     unreachable!("Bot should never stop")
 }
 
 async fn handle_transcript_photo(
     bot: Bot,
+    llm_context: Arc<LLMContext>,
     message: Message,
     media: MediaPhoto,
 ) -> anyhow::Result<()> {
@@ -98,46 +109,49 @@ async fn handle_transcript_photo(
     let image = download_photo(&bot, photo).await?;
     let images = vec![image];
 
-    let replies = pipeline::bubble_analysis::analyze(&images)?;
-    let sent_count = replies
+    let messages = pipeline::bubble_analysis::analyze(&images)?;
+    let sent_count = messages
         .iter()
-        .filter(|reply| matches!(reply.side, pipeline::Side::Us))
+        .filter(|m| matches!(m.side, pipeline::Side::Us))
         .count();
-    let received_count = replies.len() - sent_count;
-    let total_bbox_area: i64 = replies
+    let received_count = messages.len() - sent_count;
+    let total_bbox_area: i64 = messages
         .iter()
-        .map(|reply| {
-            i64::from(reply.bbox.top_right.0 - reply.bbox.top_left.0)
-                * i64::from(reply.bbox.top_right.1 - reply.bbox.top_left.1)
+        .map(|m| {
+            i64::from(m.bbox.top_right.0 - m.bbox.top_left.0)
+                * i64::from(m.bbox.top_right.1 - m.bbox.top_left.1)
         })
         .sum();
-    let total_crop_pixels: u64 = replies
+    let total_crop_pixels: u64 = messages
         .iter()
-        .map(|reply| u64::from(reply.crop.width()) * u64::from(reply.crop.height()))
+        .map(|m| u64::from(m.crop.width()) * u64::from(m.crop.height()))
         .sum();
-    let annotated_image = render_detected_bubbles(&images[0], &replies)?;
-    let annotated_replies = replies
+    let annotated_image = render_detected_bubbles(&images[0], &messages)?;
+    let annotated_messages = messages
         .iter()
         .cloned()
         .map(pipeline::ocr::analyze)
         .collect::<anyhow::Result<Vec<_>>>()?;
-    let annotated_replies = pipeline::transcript_processing::analyze(annotated_replies)?;
-    let recognized_char_count: usize = annotated_replies
+    let annotated_messages = pipeline::transcript_processing::analyze(annotated_messages)?;
+    let recognized_char_count: usize = annotated_messages
         .iter()
-        .map(|reply| reply.transcript.chars().count())
+        .map(|m| m.transcript.chars().count())
         .sum();
-    let transcript = format_transcript(&annotated_replies);
+    let analysis =
+        pipeline::llm_classification::analyze(&llm_context, annotated_messages).await?;
     info!(
-        message_count = replies.len(),
+        message_count = messages.len(),
         sent_count,
         received_count,
         total_bbox_area,
         total_crop_pixels,
-        recognized_message_count = annotated_replies.len(),
+        recognized_message_count = analysis.moves.len(),
         recognized_char_count,
+        elo = analysis.elo,
         "processed all images"
     );
-    bot.send_message(message.chat.id, transcript).await?;
+    bot.send_message(message.chat.id, format_analysis(&analysis))
+        .await?;
     bot.send_photo(
         message.chat.id,
         InputFile::memory(annotated_image).file_name(DETECTED_BUBBLES_IMAGE_NAME),
@@ -187,29 +201,39 @@ fn render_detected_bubbles(
     Ok(output)
 }
 
-fn format_transcript(replies: &[pipeline::AnnotatedMessage]) -> String {
-    if replies.is_empty() {
+fn format_analysis(analysis: &LLMAnalysis) -> String {
+    if analysis.moves.is_empty() {
         return EMPTY_TRANSCRIPT_MESSAGE.to_owned();
     }
 
-    let mut transcript = String::from("Transcript:\n");
-    for annotated in replies {
-        let side = match annotated.reply.side {
+    let mut out = String::new();
+    out.push_str("Title: ");
+    out.push_str(&analysis.title);
+    out.push_str("\n\n");
+    out.push_str(&analysis.description);
+    out.push_str("\n\n");
+    out.push_str(&format!("Elo affected: {:+}\n\n", analysis.elo));
+    out.push_str("Transcript:\n");
+
+    for marked in &analysis.moves {
+        let side = match marked.annotated.reply.side {
             pipeline::Side::They => "They",
             pipeline::Side::Us => "Us",
         };
-        let text = annotated.transcript.trim();
+        let text = marked.annotated.transcript.trim();
         let text = if text.is_empty() {
             "[unrecognized]"
         } else {
             text
         };
 
-        transcript.push_str(side);
-        transcript.push_str(": ");
-        transcript.push_str(text);
-        transcript.push('\n');
+        out.push_str(side);
+        out.push_str(": ");
+        out.push_str(text);
+        out.push_str(" [");
+        out.push_str(&format!("{:?}", marked.kind));
+        out.push_str("]\n");
     }
 
-    transcript
+    out
 }

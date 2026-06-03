@@ -1,14 +1,16 @@
+use std::fmt::Write as _;
+
 use anyhow::bail;
 use rig::{
-    agent::Agent, client::CompletionClient as _, prelude::TypedPrompt, providers::openrouter,
+    agent::Agent, client::CompletionClient as _, completion, prelude::TypedPrompt,
+    providers::openrouter,
 };
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-use tracing::Instrument;
+use serde::Deserialize;
 
 use crate::pipeline::{AnnotatedMessage, MarkedMessage, MoveKind, Side};
 
-static DEFAULT_MODEL: &str = "qwen/qwen3.7-plus";
+static DEFAULT_MODEL: &str = "openai/gpt-4o";
 static PROMPT: &str = include_str!("PROMPT.txt");
 
 #[derive(Deserialize, Debug)]
@@ -47,12 +49,6 @@ struct LLMAnalysisRaw {
     moves_kinds: Vec<MoveKind>,
 }
 
-#[derive(Serialize, Debug, JsonSchema)]
-struct LLMMessage {
-    side: Side,
-    content: String,
-}
-
 #[derive(Debug, Clone)]
 pub struct LLMAnalysis {
     pub title: String,
@@ -66,20 +62,15 @@ pub async fn analyze(
     context: &LLMContext,
     conversation: Vec<AnnotatedMessage>,
 ) -> anyhow::Result<LLMAnalysis> {
-    let llm_messages: Vec<_> = conversation
-        .iter()
-        .map(|m| LLMMessage {
-            side: m.reply.side,
-            content: m.transcript.clone(),
-        })
-        .collect();
-
-    let message = rig::completion::Message::try_from(serde_json::to_value(&llm_messages)?)?;
+    let transcript = format_transcript(&conversation);
 
     let analysis = context
         .model
-        .prompt_typed::<LLMAnalysisRaw>(message)
+        .prompt_typed::<LLMAnalysisRaw>(completion::Message::user(transcript.clone()))
         .await?;
+
+    println!("{:#?}", analysis);
+    println!("{}", transcript);
 
     if analysis.moves_kinds.len() != conversation.len() {
         bail!("LLM returned invalid count of annotated moves");
@@ -100,4 +91,16 @@ pub async fn analyze(
         elo: analysis.elo,
         moves,
     })
+}
+
+fn format_transcript(conversation: &[AnnotatedMessage]) -> String {
+    let mut out = String::new();
+    for message in conversation {
+        let side = match message.reply.side {
+            Side::They => "They",
+            Side::Us => "Us",
+        };
+        let _ = writeln!(out, "{}: {}", side, message.transcript.trim());
+    }
+    out
 }

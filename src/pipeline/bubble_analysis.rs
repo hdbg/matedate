@@ -1,5 +1,5 @@
 use super::{
-    BoundingBox, Reply, Side,
+    BoundingBox, Message, Side,
     image_utils::{self, clamp_i32},
 };
 use opencv::{
@@ -86,7 +86,7 @@ const RIGHT_ALIGNMENT_DENOMINATOR: i32 = 4;
 /// Detects chat message bubbles in screenshots.
 ///
 /// Each input image is treated as a screenshot from a chat application. The output is
-/// returned in image order and top-to-bottom order within each image. Each `Reply`
+/// returned in image order and top-to-bottom order within each image. Each `Message`
 /// contains the inferred side, a detected bubble rectangle, and an owned crop of that
 /// bubble region. The current `BoundingBox` type has two points; `top_left` is the
 /// rectangle origin and `top_right` is populated with the opposite lower-right corner.
@@ -94,8 +94,8 @@ const RIGHT_ALIGNMENT_DENOMINATOR: i32 = 4;
 /// The detector converts the image to OpenCV matrices, builds bubble candidate masks
 /// from background/color differences, adds edge-based candidates, merges overlapping
 /// boxes, filters unlikely rectangles, then classifies side from horizontal alignment.
-pub fn analyze(images: &Vec<image::DynamicImage>) -> anyhow::Result<Vec<Reply>> {
-    let mut replies = Vec::new();
+pub fn analyze(images: &Vec<image::DynamicImage>) -> anyhow::Result<Vec<Message>> {
+    let mut messages = Vec::new();
 
     for image in images {
         let rgb = image.to_rgb8();
@@ -110,7 +110,7 @@ pub fn analyze(images: &Vec<image::DynamicImage>) -> anyhow::Result<Vec<Reply>> 
                     Side::Us
                 };
 
-            replies.push(Reply {
+            messages.push(Message {
                 side,
                 bbox: BoundingBox {
                     top_left: (rect.x, rect.y),
@@ -121,7 +121,7 @@ pub fn analyze(images: &Vec<image::DynamicImage>) -> anyhow::Result<Vec<Reply>> 
         }
     }
 
-    Ok(replies)
+    Ok(messages)
 }
 
 fn crop_bubble(image: &image::DynamicImage, rect: Rect) -> anyhow::Result<image::DynamicImage> {
