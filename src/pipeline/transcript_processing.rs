@@ -1,4 +1,5 @@
 use super::{AnnotatedMessage, Side};
+use tracing::{debug, info};
 
 const MIN_QUOTED_LINE_CHARS: usize = 4;
 const SHORT_QUOTED_LINE_MAX_CHARS: usize = 8;
@@ -14,16 +15,33 @@ const QUOTED_LINE_MATCH_THRESHOLD: f32 = 0.72;
 /// and including that matched quote line.
 #[tracing::instrument(skip_all)]
 pub fn analyze(replies: Vec<AnnotatedMessage>) -> anyhow::Result<Vec<AnnotatedMessage>> {
+    info!(
+        message_count = replies.len(),
+        "transcript processing started"
+    );
     let mut us_history = Vec::new();
     let mut they_history = Vec::new();
     let mut processed = Vec::with_capacity(replies.len());
+    let mut stripped_quote_count = 0;
 
-    for mut annotated in replies {
+    for (message_index, mut annotated) in replies.into_iter().enumerate() {
         let opposite_history = match annotated.reply.side {
             Side::Us => &they_history,
             Side::They => &us_history,
         };
-        annotated.transcript = remove_quoted_prefix(&annotated.transcript, opposite_history);
+        let original_char_count = annotated.transcript.chars().count();
+        let (transcript, stripped_quote) =
+            remove_quoted_prefix_with_status(&annotated.transcript, opposite_history);
+        annotated.transcript = transcript;
+        stripped_quote_count += usize::from(stripped_quote);
+        debug!(
+            message_index,
+            ?annotated.reply.side,
+            original_char_count,
+            processed_char_count = annotated.transcript.chars().count(),
+            stripped_quote,
+            "processed transcript message"
+        );
         let stripped_history_lines = normalized_lines(&annotated.transcript);
 
         match annotated.reply.side {
@@ -34,12 +52,16 @@ pub fn analyze(replies: Vec<AnnotatedMessage>) -> anyhow::Result<Vec<AnnotatedMe
         processed.push(annotated);
     }
 
+    info!(
+        message_count = processed.len(),
+        stripped_quote_count, "transcript processing finished"
+    );
     Ok(processed)
 }
 
-fn remove_quoted_prefix(text: &str, opposite_history: &[String]) -> String {
+fn remove_quoted_prefix_with_status(text: &str, opposite_history: &[String]) -> (String, bool) {
     if opposite_history.is_empty() {
-        return text.trim().to_owned();
+        return (text.trim().to_owned(), false);
     }
 
     let lines: Vec<_> = text.lines().map(str::trim).collect();
@@ -48,8 +70,8 @@ fn remove_quoted_prefix(text: &str, opposite_history: &[String]) -> String {
         .rposition(|line| matches_previous_opposite_line(line, opposite_history));
 
     match quote_end {
-        Some(index) => lines[index + 1..].join("\n").trim().to_owned(),
-        None => text.trim().to_owned(),
+        Some(index) => (lines[index + 1..].join("\n").trim().to_owned(), true),
+        None => (text.trim().to_owned(), false),
     }
 }
 
@@ -170,7 +192,11 @@ mod tests {
         let previous = vec!["Ну я зараз йду хуткнькко до метро".to_owned()];
 
         assert_eq!(
-            remove_quoted_prefix("Stanislav\nНу я зараз йду хутенько до метро\nок", &previous,),
+            remove_quoted_prefix_with_status(
+                "Stanislav\nНу я зараз йду хутенько до метро\nок",
+                &previous,
+            )
+            .0,
             "ок"
         );
     }
@@ -180,7 +206,7 @@ mod tests {
         let previous = vec!["А що за юзкейс".to_owned()];
 
         assert_eq!(
-            remove_quoted_prefix("І Ти вже юзав, бачу, openCV", &previous),
+            remove_quoted_prefix_with_status("І Ти вже юзав, бачу, openCV", &previous).0,
             "І Ти вже юзав, бачу, openCV"
         );
     }

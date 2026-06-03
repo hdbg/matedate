@@ -6,7 +6,7 @@ use rig::{
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
-use tracing::warn;
+use tracing::{debug, info, warn};
 
 use crate::pipeline::{AnnotatedMessage, MarkedMessage, MoveKind, Side};
 
@@ -26,17 +26,15 @@ pub struct LLMContext {
 impl LLMContext {
     pub fn new(config: &LLMConfig) -> anyhow::Result<Self> {
         let client = openrouter::Client::new(config.token.clone())?;
+        let model_name = config
+            .model
+            .clone()
+            .unwrap_or_else(|| DEFAULT_MODEL.to_owned());
+        info!(model = model_name, "LLM context initialization started");
 
-        let model = client
-            .agent(
-                config
-                    .model
-                    .clone()
-                    .unwrap_or_else(|| DEFAULT_MODEL.to_owned()),
-            )
-            .preamble(PROMPT)
-            .build();
+        let model = client.agent(model_name.clone()).preamble(PROMPT).build();
 
+        info!(model = model_name, "LLM context initialization finished");
         Ok(Self { model })
     }
 }
@@ -62,19 +60,31 @@ pub async fn analyze(
     context: &LLMContext,
     conversation: Vec<AnnotatedMessage>,
 ) -> anyhow::Result<LLMAnalysis> {
+    info!(
+        message_count = conversation.len(),
+        "LLM classification started"
+    );
     let transcript = format_transcript(&conversation);
+    debug!(
+        transcript_chars = transcript.chars().count(),
+        "formatted transcript for LLM classification"
+    );
 
     let analysis = context
         .model
         .prompt_typed::<LLMAnalysisRaw>(completion::Message::user(transcript.clone()))
         .await?;
-
-    println!("{:#?}", analysis);
-    println!("{}", transcript);
+    debug!(
+        title_chars = analysis.title.chars().count(),
+        description_chars = analysis.description.chars().count(),
+        elo = analysis.elo,
+        returned_move_kind_count = analysis.moves_kinds.len(),
+        "received LLM classification response"
+    );
 
     let moves_kinds = normalized_move_kinds(analysis.moves_kinds, conversation.len());
 
-    let moves = conversation
+    let moves: Vec<_> = conversation
         .into_iter()
         .zip(moves_kinds.into_iter())
         .map(|(message, kind)| MarkedMessage {
@@ -82,6 +92,11 @@ pub async fn analyze(
             kind,
         })
         .collect();
+    info!(
+        move_count = moves.len(),
+        elo = analysis.elo,
+        "LLM classification finished"
+    );
 
     Ok(LLMAnalysis {
         title: analysis.title,

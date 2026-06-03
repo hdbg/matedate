@@ -5,6 +5,7 @@ use image::{
     DynamicImage, ImageFormat,
     imageops::{self, FilterType},
 };
+use tracing::{debug, info, warn};
 
 use super::{MOVE_IMAGES, MarkedMessage, MoveKind, Side};
 
@@ -12,14 +13,26 @@ pub fn render_marked_messages(
     image: &DynamicImage,
     marked: &[MarkedMessage],
 ) -> anyhow::Result<Vec<u8>> {
+    info!(
+        marked_message_count = marked.len(),
+        width = image.width(),
+        height = image.height(),
+        "annotation rendering started"
+    );
     let mut canvas = image.to_rgba8();
     let canvas_width = canvas.width() as i64;
     let canvas_height = canvas.height() as i64;
 
-    for marked in marked {
+    for (message_index, marked) in marked.iter().enumerate() {
         let bbox = &marked.annotated.reply.bbox;
         let bbox_height = bbox.top_right.1 - bbox.top_left.1;
         if bbox_height <= 0 {
+            warn!(
+                message_index,
+                bbox_height,
+                ?marked.kind,
+                "skipping annotation for invalid bounding box"
+            );
             continue;
         }
 
@@ -43,6 +56,16 @@ pub fn render_marked_messages(
         };
         let x = raw_x.clamp(0, (canvas_width - target_width as i64).max(0));
         let y = raw_y.clamp(0, (canvas_height - target_height as i64).max(0));
+        debug!(
+            message_index,
+            ?marked.kind,
+            ?marked.annotated.reply.side,
+            target_width,
+            target_height,
+            x,
+            y,
+            "overlaying move annotation"
+        );
 
         imageops::overlay(&mut canvas, &scaled, x, y);
     }
@@ -51,11 +74,13 @@ pub fn render_marked_messages(
     DynamicImage::ImageRgba8(canvas)
         .write_to(&mut Cursor::new(&mut output), ImageFormat::Png)
         .context("failed to encode annotated image")?;
+    info!(output_bytes = output.len(), "annotation rendering finished");
     Ok(output)
 }
 
 fn load_move_image(kind: &MoveKind) -> anyhow::Result<image::RgbaImage> {
     let filename = move_image_filename(kind);
+    debug!(?kind, filename, "loading move annotation image");
     let file = MOVE_IMAGES
         .get_file(filename)
         .with_context(|| format!("move image not found: {filename}"))?;

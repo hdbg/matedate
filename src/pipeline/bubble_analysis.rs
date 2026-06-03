@@ -6,6 +6,7 @@ use opencv::{
     core::{self, Mat, MatTraitConst as _, Point, Rect, Scalar, Size, Vector},
     imgproc,
 };
+use tracing::{debug, info};
 
 const SIDE_SPLIT_DIVISOR: i32 = 2;
 const MASK_ON: u8 = 255;
@@ -95,14 +96,27 @@ const RIGHT_ALIGNMENT_DENOMINATOR: i32 = 4;
 /// from background/color differences, adds edge-based candidates, merges overlapping
 /// boxes, filters unlikely rectangles, then classifies side from horizontal alignment.
 pub fn analyze(images: &Vec<image::DynamicImage>) -> anyhow::Result<Vec<Message>> {
+    info!(image_count = images.len(), "bubble analysis started");
     let mut messages = Vec::new();
 
-    for image in images {
+    for (image_index, image) in images.iter().enumerate() {
         let rgb = image.to_rgb8();
+        debug!(
+            image_index,
+            width = rgb.width(),
+            height = rgb.height(),
+            "preparing image for bubble detection"
+        );
         let bgr = rgb_to_bgr_mat(&rgb)?;
         let image_width = bgr.cols();
+        let rects = detect_bubble_rects(&bgr, &rgb)?;
+        debug!(
+            image_index,
+            rect_count = rects.len(),
+            "detected bubble rectangles for image"
+        );
 
-        for rect in detect_bubble_rects(&bgr, &rgb)? {
+        for rect in rects {
             let side =
                 if rect.x + rect.width / SIDE_SPLIT_DIVISOR < image_width / SIDE_SPLIT_DIVISOR {
                     Side::They
@@ -110,6 +124,15 @@ pub fn analyze(images: &Vec<image::DynamicImage>) -> anyhow::Result<Vec<Message>
                     Side::Us
                 };
 
+            debug!(
+                image_index,
+                x = rect.x,
+                y = rect.y,
+                width = rect.width,
+                height = rect.height,
+                ?side,
+                "accepted message bubble"
+            );
             messages.push(Message {
                 side,
                 bbox: BoundingBox {
@@ -121,6 +144,7 @@ pub fn analyze(images: &Vec<image::DynamicImage>) -> anyhow::Result<Vec<Message>
         }
     }
 
+    info!(message_count = messages.len(), "bubble analysis finished");
     Ok(messages)
 }
 
@@ -136,8 +160,10 @@ fn crop_bubble(image: &image::DynamicImage, rect: Rect) -> anyhow::Result<image:
 fn detect_bubble_rects(bgr: &Mat, rgb: &image::RgbImage) -> anyhow::Result<Vec<Rect>> {
     let width = bgr.cols();
     let height = bgr.rows();
+    debug!(width, height, "detecting bubble rectangles");
 
     if width <= 0 || height <= 0 {
+        debug!(width, height, "skipping empty image");
         return Ok(Vec::new());
     }
 
@@ -148,9 +174,12 @@ fn detect_bubble_rects(bgr: &Mat, rgb: &image::RgbImage) -> anyhow::Result<Vec<R
 
     let bubble_mask = prepare_bubble_mask(&bubble_mask, width, height)?;
     let mut rects = rects_from_mask(&bubble_mask)?;
+    let mask_rect_count = rects.len();
 
     let edge_mask = edge_mask(bgr, width, height)?;
-    rects.extend(rects_from_mask(&edge_mask)?.into_iter().map(|rect| {
+    let edge_rects = rects_from_mask(&edge_mask)?;
+    let edge_rect_count = edge_rects.len();
+    rects.extend(edge_rects.into_iter().map(|rect| {
         expand_rect(
             rect,
             width,
@@ -167,16 +196,30 @@ fn detect_bubble_rects(bgr: &Mat, rgb: &image::RgbImage) -> anyhow::Result<Vec<R
             ),
         )
     }));
+    debug!(
+        mask_rect_count,
+        edge_rect_count,
+        total_candidate_count = rects.len(),
+        "collected raw bubble candidates"
+    );
 
     let mut rects: Vec<_> = rects
         .into_iter()
         .map(|rect| expand_rect(rect, width, height, RECT_PAD_X, RECT_PAD_Y))
         .filter(|rect| plausible_bubble_rect(*rect, width, height))
         .collect();
+    debug!(
+        plausible_candidate_count = rects.len(),
+        "filtered plausible bubble candidates"
+    );
 
     merge_overlapping_rects(&mut rects, width, height);
     rects.retain(|rect| plausible_bubble_rect(*rect, width, height));
     rects.sort_by_key(|rect| (rect.y, rect.x));
+    debug!(
+        final_rect_count = rects.len(),
+        "finished bubble rectangle detection"
+    );
 
     Ok(rects)
 }
@@ -201,6 +244,10 @@ fn background_difference_mask(image: &image::RgbImage) -> opencv::Result<Mat> {
     } else {
         DEFAULT_BACKGROUND_DIFF_THRESHOLD
     };
+    debug!(
+        ?background,
+        threshold, "building background difference mask"
+    );
     let mut mask = Vec::with_capacity((image.width() * image.height()) as usize);
 
     for pixel in image.pixels() {

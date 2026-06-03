@@ -97,14 +97,24 @@ async fn handle_transcript_photo(
     message: Message,
     media: MediaPhoto,
 ) -> anyhow::Result<()> {
-    info!("Received photo!");
+    info!(chat_id = %message.chat.id, "photo processing started");
 
     let photo = media
         .photo
         .into_iter()
         .max_by_key(|photo| u64::from(photo.width) * u64::from(photo.height))
         .context("received photo message without photo sizes")?;
+    info!(
+        photo_width = photo.width,
+        photo_height = photo.height,
+        "photo download started"
+    );
     let image = download_photo(&bot, photo).await?;
+    info!(
+        image_width = image.width(),
+        image_height = image.height(),
+        "photo download finished"
+    );
     let images = vec![image];
 
     let messages = pipeline::bubble_analysis::analyze(&images)?;
@@ -148,6 +158,11 @@ async fn handle_transcript_photo(
         elo = analysis.elo,
         "processed all images"
     );
+    info!(
+        chat_id = %message.chat.id,
+        image_bytes = annotated_image.len(),
+        "sending analysis response"
+    );
     bot.send_photo(
         message.chat.id,
         InputFile::memory(annotated_image).file_name(ANNOTATED_IMAGE_NAME),
@@ -155,6 +170,7 @@ async fn handle_transcript_photo(
     .caption(format_analysis(&analysis))
     .parse_mode(ParseMode::Html)
     .await?;
+    info!(chat_id = %message.chat.id, "photo processing finished");
 
     Ok(())
 }

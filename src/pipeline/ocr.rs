@@ -4,6 +4,7 @@ use anyhow::Context as _;
 use image::Pixel as _;
 use ocr_rs::{OcrEngine, OcrEngineConfig};
 use tokio::{fs, io::AsyncWriteExt as _};
+use tracing::{debug, info};
 
 use super::{AnnotatedMessage, Message};
 
@@ -56,6 +57,7 @@ const MODEL_FILES: &[ModelFile] = &[
 /// Files are stored under the hardcoded `models/ocr` directory. Existing non-empty
 /// files are kept so startup does not re-download the models every time.
 pub async fn init() -> anyhow::Result<()> {
+    info!(model_dir = MODEL_DIR, "OCR initialization started");
     fs::create_dir_all(MODEL_DIR)
         .await
         .with_context(|| format!("failed to create OCR model directory {MODEL_DIR}"))?;
@@ -63,14 +65,18 @@ pub async fn init() -> anyhow::Result<()> {
     for file in MODEL_FILES {
         let path = model_path(file.filename);
         if has_non_empty_file(&path).await? {
+            debug!(filename = file.filename, "OCR model file already exists");
             continue;
         }
 
+        info!(filename = file.filename, "downloading OCR model file");
         download_file(file.url, &path)
             .await
             .with_context(|| format!("failed to download OCR model file {}", file.filename))?;
+        debug!(filename = file.filename, "downloaded OCR model file");
     }
 
+    info!("OCR initialization finished");
     Ok(())
 }
 
@@ -82,13 +88,28 @@ pub async fn init() -> anyhow::Result<()> {
 /// Cyrillic PP-OCRv5 models, then returns the original reply annotated with the more
 /// plausible transcript based on script-specific character counts.
 pub fn analyze(reply: Message) -> anyhow::Result<AnnotatedMessage> {
+    info!(
+        width = reply.crop.width(),
+        height = reply.crop.height(),
+        ?reply.side,
+        "OCR analysis started"
+    );
     let english = recognize_with(&reply.crop, EN_REC_MODEL, EN_CHARSET)?;
     let cyrillic = recognize_with(&reply.crop, CYRILLIC_REC_MODEL, CYRILLIC_CHARSET)?;
-    let transcript = if cyrillic_score(&cyrillic) > english_score(&english) {
-        cyrillic
+    let english_score = english_score(&english);
+    let cyrillic_score = cyrillic_score(&cyrillic);
+    let (selected_script, transcript) = if cyrillic_score > english_score {
+        ("cyrillic", cyrillic)
     } else {
-        english
+        ("english", english)
     };
+    info!(
+        selected_script,
+        english_score,
+        cyrillic_score,
+        transcript_chars = transcript.chars().count(),
+        "OCR analysis finished"
+    );
 
     Ok(AnnotatedMessage { reply, transcript })
 }
@@ -101,6 +122,7 @@ fn recognize_with(
     let detection_model_path = model_path(DET_MODEL);
     let recognition_model_path = model_path(model_filename);
     let charset_path = model_path(charset_filename);
+    debug!(model_filename, charset_filename, "recognition pass started");
 
     ensure_model_file(&detection_model_path)?;
     ensure_model_file(&recognition_model_path)?;
@@ -117,45 +139,66 @@ fn recognize_with(
     let preprocessed = preprocess_for_chat_ocr(image);
     let text = recognize_cleaned(&engine, &preprocessed)?;
     if text.is_empty() {
+        debug!(
+            model_filename,
+            "preprocessed OCR result was empty; retrying original image"
+        );
         recognize_cleaned(&engine, image)
     } else {
+        debug!(
+            model_filename,
+            transcript_chars = text.chars().count(),
+            "recognition pass finished"
+        );
         Ok(text)
     }
 }
 
 fn recognize_cleaned(engine: &OcrEngine, image: &image::DynamicImage) -> anyhow::Result<String> {
     let mut results = engine.recognize(image)?;
+    let raw_result_count = results.len();
     results.sort_by_key(|result| (result.bbox.rect.top(), result.bbox.rect.left()));
 
-    Ok(results
+    let lines: Vec<_> = results
         .into_iter()
         .map(|result| clean_ocr_line(&result.text))
         .filter(|text| !text.is_empty())
-        .collect::<Vec<_>>()
-        .join("\n"))
+        .collect();
+    debug!(
+        raw_result_count,
+        cleaned_line_count = lines.len(),
+        "cleaned OCR detection results"
+    );
+
+    Ok(lines.join("\n"))
 }
 
 fn preprocess_for_chat_ocr(image: &image::DynamicImage) -> image::DynamicImage {
     let mut rgba = image.to_rgba8();
     let fill_color = image::Rgba([255, 255, 255, 255]);
 
-    mask_timestamp_pixels(&mut rgba, fill_color);
+    let masked_pixel_count = mask_timestamp_pixels(&mut rgba, fill_color);
+    debug!(masked_pixel_count, "preprocessed chat crop for OCR");
 
     image::DynamicImage::ImageRgba8(rgba)
 }
 
-fn mask_timestamp_pixels(image: &mut image::RgbaImage, fill_color: image::Rgba<u8>) {
+fn mask_timestamp_pixels(image: &mut image::RgbaImage, fill_color: image::Rgba<u8>) -> u64 {
     let width = image.width();
     let height = image.height();
     let left = width * TIMESTAMP_MASK_LEFT_NUMERATOR / TIMESTAMP_MASK_LEFT_DENOMINATOR;
+    let mut masked_pixel_count = 0;
 
     for y in 0..height {
         for x in left..width {
             if is_gray_timestamp_pixel(image.get_pixel(x, y).to_rgb().0) {
                 image.put_pixel(x, y, fill_color);
+                masked_pixel_count += 1;
             }
         }
     }
+
+    masked_pixel_count
 }
 
 fn is_gray_timestamp_pixel([r, g, b]: [u8; 3]) -> bool {
