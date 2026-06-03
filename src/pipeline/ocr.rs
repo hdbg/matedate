@@ -1,8 +1,11 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
+use image::Pixel as _;
 use ocr_rs::{OcrEngine, OcrEngineConfig};
 use tokio::{fs, io::AsyncWriteExt as _};
+
+use super::{AnnotatedReply, Reply};
 
 const MODEL_DIR: &str = "models/ocr";
 const DET_MODEL: &str = "PP-OCRv5_mobile_det.mnn";
@@ -13,6 +16,12 @@ const CYRILLIC_CHARSET: &str = "ppocr_keys_cyrillic.txt";
 const MIN_RESULT_CONFIDENCE: f32 = 0.3;
 const SCRIPT_MATCH_WEIGHT: usize = 2;
 const SCRIPT_MISMATCH_WEIGHT: usize = 1;
+
+const TIMESTAMP_MASK_LEFT_NUMERATOR: u32 = 11;
+const TIMESTAMP_MASK_LEFT_DENOMINATOR: u32 = 20;
+const TIMESTAMP_GRAY_DIFF_MAX: u8 = 22;
+const TIMESTAMP_GRAY_MIN_CHANNEL: u8 = 90;
+const TIMESTAMP_GRAY_MAX_CHANNEL: u8 = 215;
 
 struct ModelFile {
     filename: &'static str,
@@ -65,22 +74,23 @@ pub async fn init() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Recognizes text from one image using full OCR detection and recognition.
+/// Recognizes text from one detected reply using full OCR detection and recognition.
 ///
-/// The bubble analysis step finds message regions, but those crops can still contain
-/// multiple text lines, quote previews, timestamps, and icons. This function runs
-/// PaddleOCR text detection inside the crop first, recognizes detected text regions
-/// with English and Cyrillic PP-OCRv5 models, then returns the more plausible result
-/// based on script-specific character counts.
-pub fn analyze(image: &image::DynamicImage) -> anyhow::Result<String> {
-    let english = recognize_with(image, EN_REC_MODEL, EN_CHARSET)?;
-    let cyrillic = recognize_with(image, CYRILLIC_REC_MODEL, CYRILLIC_CHARSET)?;
-
-    if cyrillic_score(&cyrillic) > english_score(&english) {
-        Ok(cyrillic)
+/// The bubble analysis step finds message regions, but reply crops can still contain
+/// multiple text lines, timestamps, and icons. This function runs PaddleOCR text
+/// detection inside the crop first, recognizes detected text regions with English and
+/// Cyrillic PP-OCRv5 models, then returns the original reply annotated with the more
+/// plausible transcript based on script-specific character counts.
+pub fn analyze(reply: Reply) -> anyhow::Result<AnnotatedReply> {
+    let english = recognize_with(&reply.crop, EN_REC_MODEL, EN_CHARSET)?;
+    let cyrillic = recognize_with(&reply.crop, CYRILLIC_REC_MODEL, CYRILLIC_CHARSET)?;
+    let transcript = if cyrillic_score(&cyrillic) > english_score(&english) {
+        cyrillic
     } else {
-        Ok(english)
-    }
+        english
+    };
+
+    Ok(AnnotatedReply { reply, transcript })
 }
 
 fn recognize_with(
@@ -104,15 +114,169 @@ fn recognize_with(
         Some(config),
     )?;
 
+    let preprocessed = preprocess_for_chat_ocr(image);
+    let text = recognize_cleaned(&engine, &preprocessed)?;
+    if text.is_empty() {
+        recognize_cleaned(&engine, image)
+    } else {
+        Ok(text)
+    }
+}
+
+fn recognize_cleaned(engine: &OcrEngine, image: &image::DynamicImage) -> anyhow::Result<String> {
     let mut results = engine.recognize(image)?;
     results.sort_by_key(|result| (result.bbox.rect.top(), result.bbox.rect.left()));
 
     Ok(results
         .into_iter()
-        .map(|result| result.text.trim().to_owned())
+        .map(|result| clean_ocr_line(&result.text))
         .filter(|text| !text.is_empty())
         .collect::<Vec<_>>()
         .join("\n"))
+}
+
+fn preprocess_for_chat_ocr(image: &image::DynamicImage) -> image::DynamicImage {
+    let mut rgba = image.to_rgba8();
+    let fill_color = image::Rgba([255, 255, 255, 255]);
+
+    mask_timestamp_pixels(&mut rgba, fill_color);
+
+    image::DynamicImage::ImageRgba8(rgba)
+}
+
+fn mask_timestamp_pixels(image: &mut image::RgbaImage, fill_color: image::Rgba<u8>) {
+    let width = image.width();
+    let height = image.height();
+    let left = width * TIMESTAMP_MASK_LEFT_NUMERATOR / TIMESTAMP_MASK_LEFT_DENOMINATOR;
+
+    for y in 0..height {
+        for x in left..width {
+            if is_gray_timestamp_pixel(image.get_pixel(x, y).to_rgb().0) {
+                image.put_pixel(x, y, fill_color);
+            }
+        }
+    }
+}
+
+fn is_gray_timestamp_pixel([r, g, b]: [u8; 3]) -> bool {
+    let min = r.min(g).min(b);
+    let max = r.max(g).max(b);
+
+    max.saturating_sub(min) <= TIMESTAMP_GRAY_DIFF_MAX
+        && min >= TIMESTAMP_GRAY_MIN_CHANNEL
+        && max <= TIMESTAMP_GRAY_MAX_CHANNEL
+}
+
+fn clean_ocr_line(text: &str) -> String {
+    let without_time = remove_time_sequences(text);
+    let mut cleaned = String::new();
+
+    for character in without_time.chars() {
+        if is_allowed_text_character(character) {
+            cleaned.push(character);
+        } else {
+            cleaned.push(' ');
+        }
+    }
+
+    let cleaned = collapse_spaces(&cleaned);
+    if is_noise_line(&cleaned) {
+        String::new()
+    } else {
+        cleaned
+    }
+}
+
+fn remove_time_sequences(text: &str) -> String {
+    let chars: Vec<_> = text.chars().collect();
+    let mut cleaned = String::new();
+    let mut index = 0;
+
+    while index < chars.len() {
+        if let Some(end) = time_sequence_end(&chars, index) {
+            index = end;
+            while chars
+                .get(index)
+                .is_some_and(|character| is_status_character(*character))
+            {
+                index += 1;
+            }
+            cleaned.push(' ');
+        } else {
+            cleaned.push(chars[index]);
+            index += 1;
+        }
+    }
+
+    cleaned
+}
+
+fn time_sequence_end(chars: &[char], start: usize) -> Option<usize> {
+    let mut index = start;
+    let mut hour_digits = 0;
+
+    while chars
+        .get(index)
+        .is_some_and(|character| character.is_ascii_digit())
+        && hour_digits < 2
+    {
+        index += 1;
+        hour_digits += 1;
+    }
+
+    if hour_digits == 0 || chars.get(index) != Some(&':') {
+        return None;
+    }
+
+    index += 1;
+    if chars
+        .get(index..index + 2)
+        .is_some_and(|tail| tail.iter().all(|character| character.is_ascii_digit()))
+    {
+        Some(index + 2)
+    } else {
+        None
+    }
+}
+
+fn is_status_character(character: char) -> bool {
+    matches!(
+        character,
+        ' ' | '\t' | '√' | '✓' | '✔' | '∨' | 'v' | 'V' | '/'
+    )
+}
+
+fn is_allowed_text_character(character: char) -> bool {
+    character.is_alphanumeric()
+        || character.is_whitespace()
+        || matches!(
+            character,
+            '.' | ','
+                | '!'
+                | '?'
+                | ':'
+                | ';'
+                | '-'
+                | '\''
+                | '’'
+                | '"'
+                | '('
+                | ')'
+                | '/'
+                | '+'
+                | '#'
+                | '@'
+                | '&'
+                | '%'
+        )
+}
+
+fn collapse_spaces(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn is_noise_line(text: &str) -> bool {
+    text.is_empty() || !text.chars().any(char::is_alphanumeric)
 }
 
 fn ensure_model_file(path: &Path) -> anyhow::Result<()> {
@@ -196,4 +360,20 @@ fn cyrillic_score(text: &str) -> usize {
 
 fn is_cyrillic(character: char) -> bool {
     matches!(character, '\u{0400}'..='\u{04ff}' | '\u{0500}'..='\u{052f}')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cleans_timestamps_status_marks_and_symbol_noise() {
+        assert_eq!(clean_ocr_line("Axax 20:50 √"), "Axax");
+        assert_eq!(
+            clean_ocr_line("Я себе стримую від поганих жартів 20:50"),
+            "Я себе стримую від поганих жартів"
+        );
+        assert_eq!(clean_ocr_line(")20:50"), "");
+        assert_eq!(clean_ocr_line("____________________"), "");
+    }
 }

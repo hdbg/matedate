@@ -25,13 +25,12 @@ const DETECTED_BUBBLES_IMAGE_NAME: &str = "detected_bubbles.png";
 const RECTANGLE_STROKE_WIDTH: i32 = 3;
 const RECTANGLE_COLOR: Rgba<u8> = Rgba([255, 0, 0, 255]);
 
-mod bubble_analysis;
-mod ocr;
+mod pipeline;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
-    ocr::init().await?;
+    pipeline::ocr::init().await?;
 
     let settings = config::Config::builder()
         .add_source(config::File::with_name(CONFIG_FILE))
@@ -39,8 +38,9 @@ async fn main() -> anyhow::Result<()> {
         .build()?;
 
     let settings: Config = settings.try_deserialize()?;
-
     let bot = Bot::new(settings.token);
+
+    info!("boot");
 
     let schema = Update::filter_message()
         .branch(
@@ -97,10 +97,10 @@ async fn handle_transcript_photo(
     let image = download_photo(&bot, photo).await?;
     let images = vec![image];
 
-    let replies = bubble_analysis::analyze(&images)?;
+    let replies = pipeline::bubble_analysis::analyze(&images)?;
     let sent_count = replies
         .iter()
-        .filter(|reply| matches!(reply.side, bubble_analysis::Side::Us))
+        .filter(|reply| matches!(reply.side, pipeline::Side::Us))
         .count();
     let received_count = replies.len() - sent_count;
     let total_bbox_area: i64 = replies
@@ -115,22 +115,24 @@ async fn handle_transcript_photo(
         .map(|reply| u64::from(reply.crop.width()) * u64::from(reply.crop.height()))
         .sum();
     let annotated_image = render_detected_bubbles(&images[0], &replies)?;
-    let recognized_texts = replies
+    let annotated_replies = replies
         .iter()
-        .map(|reply| ocr::analyze(&reply.crop))
+        .cloned()
+        .map(pipeline::ocr::analyze)
         .collect::<anyhow::Result<Vec<_>>>()?;
-    let recognized_char_count: usize = recognized_texts
+    let annotated_replies = pipeline::transcript_processing::analyze(annotated_replies)?;
+    let recognized_char_count: usize = annotated_replies
         .iter()
-        .map(|text| text.chars().count())
+        .map(|reply| reply.transcript.chars().count())
         .sum();
-    let transcript = format_transcript(&replies, &recognized_texts);
+    let transcript = format_transcript(&annotated_replies);
     info!(
         message_count = replies.len(),
         sent_count,
         received_count,
         total_bbox_area,
         total_crop_pixels,
-        recognized_message_count = recognized_texts.len(),
+        recognized_message_count = annotated_replies.len(),
         recognized_char_count,
         "processed all images"
     );
@@ -154,7 +156,7 @@ async fn download_photo(bot: &Bot, photo: PhotoSize) -> anyhow::Result<DynamicIm
 
 fn render_detected_bubbles(
     image: &DynamicImage,
-    replies: &[bubble_analysis::Reply],
+    replies: &[pipeline::Reply],
 ) -> anyhow::Result<Vec<u8>> {
     let mut annotated = image.to_rgba8();
 
@@ -184,18 +186,18 @@ fn render_detected_bubbles(
     Ok(output)
 }
 
-fn format_transcript(replies: &[bubble_analysis::Reply], recognized_texts: &[String]) -> String {
+fn format_transcript(replies: &[pipeline::AnnotatedReply]) -> String {
     if replies.is_empty() {
         return EMPTY_TRANSCRIPT_MESSAGE.to_owned();
     }
 
     let mut transcript = String::from("Transcript:\n");
-    for (reply, text) in replies.iter().zip(recognized_texts) {
-        let side = match reply.side {
-            bubble_analysis::Side::They => "They",
-            bubble_analysis::Side::Us => "Us",
+    for annotated in replies {
+        let side = match annotated.reply.side {
+            pipeline::Side::They => "They",
+            pipeline::Side::Us => "Us",
         };
-        let text = text.trim();
+        let text = annotated.transcript.trim();
         let text = if text.is_empty() {
             "[unrecognized]"
         } else {

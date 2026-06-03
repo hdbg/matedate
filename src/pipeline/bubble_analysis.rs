@@ -1,5 +1,7 @@
-use std::collections::HashMap;
-
+use super::{
+    BoundingBox, Reply, Side,
+    image_utils::{self, clamp_i32},
+};
 use opencv::{
     core::{self, Mat, MatTraitConst as _, Point, Rect, Scalar, Size, Vector},
     imgproc,
@@ -9,13 +11,10 @@ const SIDE_SPLIT_DIVISOR: i32 = 2;
 const MASK_ON: u8 = 255;
 const SINGLE_CHANNEL_COUNT: i32 = 1;
 const RGB_CHANNEL_COUNT: i32 = 3;
-const WHITE_RGB: [u8; 3] = [255, 255, 255];
 
 const LIGHT_BACKGROUND_MIN_CHANNEL: u8 = 220;
 const LIGHT_BACKGROUND_DIFF_THRESHOLD: u8 = 10;
 const DEFAULT_BACKGROUND_DIFF_THRESHOLD: u8 = 18;
-const DOMINANT_COLOR_SAMPLE_DIVISOR: u32 = 600;
-const RGB_BUCKET_SHIFT: u16 = 4;
 
 const HSV_MIN_HUE: f64 = 0.0;
 const HSV_MAX_HUE: f64 = 179.0;
@@ -83,25 +82,6 @@ const MAX_BUBBLE_ASPECT_RATIO_X100: i32 = 2600;
 const LEFT_ALIGNMENT_DIVISOR: i32 = 4;
 const RIGHT_ALIGNMENT_NUMERATOR: i32 = 3;
 const RIGHT_ALIGNMENT_DENOMINATOR: i32 = 4;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Side {
-    They,
-    Us,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct BoundingBox {
-    pub top_left: (i32, i32),
-    pub top_right: (i32, i32),
-}
-
-#[derive(Clone, Debug)]
-pub struct Reply {
-    pub side: Side,
-    pub bbox: BoundingBox,
-    pub crop: image::DynamicImage,
-}
 
 /// Detects chat message bubbles in screenshots.
 ///
@@ -212,7 +192,7 @@ fn rgb_to_bgr_mat(image: &image::RgbImage) -> opencv::Result<Mat> {
 }
 
 fn background_difference_mask(image: &image::RgbImage) -> opencv::Result<Mat> {
-    let background = dominant_color(image);
+    let background = image_utils::dominant_rgb_color(image);
     let threshold = if background
         .iter()
         .all(|channel| *channel >= LIGHT_BACKGROUND_MIN_CHANNEL)
@@ -383,39 +363,6 @@ fn rects_from_mask(mask: &Mat) -> opencv::Result<Vec<Rect>> {
     Ok(rects)
 }
 
-fn dominant_color(image: &image::RgbImage) -> [u8; 3] {
-    let step = ((image.width().max(image.height()) / DOMINANT_COLOR_SAMPLE_DIVISOR) + 1) as usize;
-    let mut buckets: HashMap<u16, (usize, u32, u32, u32)> = HashMap::new();
-
-    for (index, pixel) in image.pixels().enumerate() {
-        if index % step != 0 {
-            continue;
-        }
-
-        let [r, g, b] = pixel.0;
-        let key = ((u16::from(r) >> RGB_BUCKET_SHIFT) << (RGB_BUCKET_SHIFT * 2))
-            | ((u16::from(g) >> RGB_BUCKET_SHIFT) << RGB_BUCKET_SHIFT)
-            | (u16::from(b) >> RGB_BUCKET_SHIFT);
-        let entry = buckets.entry(key).or_insert((0, 0, 0, 0));
-        entry.0 += 1;
-        entry.1 += u32::from(r);
-        entry.2 += u32::from(g);
-        entry.3 += u32::from(b);
-    }
-
-    buckets
-        .into_values()
-        .max_by_key(|(count, _, _, _)| *count)
-        .map(|(count, r, g, b)| {
-            [
-                (r / count as u32) as u8,
-                (g / count as u32) as u8,
-                (b / count as u32) as u8,
-            ]
-        })
-        .unwrap_or(WHITE_RGB)
-}
-
 fn mask_mat(mask: &[u8], height: u32) -> opencv::Result<Mat> {
     let height = i32::try_from(height)
         .map_err(|_| opencv::Error::new(core::StsOutOfRange, "image height is too large"))?;
@@ -529,10 +476,6 @@ fn contains(outer: Rect, inner: Rect) -> bool {
         && outer.y <= inner.y
         && outer.x + outer.width >= inner.x + inner.width
         && outer.y + outer.height >= inner.y + inner.height
-}
-
-fn clamp_i32(value: i32, min: i32, max: i32) -> i32 {
-    value.max(min).min(max)
 }
 
 #[cfg(test)]
