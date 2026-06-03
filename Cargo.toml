@@ -1,11 +1,14 @@
 [package]
-name = "checkdate"
+name = "matedate"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 anyhow = { version = "1.0.102", features = ["backtrace"] }
 config = "0.15.23"
+image = "0.25.10"
+imageproc = "0.26.2"
+opencv = "0.98.2"
 serde = { version = "1.0.228", features = ["derive"] }
 teloxide = { version = "0.17.0", features = ["rustls", "sqlite-storage-rustls"] }
 tokio = { version = "1.52.3", features = ["full"] }

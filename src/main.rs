@@ -2,8 +2,9 @@ use teloxide::{
     Bot,
     dispatching::{MessageFilterExt as _, UpdateFilterExt as _},
     dptree,
+    net::Download,
     prelude::{Dispatcher, Requester},
-    types::{MediaKind, MediaPhoto, Message, MessageKind, Update, User},
+    types::{MediaKind, MediaPhoto, Message, MessageKind, Update},
 };
 use tracing::info;
 
@@ -15,7 +16,7 @@ pub struct Config {
 const CONFIG_FILE: &str = "config.toml";
 const CONFIG_ENV_PREIFX: &str = "BOT";
 
-mod image_processing;
+mod bubble_analysis;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -40,10 +41,44 @@ async fn main() -> anyhow::Result<()> {
 
                 _ => None,
             })
-            .endpoint(async |bot: Bot, photo: MediaPhoto| -> anyhow::Result<()> {
+            .endpoint(async |bot: Bot, media: MediaPhoto| -> anyhow::Result<()> {
                 info!("Received photo!");
 
-                // process `photo` here
+                let mut images = Vec::new();
+                for photo_id in media.photo.into_iter().map(|p| p.file.id) {
+                    let mut buf = Vec::new();
+                    let file = bot.get_file(photo_id).await?;
+                    bot.download_file(&file.path, &mut buf).await?;
+
+                    let image = image::load_from_memory(&buf)?;
+                    images.push(image);
+                }
+
+                let replies = bubble_analysis::analyze(&images)?;
+                let sent_count = replies
+                    .iter()
+                    .filter(|reply| matches!(reply.side, bubble_analysis::Side::Us))
+                    .count();
+                let received_count = replies.len() - sent_count;
+                let total_bbox_area: i64 = replies
+                    .iter()
+                    .map(|reply| {
+                        i64::from(reply.bbox.top_right.0 - reply.bbox.top_left.0)
+                            * i64::from(reply.bbox.top_right.1 - reply.bbox.top_left.1)
+                    })
+                    .sum();
+                let total_crop_pixels: u64 = replies
+                    .iter()
+                    .map(|reply| u64::from(reply.crop.width()) * u64::from(reply.crop.height()))
+                    .sum();
+                info!(
+                    message_count = replies.len(),
+                    sent_count,
+                    received_count,
+                    total_bbox_area,
+                    total_crop_pixels,
+                    "processed all images"
+                );
 
                 Ok(())
             }),
