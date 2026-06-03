@@ -1,4 +1,4 @@
-use super::{AnnotatedReply, Side};
+use super::{AnnotatedMessage, Side};
 
 const MIN_QUOTED_LINE_CHARS: usize = 4;
 const SHORT_QUOTED_LINE_MAX_CHARS: usize = 8;
@@ -12,7 +12,8 @@ const QUOTED_LINE_MATCH_THRESHOLD: f32 = 0.72;
 /// normalized line history separately for each side, and if a message contains a line
 /// that closely matches a previous line from the opposite side, drops all lines before
 /// and including that matched quote line.
-pub fn analyze(replies: Vec<AnnotatedReply>) -> anyhow::Result<Vec<AnnotatedReply>> {
+#[tracing::instrument(skip_all)]
+pub fn analyze(replies: Vec<AnnotatedMessage>) -> anyhow::Result<Vec<AnnotatedMessage>> {
     let mut us_history = Vec::new();
     let mut they_history = Vec::new();
     let mut processed = Vec::with_capacity(replies.len());
@@ -130,11 +131,11 @@ mod tests {
     use image::DynamicImage;
 
     use super::*;
-    use crate::pipeline::{BoundingBox, Reply};
+    use crate::pipeline::{BoundingBox, Message};
 
-    fn annotated_reply(side: Side, transcript: &str) -> AnnotatedReply {
-        AnnotatedReply {
-            reply: Reply {
+    fn annotated_reply(side: Side, transcript: &str) -> AnnotatedMessage {
+        AnnotatedMessage {
+            reply: Message {
                 side,
                 bbox: BoundingBox {
                     top_left: (0, 0),

@@ -13,11 +13,6 @@ use teloxide::{
 };
 use tracing::info;
 
-#[derive(serde::Deserialize)]
-pub struct Config {
-    pub token: String,
-}
-
 const CONFIG_FILE: &str = "config.toml";
 const CONFIG_ENV_PREIFX: &str = "BOT";
 const EMPTY_TRANSCRIPT_MESSAGE: &str = "No message bubbles recognized.";
@@ -26,6 +21,12 @@ const RECTANGLE_STROKE_WIDTH: i32 = 3;
 const RECTANGLE_COLOR: Rgba<u8> = Rgba([255, 0, 0, 255]);
 
 mod pipeline;
+
+#[derive(serde::Deserialize)]
+pub struct Config {
+    pub token: String,
+    pub llm: pipeline::llm_classification::LLMConfig,
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -156,7 +157,7 @@ async fn download_photo(bot: &Bot, photo: PhotoSize) -> anyhow::Result<DynamicIm
 
 fn render_detected_bubbles(
     image: &DynamicImage,
-    replies: &[pipeline::Reply],
+    replies: &[pipeline::Message],
 ) -> anyhow::Result<Vec<u8>> {
     let mut annotated = image.to_rgba8();
 
@@ -186,7 +187,7 @@ fn render_detected_bubbles(
     Ok(output)
 }
 
-fn format_transcript(replies: &[pipeline::AnnotatedReply]) -> String {
+fn format_transcript(replies: &[pipeline::AnnotatedMessage]) -> String {
     if replies.is_empty() {
         return EMPTY_TRANSCRIPT_MESSAGE.to_owned();
     }

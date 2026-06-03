@@ -5,7 +5,7 @@ use image::Pixel as _;
 use ocr_rs::{OcrEngine, OcrEngineConfig};
 use tokio::{fs, io::AsyncWriteExt as _};
 
-use super::{AnnotatedReply, Reply};
+use super::{AnnotatedMessage, Message};
 
 const MODEL_DIR: &str = "models/ocr";
 const DET_MODEL: &str = "PP-OCRv5_mobile_det.mnn";
@@ -81,7 +81,7 @@ pub async fn init() -> anyhow::Result<()> {
 /// detection inside the crop first, recognizes detected text regions with English and
 /// Cyrillic PP-OCRv5 models, then returns the original reply annotated with the more
 /// plausible transcript based on script-specific character counts.
-pub fn analyze(reply: Reply) -> anyhow::Result<AnnotatedReply> {
+pub fn analyze(reply: Message) -> anyhow::Result<AnnotatedMessage> {
     let english = recognize_with(&reply.crop, EN_REC_MODEL, EN_CHARSET)?;
     let cyrillic = recognize_with(&reply.crop, CYRILLIC_REC_MODEL, CYRILLIC_CHARSET)?;
     let transcript = if cyrillic_score(&cyrillic) > english_score(&english) {
@@ -90,7 +90,7 @@ pub fn analyze(reply: Reply) -> anyhow::Result<AnnotatedReply> {
         english
     };
 
-    Ok(AnnotatedReply { reply, transcript })
+    Ok(AnnotatedMessage { reply, transcript })
 }
 
 fn recognize_with(
