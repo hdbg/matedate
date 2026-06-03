@@ -7,8 +7,9 @@ use teloxide::{
     dispatching::{MessageFilterExt as _, UpdateFilterExt as _},
     dptree,
     net::Download,
+    payloads::SendPhotoSetters as _,
     prelude::{Dispatcher, Requester},
-    types::{InputFile, MediaKind, MediaPhoto, Message, MessageKind, PhotoSize, Update},
+    types::{InputFile, MediaKind, MediaPhoto, Message, MessageKind, ParseMode, PhotoSize, Update},
 };
 use tracing::info;
 
@@ -133,9 +134,9 @@ async fn handle_transcript_photo(
         .iter()
         .map(|m| m.transcript.chars().count())
         .sum();
-    let analysis =
-        pipeline::llm_classification::analyze(&llm_context, annotated_messages).await?;
-    let annotated_image = pipeline::annotation::render_marked_messages(&images[0], &analysis.moves)?;
+    let analysis = pipeline::llm_classification::analyze(&llm_context, annotated_messages).await?;
+    let annotated_image =
+        pipeline::annotation::render_marked_messages(&images[0], &analysis.moves)?;
     info!(
         message_count = messages.len(),
         sent_count,
@@ -147,12 +148,12 @@ async fn handle_transcript_photo(
         elo = analysis.elo,
         "processed all images"
     );
-    bot.send_message(message.chat.id, format_analysis(&analysis))
-        .await?;
     bot.send_photo(
         message.chat.id,
         InputFile::memory(annotated_image).file_name(ANNOTATED_IMAGE_NAME),
     )
+    .caption(format_analysis(&analysis))
+    .parse_mode(ParseMode::Html)
     .await?;
 
     Ok(())
@@ -171,34 +172,34 @@ fn format_analysis(analysis: &LLMAnalysis) -> String {
         return EMPTY_TRANSCRIPT_MESSAGE.to_owned();
     }
 
-    let mut out = String::new();
-    out.push_str("Title: ");
-    out.push_str(&analysis.title);
-    out.push_str("\n\n");
-    out.push_str(&analysis.description);
-    out.push_str("\n\n");
-    out.push_str(&format!("Elo affected: {:+}\n\n", analysis.elo));
-    out.push_str("Transcript:\n");
+    format!(
+        r#"
+<b>{}</b>
 
-    for marked in &analysis.moves {
-        let side = match marked.annotated.reply.side {
-            pipeline::Side::They => "They",
-            pipeline::Side::Us => "Us",
-        };
-        let text = marked.annotated.transcript.trim();
-        let text = if text.is_empty() {
-            "[unrecognized]"
-        } else {
-            text
-        };
+<i>{}</i>
 
-        out.push_str(side);
-        out.push_str(": ");
-        out.push_str(text);
-        out.push_str(" [");
-        out.push_str(&format!("{:?}", marked.kind));
-        out.push_str("]\n");
+<b>Elo Affected: {:+}</b>
+        "#,
+        escape_html(&analysis.title),
+        escape_html(&analysis.description),
+        analysis.elo
+    )
+    .trim()
+    .to_owned()
+}
+
+fn escape_html(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+
+    for character in text.chars() {
+        match character {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            _ => escaped.push(character),
+        }
     }
 
-    out
+    escaped
 }
