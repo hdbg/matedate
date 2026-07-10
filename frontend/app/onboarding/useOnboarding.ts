@@ -78,6 +78,26 @@ export function useOnboarding() {
     [saveProfile],
   );
 
+  /**
+   * "Skip for now" still creates a real (anonymous) session so the rating and
+   * quiz answers persist. The account can be upgraded to email/password later.
+   */
+  const skipAccount = useCallback(async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const { error: authError } = await supabase.auth.signInAnonymously();
+      if (authError) throw authError;
+      await saveProfile();
+      setStep("done");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [saveProfile]);
+
   return {
     step,
     ageConfirmed,
@@ -90,6 +110,7 @@ export function useOnboarding() {
     setGoal,
     toggleStyle,
     createAccount,
+    skipAccount,
   };
 }
 

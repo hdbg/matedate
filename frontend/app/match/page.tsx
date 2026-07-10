@@ -30,7 +30,7 @@ function MatchScreen() {
   const mode = parseMode(searchParams.get("mode"));
   const timeControl = parseTimeControl(searchParams.get("tc"));
 
-  const game = useMatchGame(mode, timeControl);
+  const game = useMatchGame(mode);
 
   const leave = () => {
     if (
@@ -53,8 +53,21 @@ function MatchScreen() {
   if (!game.persona) {
     return (
       <AppShell>
-        <div className="flex flex-1 items-center justify-center font-mono text-[13px] text-ink-mute">
-          Loading match…
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center font-mono text-[13px] text-ink-mute">
+          {game.error ? (
+            <>
+              <span className="text-m-blunder">{game.error}</span>
+              <button
+                type="button"
+                onClick={() => router.push("/play")}
+                className="cursor-pointer text-rosy-deep underline"
+              >
+                Back to modes
+              </button>
+            </>
+          ) : (
+            "Connecting to your date…"
+          )}
         </div>
       </AppShell>
     );
@@ -88,7 +101,7 @@ function MatchScreen() {
           <MessageThread messages={game.messages} typing={game.typing} />
           <Composer
             suggestions={game.suggestions}
-            disabled={game.flagged}
+            disabled={game.inputDisabled}
             onSuggestion={game.sendSuggestion}
             onSend={game.send}
             onPeek={peek}

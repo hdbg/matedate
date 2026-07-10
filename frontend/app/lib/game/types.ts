@@ -70,9 +70,8 @@ export function formatSwing(swing: number): string {
 }
 
 /**
- * The gameplay data source. The mock implementation grades client-side; the
- * Supabase implementation reads real personas but defers grading to the (not
- * yet built) analysis engine. Selected at runtime by NEXT_PUBLIC_USE_MOCK.
+ * The gameplay data source. Personas come from Supabase; move scoring is graded
+ * client-side by the interim engine until a real analysis backend exists.
  */
 export interface GameService {
   getPersona(slug?: string): Promise<Persona>;

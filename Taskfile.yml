@@ -1,0 +1,43 @@
+# https://taskfile.dev/docs/reference/schema
+# Run with `task dev` (task is provided by mise — see mise.toml).
+version: "3"
+
+tasks:
+  dev:
+    desc: Start local Supabase, the backend, and the frontend for local development.
+    deps: [backend, frontend]
+
+  gen-types:
+    desc: Generate the typed DB schema (backend/app/database_types.py) from local Supabase.
+    deps: [supabase]
+    # Runs from the repo root so the CLI finds supabase/config.toml. Regenerate after any
+    # schema change (edit the single migration, then `supabase db reset` + `task gen-types`).
+    cmds:
+      - supabase gen types --lang=python --local > backend/app/database_types.py
+
+  supabase:
+    desc: Start the local Supabase stack (skipped if it is already running).
+    run: once
+    cmds:
+      - supabase start
+    # `supabase status` exits non-zero when the stack is down, so this only
+    # runs `supabase start` when it isn't already up.
+    status:
+      - supabase status
+
+  backend:
+    desc: Run the FastAPI backend against local Supabase.
+    deps: [supabase]
+    dir: backend
+    # Reads backend/.env (local Supabase URL + service-role key). Port 8000
+    # matches the frontend's NEXT_PUBLIC_BACKEND_WS_URL.
+    cmds:
+      - uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
+
+  frontend:
+    desc: Run the Next.js dev server against local Supabase.
+    deps: [supabase]
+    dir: frontend
+    # Reads frontend/.env.local (local Supabase URL + backend WS URL).
+    cmds:
+      - yarn dev

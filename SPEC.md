@@ -53,6 +53,8 @@ Ranked matches are clocked, chess-style, so players can't stall or abandon mid-m
 
 When it becomes a player's turn, their move clock starts. Submitting before the deadline advances play; letting the clock hit zero **forfeits the match automatically** — the opponent wins on time (`end_reason = timeout`), exactly like a flag fall in chess. Players pair only with others who queued for the **same time control** (separate pools), and the chosen control is snapshotted on the match so both sides play identical conditions — preserving the "same persona, same scenario, same clock" fairness that makes results arguable and shareable. Ghost/replay duels inherit the recorded attempt's control. A timeout is a loss and counts for ranked ELO; repeated flaking can later feed the §3 anti-abuse rate-limits.
 
+**The clock only runs during a player's own decision time — never during system or opponent time.** As in chess, at most one player's clock runs at a time, and it counts down only while that player is on the clock deciding their move. The clock **stops the instant the player submits**, and stays stopped through everything outside their control: LLM grading of the submitted move, persona-reply generation, and the opponent's turn. It **resumes (or the opponent's starts) only when it is again that player's turn to act**. So neither engine latency nor the other player's thinking can burn a player's time — a player can only ever flag on their *own* deliberation. The server is authoritative on all clock start/stop/resume transitions (clients never self-report elapsed time); the UI reflects this by showing the clock as paused/idle whenever it isn't the local player's turn.
+
 ---
 
 ## 3. The Scoring Engine

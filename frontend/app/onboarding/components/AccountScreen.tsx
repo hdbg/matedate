@@ -74,7 +74,7 @@ export function AccountScreen({
       <Button disabled={!canSubmit} onClick={() => onSubmit(email.trim(), password)}>
         {submitting ? "Creating account…" : "Create account"}
       </Button>
-      <Button variant="link" onClick={onSkip}>
+      <Button variant="link" disabled={submitting} onClick={onSkip}>
         Skip for now — <b className="text-rosy-deep">I&apos;ll save it later</b>
       </Button>
       <p className="mt-2.5 text-center font-mono text-[11px] leading-[1.5] text-ink-mute">

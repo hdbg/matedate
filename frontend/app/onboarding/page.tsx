@@ -80,7 +80,7 @@ export default function OnboardingPage() {
                 error={flow.error}
                 onBack={() => goTo("style")}
                 onSubmit={flow.createAccount}
-                onSkip={() => goTo("done")}
+                onSkip={flow.skipAccount}
               />
             )}
             {step === "done" && (

@@ -50,6 +50,11 @@ create type public.message_side as enum ('Match', 'You');
 -- per-mode child table (solo_games / screenshot_games / puzzle_attempts) holds the rest.
 create type public.game_mode as enum ('solo', 'screenshot', 'puzzle');
 
+-- Lifecycle of a single-player game. Live solo (PvE) play is server-driven over a
+-- WebSocket; 'active' is the resumable in-progress state, and a partial unique index on
+-- games enforces at most one active game per user (SPEC §2.1).
+create type public.game_status as enum ('active', 'completed', 'abandoned');
+
 -- Which ELO a rating change applies to.
 create type public.rating_kind as enum ('rizz', 'ranked', 'casual');
 
@@ -74,8 +79,9 @@ create type public.match_side as enum ('a', 'b');
 -- classical map to 20/40/60 seconds per move; letting the clock hit zero forfeits.
 create type public.time_control as enum ('bullet', 'rapid', 'classical');
 
--- How a match ended. 'scored' = played to completion; 'timeout' = a player flagged.
-create type public.match_end_reason as enum ('scored', 'timeout', 'resignation', 'abandoned');
+-- How a match ended. 'scored' = played to completion; 'timeout' = a player flagged;
+-- 'blocked' = the persona blocked/unmatched the player, ending the game early.
+create type public.match_end_reason as enum ('scored', 'timeout', 'resignation', 'abandoned', 'blocked');
 
 -- Lifecycle of a queued analysis / scoring job.
 create type public.job_status as enum ('queued', 'processing', 'completed', 'failed', 'cancelled');
@@ -421,6 +427,11 @@ create table public.games (
   title       text,
   description text,
   accuracy    numeric(5,2),  -- 0..100 vs. the best-move line
+  -- Live-play lifecycle (server-authoritative). 'active' games are resumable; the engine
+  -- flips this to 'completed'/'abandoned' on finish and stamps end_reason + ended_at.
+  status      public.game_status not null default 'active',
+  end_reason  public.match_end_reason, -- 'scored' | 'timeout' | 'resignation' | 'abandoned'; null until ended
+  ended_at    timestamptz,
   -- Shareable card (SPEC §9). Rendered to PNG at a stable URL from this slug.
   share_slug  text unique default encode(gen_random_bytes(8), 'hex'),
   created_at  timestamptz not null default now()
@@ -428,6 +439,10 @@ create table public.games (
 
 create index games_user_created_idx on public.games (user_id, created_at desc);
 create index games_mode_idx         on public.games (mode);
+
+-- At most one live game per user (SPEC §2.1: one active solo game at a time). Solo PvE is
+-- the only writer of active games today; extend the pool if other live modes are added.
+create unique index games_one_active_per_user on public.games (user_id) where status = 'active';
 
 alter table public.analysis_jobs
   add constraint analysis_jobs_game_fk
@@ -439,7 +454,13 @@ create table public.solo_games (
   game_id      uuid primary key references public.games (id) on delete cascade,
   persona_id   uuid references public.personas (id) on delete set null,
   is_practice  boolean not null default false, -- disclosed-AI practice opponent (SPEC §2.3)
-  rating_delta integer not null default 0      -- rizz, or casual when is_practice
+  rating_delta integer not null default 0,     -- rizz, or casual when is_practice
+  -- Live-play clock (SPEC §2.6). Per-move budget snapshotted at game start; turn_deadline is
+  -- set (now() + move_seconds) whenever the player's turn opens and cleared while it's the
+  -- persona's turn or the game is over. exchanges counts completed player↔persona rounds.
+  move_seconds  smallint not null default 30,
+  turn_deadline timestamptz,
+  exchanges     smallint not null default 0
 );
 
 -- Screenshot review (SPEC §2.5, §6). Only the cleaned/redacted transcript survives;
@@ -789,8 +810,9 @@ create policy match_move_reveals_select on public.match_move_reveals
 -- ===========================================================================
 -- Supabase's default is to NOT auto-expose new tables, so nothing is reachable via
 -- the Data API until granted. persona_secrets and puzzle_solutions are deliberately
--- left ungranted: with no privilege, only the service_role (which bypasses both grants
--- and RLS) can touch them. This is a table privilege, not column-level security —
+-- left ungranted *to client roles*: with no privilege there, only the service_role can
+-- touch them (service_role bypasses RLS but NOT table privileges, so it is granted full
+-- schema access at the end of this section). This is a table privilege, not column-level security —
 -- the three fixes stay RLS-only. Grants here decide *which tables*; RLS decides
 -- *which rows*; player_ratings gets SELECT but not UPDATE, so its rows are read-only.
 
@@ -817,3 +839,11 @@ grant select, insert, delete on public.games to authenticated;
 grant select, insert on
   public.solo_games, public.screenshot_games, public.puzzle_attempts
   to authenticated;
+
+-- The backend engine authenticates as service_role and is the sole writer of live game
+-- state (games/moves/ratings) and the only reader of the RLS-gated secrets. service_role
+-- bypasses RLS but still needs table privileges, so grant it the full schema. RLS remains
+-- the client-facing boundary; these grants never touch anon/authenticated.
+grant usage on schema public to service_role;
+grant all privileges on all tables in schema public to service_role;
+grant all privileges on all sequences in schema public to service_role;

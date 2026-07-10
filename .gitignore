@@ -4,3 +4,6 @@ config.toml
 models/
 .DS_Store
 testdb.sqlite
+frontend/.mypy_cache/
+backend/app/__pycache__/
+backend/__pycache__/
