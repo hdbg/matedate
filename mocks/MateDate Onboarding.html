@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MateDate · Onboarding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --cream:#f1e8d9; --cream-2:#e7dcc8; --paper:#f7f0e3;
+    --ink:#272320; --ink-soft:#4a443c; --ink-mute:#8a8175;
+    --king:#fbf6ec; --rosy:#d6536a; --rosy-deep:#b8324c; --rosy-tint:#f3d9de;
+    --m-brilliant:#1f9e8a; --m-blunder:#b8324c;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; }
+  body{
+    background:#ddd6ca;
+    background-image:radial-gradient(circle at 30% 20%, #e6dfd2, #d2cabd);
+    font-family:'Bricolage Grotesque', system-ui, sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; padding:24px; color:var(--ink);
+  }
+  a{ color:var(--rosy-deep); } a:hover{ color:var(--rosy); }
+  .mono{ font-family:'Space Mono', monospace; }
+
+  .phone{
+    width:390px; max-width:100%; height:min(844px, calc(100vh - 48px));
+    background:var(--paper); border-radius:40px; overflow:hidden;
+    box-shadow:0 30px 70px rgba(39,35,32,.34), 0 2px 0 rgba(255,255,255,.5) inset;
+    position:relative; display:flex; flex-direction:column;
+  }
+  /* status bar */
+  .statusbar{ height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:0 26px; font-family:'Space Mono',monospace; font-weight:700; font-size:13px; }
+  .statusbar .dots-r{ display:flex; gap:5px; align-items:center; }
+  .statusbar .sig{ width:16px; height:10px; background:currentColor; border-radius:2px; opacity:.85; }
+  .statusbar .bat{ width:22px; height:11px; border:1.5px solid currentColor; border-radius:3px; position:relative; }
+  .statusbar .bat::after{ content:''; position:absolute; left:1.5px; top:1.5px; bottom:1.5px; width:70%; background:currentColor; border-radius:1px; }
+
+  /* progress */
+  .progress{ flex-shrink:0; height:4px; margin:0 26px 0; border-radius:999px; background:rgba(39,35,32,.12); overflow:hidden; display:none; }
+  .progress i{ display:block; height:100%; background:var(--rosy); border-radius:999px; width:0; transition:width .45s cubic-bezier(.4,0,.2,1); }
+
+  .stage{ flex:1; position:relative; overflow:hidden; }
+  .screen{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    padding:14px 26px 26px; opacity:0; transform:translateX(24px);
+    transition:opacity .38s ease, transform .38s ease; pointer-events:none;
+    overflow-y:auto;
+  }
+  .screen.active{ opacity:1; transform:none; pointer-events:auto; }
+  .screen.dark{ background:var(--ink); color:var(--king); }
+
+  .back{ background:none; border:none; font-size:22px; color:inherit; cursor:pointer; padding:4px; margin:-4px 0 6px -6px; width:34px; opacity:.7; }
+  .back:hover{ opacity:1; }
+
+  h1.title{ font-weight:800; letter-spacing:-.035em; line-height:1.02; font-size:32px; margin:6px 0 10px; }
+  .sub{ color:var(--ink-soft); font-size:16px; line-height:1.45; margin:0 0 20px; }
+  .screen.dark .sub{ color:#cfc6b6; }
+  .eyebrow{ font-family:'Space Mono',monospace; font-weight:700; text-transform:uppercase; letter-spacing:.18em; font-size:11px; color:var(--rosy); margin-bottom:2px; }
+
+  /* buttons */
+  .spacer{ flex:1; }
+  .btn{ font-family:'Bricolage Grotesque',sans-serif; font-weight:700; border:none; cursor:pointer; border-radius:999px; padding:16px 24px; font-size:17px; width:100%; display:flex; align-items:center; justify-content:center; gap:10px; transition:transform .12s ease, box-shadow .12s ease, background .15s; }
+  .btn-primary{ background:var(--rosy); color:#fff; box-shadow:0 6px 0 var(--rosy-deep); }
+  .btn-primary:hover{ background:var(--rosy-deep); }
+  .btn-primary:active{ box-shadow:0 3px 0 var(--rosy-deep); transform:translateY(3px); }
+  .btn-primary:disabled{ background:#c9beae; box-shadow:0 6px 0 #ab9f8d; cursor:not-allowed; }
+  .btn-ink{ background:var(--ink); color:var(--king); }
+  .btn-ink:hover{ background:#000; }
+  .btn-ghost{ background:transparent; color:inherit; border:2px solid rgba(39,35,32,.2); box-shadow:none; }
+  .screen.dark .btn-ghost{ border-color:rgba(251,246,236,.28); }
+  .btn-ghost:hover{ border-color:currentColor; }
+  .btn-oauth{ background:#fff; color:var(--ink); box-shadow:0 2px 8px rgba(39,35,32,.1); border:1px solid rgba(39,35,32,.08); font-size:16px; }
+  .btn-oauth:hover{ background:#faf6ee; }
+  .linkbtn{ background:none; border:none; font-family:inherit; font-size:15px; color:var(--ink-mute); cursor:pointer; text-align:center; width:100%; padding:12px; margin-top:6px; }
+  .linkbtn b{ color:var(--rosy-deep); }
+
+  /* welcome scene */
+  .hero-scene{ display:flex; align-items:flex-end; justify-content:center; gap:10px; margin:26px 0 8px; position:relative; }
+  .hero-scene .queen{ height:118px; filter:drop-shadow(1px 0 0 rgba(241,232,217,.5)) drop-shadow(-1px 0 0 rgba(241,232,217,.5)) drop-shadow(0 1px 0 rgba(241,232,217,.5)) drop-shadow(0 -1px 0 rgba(241,232,217,.5)); }
+  .hero-scene .king{ height:134px; transform:rotate(12deg); transform-origin:bottom center; }
+  .hero-scene .bang{ position:absolute; color:var(--rosy); font-weight:800; font-size:44px; letter-spacing:-.04em; top:2px; left:57%; text-shadow:0 0 22px rgba(214,83,106,.5); }
+  .wordmark{ font-weight:800; letter-spacing:-.035em; line-height:1; font-size:48px; text-align:center; }
+  .wm-mate{ color:var(--king); } .wm-date{ color:var(--rosy); }
+
+  .feat{ display:flex; gap:13px; align-items:flex-start; padding:11px 0; }
+  .feat .fi{ width:38px; height:38px; border-radius:11px; background:rgba(214,83,106,.16); display:grid; place-items:center; flex-shrink:0; color:var(--rosy); font-family:'Space Mono',monospace; font-weight:700; font-size:15px; }
+  .feat .ft{ font-weight:700; font-size:16px; }
+  .feat .fd{ font-size:14px; color:#cfc6b6; line-height:1.35; }
+
+  /* chips */
+  .opts{ display:flex; flex-direction:column; gap:11px; margin-bottom:12px; }
+  .opt{ display:flex; align-items:center; gap:14px; padding:16px 18px; border-radius:16px; background:#fff; border:2px solid transparent; box-shadow:0 2px 6px rgba(39,35,32,.07); cursor:pointer; font-weight:600; font-size:16px; text-align:left; transition:border-color .15s, background .15s, transform .1s; }
+  .opt:hover{ transform:translateY(-1px); }
+  .opt .oi{ font-size:22px; width:26px; text-align:center; flex-shrink:0; }
+  .opt .ox{ flex:1; }
+  .opt .od{ font-size:13px; color:var(--ink-mute); font-weight:400; margin-top:1px; }
+  .opt .chk{ width:24px; height:24px; border-radius:50%; border:2px solid rgba(39,35,32,.2); flex-shrink:0; display:grid; place-items:center; color:#fff; font-size:14px; transition:.15s; }
+  .opt.sel{ border-color:var(--rosy); background:var(--rosy-tint); }
+  .opt.sel .chk{ background:var(--rosy); border-color:var(--rosy); }
+
+  /* age gate */
+  .agebadge{ width:96px; height:96px; border-radius:50%; background:var(--rosy-tint); color:var(--rosy-deep); display:grid; place-items:center; font-weight:800; font-size:34px; letter-spacing:-.03em; margin:16px auto 4px; }
+  .disclaimer{ font-size:13px; color:var(--ink-mute); line-height:1.5; background:var(--cream); border-radius:14px; padding:14px 16px; margin-top:8px; }
+  .checkrow{ display:flex; gap:12px; align-items:flex-start; padding:14px 4px; cursor:pointer; }
+  .checkrow .box{ width:24px; height:24px; border-radius:7px; border:2px solid rgba(39,35,32,.25); flex-shrink:0; display:grid; place-items:center; color:#fff; margin-top:1px; transition:.15s; }
+  .checkrow.on .box{ background:var(--rosy); border-color:var(--rosy); }
+  .checkrow .t{ font-size:14px; line-height:1.4; color:var(--ink-soft); }
+
+  /* account form */
+  .field{ margin-bottom:12px; }
+  .field label{ font-family:'Space Mono',monospace; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-mute); display:block; margin-bottom:6px; }
+  .field input{ width:100%; padding:15px 16px; border-radius:14px; border:2px solid rgba(39,35,32,.14); background:#fff; font-family:inherit; font-size:16px; color:var(--ink); }
+  .field input:focus{ outline:none; border-color:var(--rosy); }
+  .divider{ display:flex; align-items:center; gap:12px; color:var(--ink-mute); font-size:13px; margin:16px 0; }
+  .divider::before,.divider::after{ content:''; height:1px; background:rgba(39,35,32,.15); flex:1; }
+
+  /* done */
+  .done-scene{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-top:8px; }
+  .checkbig{ width:104px; height:104px; border-radius:50%; background:var(--rosy); color:#fff; display:grid; place-items:center; font-size:52px; margin:20px 0 8px; box-shadow:0 10px 0 var(--rosy-deep); }
+  .statcard{ background:var(--cream); border-radius:16px; padding:18px; width:100%; margin-top:20px; display:flex; justify-content:space-around; }
+  .statcard .st{ text-align:center; }
+  .statcard .sv{ font-family:'Space Mono',monospace; font-weight:700; font-size:26px; }
+  .statcard .sl{ font-family:'Space Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-mute); margin-top:2px; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="statusbar" id="statusbar">
+    <span>9:41</span>
+    <span class="dots-r"><span class="sig"></span><span class="mono" style="font-size:11px;">5G</span><span class="bat"></span></span>
+  </div>
+  <div class="progress" id="progress"><i id="progressBar"></i></div>
+
+  <div class="stage">
+
+    <!-- 1 · WELCOME -->
+    <section class="screen dark active" data-screen-label="Welcome">
+      <div class="hero-scene">
+        <img class="queen" src="assets/black-queen.svg" alt="black queen" />
+        <div style="position:relative;">
+          <span class="bang">!!</span>
+          <img class="king" src="assets/white-king.svg" alt="white king" />
+        </div>
+      </div>
+      <div class="wordmark"><span class="wm-mate">Mate</span><span class="wm-date">Date</span></div>
+      <p class="sub" style="text-align:center; margin-top:14px;">Flirting, graded like a chess engine. Every text gets a verdict — <span class="mono" style="color:var(--m-brilliant)">!! Brilliant</span> to <span class="mono" style="color:var(--rosy)">?? Blunder</span>.</p>
+
+      <div style="margin-top:8px;">
+        <div class="feat"><div class="fi">!!</div><div><div class="ft">Get graded</div><div class="fd">Chess-style classification + accuracy % on every move.</div></div></div>
+        <div class="feat"><div class="fi">♟</div><div><div class="ft">Climb the ladder</div><div class="fd">Earn a rizz rating. Play solo, ranked, or review real chats.</div></div></div>
+        <div class="feat"><div class="fi">🛡</div><div><div class="ft">Private by design</div><div class="fd">Screenshots are redacted &amp; never stored. It's for fun — be yourself.</div></div></div>
+      </div>
+
+      <div class="spacer"></div>
+      <button class="btn btn-primary" onclick="go('age')">Get started</button>
+      <button class="linkbtn" onclick="go('account')">Already playing? <b>Sign in</b></button>
+    </section>
+
+    <!-- 2 · AGE GATE -->
+    <section class="screen" data-screen-label="18+ Age gate">
+      <button class="back" onclick="go('welcome')">‹</button>
+      <div class="eyebrow">Quick check</div>
+      <div class="agebadge">18+</div>
+      <h1 class="title" style="text-align:center;">Are you 18 or older?</h1>
+      <p class="sub" style="text-align:center;">MateDate is an 18+ product. We never knowingly collect data from anyone under 18.</p>
+
+      <div class="checkrow" id="ageChk" onclick="toggleAge()">
+        <div class="box">✓</div>
+        <div class="t">I confirm I'm <b>18 years or older</b> and I agree to the <a href="#" onclick="return false">Terms</a> &amp; <a href="#" onclick="return false">Privacy Policy</a>.</div>
+      </div>
+
+      <div class="disclaimer">
+        <b>Just so we're clear:</b> MateDate is for entertainment and communication practice — not manipulation. The verdict grades the message, never a person. Be yourself. 💛
+      </div>
+
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="ageBtn" disabled onclick="go('goal')">Continue</button>
+      <button class="linkbtn" onclick="alert('You must be 18+ to use MateDate.')">I'm under 18</button>
+    </section>
+
+    <!-- 3 · QUIZ: GOAL -->
+    <section class="screen" data-screen-label="Quiz · dating goal">
+      <button class="back" onclick="go('age')">‹</button>
+      <div class="eyebrow">Step 1 of 2</div>
+      <h1 class="title">What are you playing for?</h1>
+      <p class="sub">We'll tune your AI dates and puzzles to match.</p>
+      <div class="opts" id="goalOpts">
+        <button class="opt" data-v="serious" onclick="pickOne(this,'goalOpts','goalBtn')"><span class="oi">💍</span><span class="ox">Something serious<span class="od">Real connection, long game</span></span><span class="chk">✓</span></button>
+        <button class="opt" data-v="casual" onclick="pickOne(this,'goalOpts','goalBtn')"><span class="oi">🍸</span><span class="ox">Casual &amp; fun<span class="od">Keep it light, keep it moving</span></span><span class="chk">✓</span></button>
+        <button class="opt" data-v="confidence" onclick="pickOne(this,'goalOpts','goalBtn')"><span class="oi">💪</span><span class="ox">Build confidence<span class="od">Get better at opening &amp; replying</span></span><span class="chk">✓</span></button>
+        <button class="opt" data-v="practice" onclick="pickOne(this,'goalOpts','goalBtn')"><span class="oi">🎯</span><span class="ox">Just here to compete<span class="od">Climb the rizz ladder</span></span><span class="chk">✓</span></button>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="goalBtn" disabled onclick="go('style')">Continue</button>
+    </section>
+
+    <!-- 4 · QUIZ: STYLE -->
+    <section class="screen" data-screen-label="Quiz · your style">
+      <button class="back" onclick="go('goal')">‹</button>
+      <div class="eyebrow">Step 2 of 2</div>
+      <h1 class="title">What's your texting style?</h1>
+      <p class="sub">Pick all that sound like you. This shapes how the engine reads your moves.</p>
+      <div class="opts" id="styleOpts">
+        <button class="opt" data-v="drywit" onclick="pickMany(this,'styleBtn')"><span class="oi">🌵</span><span class="ox">Dry wit<span class="od">Deadpan, low-key, unbothered</span></span><span class="chk">✓</span></button>
+        <button class="opt" data-v="playful" onclick="pickMany(this,'styleBtn')"><span class="oi">😏</span><span class="ox">Playful &amp; flirty<span class="od">Banter, teasing, emoji-forward</span></span><span class="chk">✓</span></button>
+        <button class="opt" data-v="dark" onclick="pickMany(this,'styleBtn')"><span class="oi">🖤</span><span class="ox">Dark humor<span class="od">Chaotic, unhinged, memey</span></span><span class="chk">✓</span></button>
+        <button class="opt" data-v="earnest" onclick="pickMany(this,'styleBtn')"><span class="oi">☀️</span><span class="ox">Earnest &amp; warm<span class="od">Say what you mean, mean it</span></span><span class="chk">✓</span></button>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="styleBtn" disabled onclick="go('account')">Continue</button>
+    </section>
+
+    <!-- 5 · ACCOUNT -->
+    <section class="screen" data-screen-label="Create account">
+      <button class="back" onclick="go('style')">‹</button>
+      <div class="eyebrow">Almost there</div>
+      <h1 class="title">Save your rizz rating</h1>
+      <p class="sub">Create an account to keep your rating, history, and streaks.</p>
+
+      <button class="btn btn-oauth" style="margin-bottom:11px;"> Continue with Apple</button>
+      <button class="btn btn-oauth"><span style="font-weight:800;font-family:'Space Mono'">G</span> Continue with Google</button>
+
+      <div class="divider">or</div>
+
+      <div class="field"><label>Email</label><input type="email" placeholder="you@email.com" /></div>
+      <div class="field"><label>Password</label><input type="password" placeholder="••••••••" /></div>
+
+      <div class="spacer"></div>
+      <button class="btn btn-primary" onclick="go('done')">Create account</button>
+      <button class="linkbtn" onclick="go('done')">Skip for now — <b>I'll save it later</b></button>
+      <p class="mono" style="font-size:11px; color:var(--ink-mute); text-align:center; margin:10px 0 0; line-height:1.5;">By continuing you agree to our Terms. 3-day free trial, then $6.99/week. Cancel anytime.</p>
+    </section>
+
+    <!-- 6 · DONE -->
+    <section class="screen" data-screen-label="You're in">
+      <div class="done-scene">
+        <div class="checkbig">✓</div>
+        <h1 class="title" style="text-align:center; margin-bottom:6px;">You're in.</h1>
+        <p class="sub" style="text-align:center;">Your profile's set. Time to make your first move.</p>
+        <div class="statcard">
+          <div class="st"><div class="sv">1200</div><div class="sl">Starting rizz</div></div>
+          <div class="st"><div class="sv">3</div><div class="sl">Free / day</div></div>
+          <div class="st"><div class="sv" style="color:var(--rosy)">!!</div><div class="sl">Best move locked</div></div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <a class="btn btn-primary" href="MateDate Mode Selector.html" style="text-decoration:none;">Pick your game mode →</a>
+      <button class="linkbtn" onclick="go('welcome')">Restart onboarding</button>
+    </section>
+
+  </div>
+</div>
+
+<script>
+  // Screen order for progress + light/dark status bar
+  const order = ['welcome','age','goal','style','account','done'];
+  const quizProgress = { age:0, goal:1, style:2, account:3, done:4 }; // progress steps
+  const darkScreens = new Set(['welcome']);
+
+  const screens = {};
+  document.querySelectorAll('.screen').forEach((s,i)=>{ screens[order[i]] = s; });
+
+  function go(name){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    const el = screens[name];
+    el.classList.add('active');
+    el.scrollTop = 0;
+
+    // status bar color
+    const sb = document.getElementById('statusbar');
+    sb.style.color = darkScreens.has(name) ? 'var(--king)' : 'var(--ink)';
+
+    // progress bar (only during the flow, not welcome/done)
+    const prog = document.getElementById('progress');
+    const bar = document.getElementById('progressBar');
+    if(name==='welcome' || name==='done'){ prog.style.display='none'; }
+    else { prog.style.display='block'; bar.style.width = ((quizProgress[name]) / 4 * 100) + '%'; }
+  }
+
+  function toggleAge(){
+    const row = document.getElementById('ageChk');
+    row.classList.toggle('on');
+    document.getElementById('ageBtn').disabled = !row.classList.contains('on');
+  }
+
+  function pickOne(btn, groupId, btnId){
+    document.querySelectorAll('#'+groupId+' .opt').forEach(o=>o.classList.remove('sel'));
+    btn.classList.add('sel');
+    document.getElementById(btnId).disabled = false;
+  }
+
+  function pickMany(btn, btnId){
+    btn.classList.toggle('sel');
+    const any = btn.closest('.opts').querySelectorAll('.opt.sel').length > 0;
+    document.getElementById(btnId).disabled = !any;
+  }
+</script>
+</body>
+</html>

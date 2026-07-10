@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MateDate · Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    /* --- core neutrals --- */
+    --cream:#f1e8d9; --cream-2:#e7dcc8; --paper:#f7f0e3;
+    --ink:#272320; --ink-soft:#4a443c; --ink-mute:#8a8175;
+    --king:#fbf6ec;
+    /* --- accent --- */
+    --rosy:#d6536a; --rosy-deep:#b8324c; --rosy-tint:#f3d9de;
+    /* --- move classification --- */
+    --m-brilliant:#1f9e8a; --m-great:#3a7ca5; --m-good:#5f9a55;
+    --m-inaccuracy:#c99a33; --m-mistake:#cf7a3c; --m-blunder:#b8324c;
+    /* --- spacing scale (4px base) --- */
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+    /* --- radii --- */
+    --r-sm:8px; --r-md:12px; --r-lg:18px; --r-xl:26px; --r-pill:999px;
+    /* --- shadow --- */
+    --sh-1:0 2px 6px rgba(39,35,32,.08);
+    --sh-2:0 8px 22px rgba(39,35,32,.12);
+    --sh-3:0 18px 40px rgba(39,35,32,.16);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Bricolage Grotesque', system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+  a{ color:var(--rosy-deep); }
+  a:hover{ color:var(--rosy); }
+  .mono{ font-family:'Space Mono', monospace; }
+
+  /* ---------- layout ---------- */
+  .wrap{ max-width:1120px; margin:0 auto; padding:0 var(--s6) var(--s8); }
+  header.masthead{
+    background:var(--ink); color:var(--king);
+    padding:var(--s8) var(--s6) var(--s7);
+  }
+  .masthead .inner{ max-width:1120px; margin:0 auto; }
+  .eyebrow{
+    font-family:'Space Mono', monospace; font-weight:700;
+    text-transform:uppercase; letter-spacing:.22em; font-size:12px;
+    color:var(--rosy);
+  }
+  .masthead h1{
+    font-weight:800; letter-spacing:-.035em; line-height:.98;
+    font-size:clamp(44px, 8vw, 92px); margin:var(--s4) 0 var(--s4);
+  }
+  .masthead h1 .b{ color:var(--rosy); }
+  .masthead p{ max-width:56ch; color:#cfc6b6; font-size:18px; margin:0; }
+
+  section{ padding-top:var(--s8); scroll-margin-top:var(--s5); }
+  .sec-head{ display:flex; align-items:baseline; gap:var(--s3); margin-bottom:var(--s5); border-bottom:2px solid var(--ink); padding-bottom:var(--s3); }
+  .sec-head .num{ font-family:'Space Mono', monospace; font-weight:700; color:var(--rosy); font-size:15px; }
+  .sec-head h2{ font-weight:800; letter-spacing:-.03em; font-size:clamp(28px,4vw,40px); margin:0; }
+  .lede{ color:var(--ink-soft); font-size:17px; max-width:66ch; margin:-8px 0 var(--s6); }
+
+  h3{ font-weight:700; letter-spacing:-.02em; font-size:20px; margin:var(--s6) 0 var(--s3); }
+  .note{ font-size:14px; color:var(--ink-soft); }
+  .tag{
+    font-family:'Space Mono', monospace; font-weight:700; font-size:11px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-mute);
+  }
+
+  .grid{ display:grid; gap:var(--s4); }
+  .card-surface{ background:var(--cream); border-radius:var(--r-lg); padding:var(--s5); border:1px solid rgba(39,35,32,.08); }
+
+  /* ---------- color ---------- */
+  .swatches{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:var(--s3); }
+  .sw{ border-radius:var(--r-md); overflow:hidden; box-shadow:var(--sh-1); background:#fff; }
+  .sw .chip{ height:78px; display:flex; align-items:flex-end; padding:var(--s2) var(--s3); }
+  .sw .meta{ padding:var(--s2) var(--s3) var(--s3); }
+  .sw .name{ font-weight:600; font-size:14px; }
+  .sw .hex{ font-family:'Space Mono', monospace; font-size:12px; color:var(--ink-mute); }
+  .sw .chip .role{ font-family:'Space Mono',monospace; font-size:11px; font-weight:700; letter-spacing:.05em; }
+
+  /* ---------- type specimens ---------- */
+  .type-row{ display:flex; align-items:baseline; gap:var(--s5); padding:var(--s4) 0; border-bottom:1px dashed rgba(39,35,32,.18); flex-wrap:wrap; }
+  .type-row .label{ width:150px; flex-shrink:0; }
+  .type-row .label .tag{ display:block; }
+  .type-row .label .spec{ font-family:'Space Mono',monospace; font-size:12px; color:var(--ink-mute); }
+  .type-row .demo{ flex:1; min-width:220px; }
+
+  /* ---------- buttons ---------- */
+  .btn{
+    font-family:'Bricolage Grotesque', sans-serif; font-weight:700;
+    border:none; cursor:pointer; border-radius:var(--r-pill);
+    padding:14px 26px; font-size:16px; letter-spacing:-.01em;
+    display:inline-flex; align-items:center; gap:8px; transition:transform .12s ease, box-shadow .12s ease, background .15s ease;
+  }
+  .btn:active{ transform:translateY(1px); }
+  .btn-primary{ background:var(--rosy); color:#fff; box-shadow:0 6px 0 var(--rosy-deep); }
+  .btn-primary:hover{ background:var(--rosy-deep); }
+  .btn-primary:active{ box-shadow:0 3px 0 var(--rosy-deep); transform:translateY(3px); }
+  .btn-ink{ background:var(--ink); color:var(--king); box-shadow:var(--sh-1); }
+  .btn-ink:hover{ background:#000; }
+  .btn-ghost{ background:transparent; color:var(--ink); border:2px solid rgba(39,35,32,.22); }
+  .btn-ghost:hover{ border-color:var(--ink); }
+  .btn-sm{ padding:9px 16px; font-size:14px; }
+  .btn-row{ display:flex; gap:var(--s3); flex-wrap:wrap; align-items:center; }
+
+  /* ---------- move badges ---------- */
+  .badges{ display:flex; flex-wrap:wrap; gap:var(--s3); }
+  .mv{ display:inline-flex; align-items:center; gap:8px; padding:8px 14px 8px 8px; border-radius:var(--r-pill); background:#fff; box-shadow:var(--sh-1); font-weight:700; font-size:15px; }
+  .mv .glyph{ width:30px; height:30px; border-radius:50%; display:grid; place-items:center; color:#fff; font-family:'Space Mono',monospace; font-weight:700; font-size:13px; letter-spacing:-.02em; flex-shrink:0; }
+  .mv .swing{ font-family:'Space Mono',monospace; font-size:12px; color:var(--ink-mute); font-weight:700; }
+
+  /* ---------- eval bar ---------- */
+  .evalbar{ height:20px; border-radius:var(--r-pill); overflow:hidden; display:flex; background:var(--ink); box-shadow:inset 0 1px 3px rgba(0,0,0,.4); }
+  .evalbar .you{ background:var(--rosy); height:100%; transition:width .4s ease; }
+  .evalbar .match{ background:var(--cream); height:100%; }
+  .eval-legend{ display:flex; justify-content:space-between; margin-top:8px; font-family:'Space Mono',monospace; font-size:12px; color:var(--ink-mute); font-weight:700; }
+
+  /* ---------- chips ---------- */
+  .chips{ display:flex; flex-wrap:wrap; gap:var(--s2); }
+  .chip-pill{ font-family:'Space Mono',monospace; font-weight:700; font-size:13px; padding:8px 14px; border-radius:var(--r-pill); background:#fff; border:1.5px solid rgba(39,35,32,.16); cursor:pointer; }
+  .chip-pill.on{ background:var(--ink); color:var(--king); border-color:var(--ink); }
+
+  /* ---------- messages ---------- */
+  .thread{ display:flex; flex-direction:column; gap:10px; max-width:420px; }
+  .bubble{ max-width:78%; padding:11px 15px; border-radius:20px; font-size:15px; line-height:1.35; position:relative; }
+  .bubble.match{ align-self:flex-start; background:#fff; border-bottom-left-radius:6px; box-shadow:var(--sh-1); }
+  .bubble.you{ align-self:flex-end; background:var(--rosy); color:#fff; border-bottom-right-radius:6px; }
+  .bubble .mvtag{ position:absolute; top:-9px; font-size:11px; font-family:'Space Mono',monospace; font-weight:700; padding:2px 8px; border-radius:var(--r-pill); color:#fff; }
+  .bubble.you .mvtag{ right:8px; }
+
+  /* ---------- eyebrow chart / logo lockups ---------- */
+  .lockups{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:var(--s4); }
+  .lockup{ border-radius:var(--r-lg); padding:var(--s6) var(--s5); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--s3); min-height:180px; position:relative; }
+  .wordmark{ font-weight:800; letter-spacing:-.035em; line-height:1; font-size:40px; }
+  .wm-mate{ color:var(--ink); } .wm-date{ color:var(--rosy); }
+  .lockup.dark .wm-mate{ color:var(--king); }
+  .do-dont{ display:grid; grid-template-columns:1fr 1fr; gap:var(--s4); }
+  .dd{ border-radius:var(--r-md); padding:var(--s4); font-size:14px; }
+  .dd.do{ background:rgba(95,154,85,.12); border:1px solid rgba(95,154,85,.4); }
+  .dd.dont{ background:rgba(184,50,76,.08); border:1px solid rgba(184,50,76,.35); }
+  .dd .h{ font-weight:700; display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+
+  /* ---------- share card ---------- */
+  .sharecard{
+    width:340px; border-radius:22px; overflow:hidden; box-shadow:var(--sh-3);
+    background:var(--ink); color:var(--king); flex-shrink:0;
+  }
+  .sc-head{ padding:16px 18px 12px; display:flex; align-items:center; justify-content:space-between; }
+  .sc-brand{ font-weight:800; letter-spacing:-.03em; font-size:19px; }
+  .sc-brand .b{ color:var(--rosy); }
+  .sc-acc{ text-align:right; }
+  .sc-acc .n{ font-weight:800; font-size:26px; letter-spacing:-.03em; }
+  .sc-acc .l{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.14em; color:var(--ink-mute); text-transform:uppercase; }
+  .sc-body{ background:#332e2a; padding:16px 18px; display:flex; flex-direction:column; gap:9px; }
+  .sc-foot{ padding:13px 18px; display:flex; align-items:center; justify-content:space-between; }
+  .sc-rating{ display:flex; align-items:center; gap:8px; font-weight:800; font-size:18px; }
+  .sc-delta{ color:var(--m-good); font-family:'Space Mono',monospace; font-size:13px; font-weight:700; }
+  .sc-badge{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.1em; color:var(--ink-mute); text-transform:uppercase; display:flex; align-items:center; gap:5px; }
+  .sc-body .bubble{ font-size:13px; padding:9px 12px; }
+  .sc-body .bubble.match{ background:#4a443c; color:var(--king); box-shadow:none; }
+  .sc-locked{ background:rgba(214,83,106,.14); border:1.5px dashed var(--rosy); border-radius:14px; padding:12px 14px; text-align:center; }
+  .sc-locked .l1{ font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--rosy); font-weight:700; }
+  .sc-locked .l2{ filter:blur(5px); font-weight:700; margin-top:4px; user-select:none; }
+
+  /* ---------- nav ---------- */
+  nav.toc{ position:sticky; top:0; z-index:20; background:rgba(247,240,227,.9); backdrop-filter:blur(8px); border-bottom:1px solid rgba(39,35,32,.12); }
+  nav.toc .inner{ max-width:1120px; margin:0 auto; padding:12px var(--s6); display:flex; gap:var(--s4); flex-wrap:wrap; align-items:center; }
+  nav.toc a{ font-family:'Space Mono',monospace; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); text-decoration:none; }
+  nav.toc a:hover{ color:var(--rosy-deep); }
+  nav.toc .nb{ font-weight:800; letter-spacing:-.03em; margin-right:auto; font-family:'Bricolage Grotesque',sans-serif; text-transform:none; font-size:16px; }
+  nav.toc .nb .b{ color:var(--rosy); }
+
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:var(--s5); }
+  @media(max-width:760px){ .two-col,.do-dont{ grid-template-columns:1fr; } }
+  .spacing-demo{ display:flex; align-items:flex-end; gap:var(--s4); flex-wrap:wrap; }
+  .sp{ background:var(--rosy-tint); border:1px solid var(--rosy); border-radius:6px; display:flex; align-items:flex-end; justify-content:center; }
+  .sp span{ font-family:'Space Mono',monospace; font-size:11px; color:var(--rosy-deep); padding:3px; font-weight:700; }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="inner">
+    <div class="eyebrow">Design System · v1.0</div>
+    <h1>Mate<span class="b">Date</span> <br/>Design System</h1>
+    <p>The kit behind the flirting-as-chess engine. Warm paper, decisive ink, one rosy accent, and a chess vocabulary that grades every move. Built to render one recognizable, shareable card across every mode.</p>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="inner">
+    <span class="nb">Mate<span class="b">Date</span></span>
+    <a href="#brand">Brand</a>
+    <a href="#color">Color</a>
+    <a href="#type">Type</a>
+    <a href="#space">Space</a>
+    <a href="#buttons">Buttons</a>
+    <a href="#moves">Move badges</a>
+    <a href="#eval">Eval &amp; bubbles</a>
+    <a href="#chips">Chips &amp; forms</a>
+    <a href="#card">Share card</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- BRAND -->
+  <section id="brand">
+    <div class="sec-head"><span class="num">01</span><h2>Brand &amp; logo</h2></div>
+    <p class="lede">A white king in check from the black queen — <span class="mono">!!</span> marks the brilliant escape. The mark stays playful and bold: meme-aware but never shaming. The edge is always in the verdict, never the person.</p>
+
+    <div class="lockups">
+      <div class="lockup dark" style="background:var(--ink)">
+        <div class="scene-mini" style="display:flex;align-items:flex-end;gap:8px;position:relative;">
+          <img src="assets/black-queen.svg" style="height:74px;filter:drop-shadow(1px 0 0 rgba(241,232,217,.5)) drop-shadow(-1px 0 0 rgba(241,232,217,.5)) drop-shadow(0 -1px 0 rgba(241,232,217,.5)) drop-shadow(0 1px 0 rgba(241,232,217,.5))" alt="black queen"/>
+          <div style="position:relative;">
+            <span style="position:absolute;top:-8px;right:-20px;color:var(--rosy);font-weight:800;font-size:28px;letter-spacing:-.04em;">!!</span>
+            <img src="assets/white-king.svg" style="height:84px;transform:rotate(12deg);transform-origin:bottom center;" alt="white king"/>
+          </div>
+        </div>
+        <div class="wordmark" style="font-size:30px;"><span class="wm-mate">Mate</span><span class="wm-date">Date</span></div>
+        <span class="tag" style="color:var(--ink-mute)">Primary · dark</span>
+      </div>
+      <div class="lockup" style="background:var(--cream)">
+        <div class="wordmark"><span class="wm-mate">Mate</span><span class="wm-date">Date</span></div>
+        <span class="tag">Wordmark · light</span>
+      </div>
+      <div class="lockup" style="background:var(--ink)">
+        <div style="position:relative;">
+          <img src="assets/white-king.svg" style="height:96px;transform:rotate(13deg);transform-origin:bottom center;" alt="app icon king"/>
+          <span style="position:absolute;top:2px;right:-18px;color:var(--rosy);font-weight:800;font-size:30px;letter-spacing:-.04em;text-shadow:0 0 20px rgba(214,83,106,.5)">!!</span>
+        </div>
+        <span class="tag" style="color:var(--ink-mute)">App icon · king + !!</span>
+      </div>
+    </div>
+
+    <h3>Do &amp; don't</h3>
+    <div class="do-dont">
+      <div class="dd do">
+        <div class="h">✓ Do</div>
+        Keep the verdict funny and the framing self-improvement. "That 'idk lol' was a −3.4 Blunder — here's the Brilliant line." Anonymize before sharing. Use <span class="mono">!!</span> only for genuinely brilliant moves.
+      </div>
+      <div class="dd dont">
+        <div class="h">✕ Don't</div>
+        Never rate a person's face or appearance. Never imply chess.com affiliation or reuse its exact badge artwork. Never present a bot as a real human. Don't market to teens.
+      </div>
+    </div>
+  </section>
+
+  <!-- COLOR -->
+  <section id="color">
+    <div class="sec-head"><span class="num">02</span><h2>Color</h2></div>
+    <p class="lede">A warm, paper-and-ink base with a single rosy accent carries the whole product. A separate six-step move-classification ramp is the only place other hues appear — reserved strictly for verdicts.</p>
+
+    <h3>Core</h3>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:var(--ink)"><span class="role" style="color:var(--king)">text · surfaces</span></div><div class="meta"><div class="name">Ink</div><div class="hex">#272320</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--ink-soft)"><span class="role" style="color:var(--king)">secondary text</span></div><div class="meta"><div class="name">Ink Soft</div><div class="hex">#4a443c</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--ink-mute)"><span class="role" style="color:#fff">muted / mono</span></div><div class="meta"><div class="name">Ink Mute</div><div class="hex">#8a8175</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--paper);border-bottom:1px solid rgba(0,0,0,.06)"><span class="role" style="color:var(--ink-mute)">app bg</span></div><div class="meta"><div class="name">Paper</div><div class="hex">#f7f0e3</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--cream)"><span class="role" style="color:var(--ink-mute)">cards</span></div><div class="meta"><div class="name">Cream</div><div class="hex">#f1e8d9</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--cream-2)"><span class="role" style="color:var(--ink-mute)">board dark sq</span></div><div class="meta"><div class="name">Cream 2</div><div class="hex">#e7dcc8</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--king);border-bottom:1px solid rgba(0,0,0,.06)"><span class="role" style="color:var(--ink-mute)">on-dark text</span></div><div class="meta"><div class="name">King</div><div class="hex">#fbf6ec</div></div></div>
+    </div>
+
+    <h3>Accent</h3>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:var(--rosy)"><span class="role" style="color:#fff">primary CTA · you</span></div><div class="meta"><div class="name">Rosy</div><div class="hex">#d6536a</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--rosy-deep)"><span class="role" style="color:#fff">press / depth</span></div><div class="meta"><div class="name">Rosy Deep</div><div class="hex">#b8324c</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--rosy-tint)"><span class="role" style="color:var(--rosy-deep)">tints / fills</span></div><div class="meta"><div class="name">Rosy Tint</div><div class="hex">#f3d9de</div></div></div>
+    </div>
+
+    <h3>Move classification ramp <span class="tag" style="font-size:12px;">— verdicts only</span></h3>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:var(--m-brilliant)"><span class="role" style="color:#fff">!! Brilliant</span></div><div class="meta"><div class="name">Brilliant</div><div class="hex">#1f9e8a</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--m-great)"><span class="role" style="color:#fff">Great</span></div><div class="meta"><div class="name">Great</div><div class="hex">#3a7ca5</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--m-good)"><span class="role" style="color:#fff">Good</span></div><div class="meta"><div class="name">Good</div><div class="hex">#5f9a55</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--m-inaccuracy)"><span class="role" style="color:#fff">Inaccuracy</span></div><div class="meta"><div class="name">Inaccuracy</div><div class="hex">#c99a33</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--m-mistake)"><span class="role" style="color:#fff">Mistake</span></div><div class="meta"><div class="name">Mistake</div><div class="hex">#cf7a3c</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--m-blunder)"><span class="role" style="color:#fff">?? Blunder</span></div><div class="meta"><div class="name">Blunder</div><div class="hex">#b8324c</div></div></div>
+    </div>
+    <p class="note" style="margin-top:var(--s3)">Ramp hues are drawn fresh (not chess.com's) — muted to sit in the warm base. Never use these outside a move verdict; the product's chrome is ink + rosy only.</p>
+  </section>
+
+  <!-- TYPE -->
+  <section id="type">
+    <div class="sec-head"><span class="num">03</span><h2>Typography</h2></div>
+    <p class="lede">Two families. <b>Bricolage Grotesque</b> for everything expressive — headlines, wordmark, UI. <b>Space Mono</b> for anything that reads like an engine readout: evals, ratings, tags, timers, stats.</p>
+
+    <div class="card-surface">
+      <div class="type-row"><div class="label"><span class="tag">Display</span><span class="spec">Bricolage 800 · −3.5%</span></div><div class="demo"><div style="font-weight:800;letter-spacing:-.035em;font-size:52px;line-height:1;">Grade your rizz</div></div></div>
+      <div class="type-row"><div class="label"><span class="tag">H1 / Title</span><span class="spec">Bricolage 800 · 34px</span></div><div class="demo"><div style="font-weight:800;letter-spacing:-.03em;font-size:34px;">Pick your game mode</div></div></div>
+      <div class="type-row"><div class="label"><span class="tag">H2 / Section</span><span class="spec">Bricolage 700 · 24px</span></div><div class="demo"><div style="font-weight:700;letter-spacing:-.02em;font-size:24px;">Solo vs. the AI date</div></div></div>
+      <div class="type-row"><div class="label"><span class="tag">Body</span><span class="spec">Bricolage 400 · 17px</span></div><div class="demo"><div style="font-size:17px;max-width:52ch;">Every message gets a chess-style classification and an eval swing. Flirt, get graded, climb the ladder.</div></div></div>
+      <div class="type-row"><div class="label"><span class="tag">Label / Meta</span><span class="spec">Space Mono 700 · 13px · +6%</span></div><div class="demo"><div class="mono" style="font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-mute)">Accuracy · Eval · Rizz rating</div></div></div>
+      <div class="type-row"><div class="label"><span class="tag">Numeric readout</span><span class="spec">Space Mono 700 · 28px</span></div><div class="demo"><div class="mono" style="font-weight:700;font-size:28px;">1487 <span style="color:var(--m-good)">+24</span> · 92%</div></div></div>
+    </div>
+  </section>
+
+  <!-- SPACE -->
+  <section id="space">
+    <div class="sec-head"><span class="num">04</span><h2>Spacing &amp; radius</h2></div>
+    <p class="lede">A 4px base scale. Generous padding, pill-shaped controls, and soft-but-confident radii keep the product feeling tactile and friendly.</p>
+    <div class="two-col">
+      <div class="card-surface">
+        <span class="tag">Spacing scale — 4px base</span>
+        <div class="spacing-demo" style="margin-top:16px;">
+          <div class="sp" style="width:4px;height:4px;"></div>
+          <div class="sp" style="width:8px;height:8px;"></div>
+          <div class="sp" style="width:12px;height:12px;"></div>
+          <div class="sp" style="width:16px;height:16px;"></div>
+          <div class="sp" style="width:24px;height:24px;"></div>
+          <div class="sp" style="width:32px;height:32px;"></div>
+          <div class="sp" style="width:48px;height:48px;"></div>
+          <div class="sp" style="width:64px;height:64px;"><span>64</span></div>
+        </div>
+        <p class="note" style="margin-top:14px;">4 · 8 · 12 · 16 · 24 · 32 · 48 · 64</p>
+      </div>
+      <div class="card-surface">
+        <span class="tag">Radius</span>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:16px;align-items:flex-end;">
+          <div style="text-align:center"><div style="width:60px;height:60px;background:var(--rosy-tint);border:1px solid var(--rosy);border-radius:8px;"></div><div class="note" style="margin-top:6px">sm 8</div></div>
+          <div style="text-align:center"><div style="width:60px;height:60px;background:var(--rosy-tint);border:1px solid var(--rosy);border-radius:12px;"></div><div class="note" style="margin-top:6px">md 12</div></div>
+          <div style="text-align:center"><div style="width:60px;height:60px;background:var(--rosy-tint);border:1px solid var(--rosy);border-radius:18px;"></div><div class="note" style="margin-top:6px">lg 18</div></div>
+          <div style="text-align:center"><div style="width:60px;height:60px;background:var(--rosy-tint);border:1px solid var(--rosy);border-radius:26px;"></div><div class="note" style="margin-top:6px">xl 26</div></div>
+          <div style="text-align:center"><div style="width:60px;height:36px;background:var(--rosy-tint);border:1px solid var(--rosy);border-radius:999px;"></div><div class="note" style="margin-top:6px">pill</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BUTTONS -->
+  <section id="buttons">
+    <div class="sec-head"><span class="num">05</span><h2>Buttons</h2></div>
+    <p class="lede">Pill-shaped, chunky, tactile. The primary rosy button carries a hard bottom shadow that depresses on press — the whole product should feel like it clicks.</p>
+    <div class="card-surface">
+      <div class="btn-row" style="margin-bottom:20px;">
+        <button class="btn btn-primary">Analyze my moves</button>
+        <button class="btn btn-ink">Continue</button>
+        <button class="btn btn-ghost">Maybe later</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-sm">Unlock best move</button>
+        <button class="btn btn-ink btn-sm">Rematch</button>
+        <button class="btn btn-ghost btn-sm">Skip</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- MOVE BADGES -->
+  <section id="moves">
+    <div class="sec-head"><span class="num">06</span><h2>Move classification badges</h2></div>
+    <p class="lede">The heart of the engine. Each message maps its eval delta to one of six tiers. The glyph carries the meaning; the color reinforces it. <span class="mono">!!</span> and <span class="mono">??</span> are reserved for the extremes.</p>
+    <div class="card-surface">
+      <div class="badges">
+        <span class="mv"><span class="glyph" style="background:var(--m-brilliant)">!!</span>Brilliant <span class="swing">+2.4</span></span>
+        <span class="mv"><span class="glyph" style="background:var(--m-great)">!</span>Great <span class="swing">+1.6</span></span>
+        <span class="mv"><span class="glyph" style="background:var(--m-good)">✓</span>Good <span class="swing">+0.6</span></span>
+        <span class="mv"><span class="glyph" style="background:var(--m-inaccuracy)">?!</span>Inaccuracy <span class="swing">−0.7</span></span>
+        <span class="mv"><span class="glyph" style="background:var(--m-mistake)">?</span>Mistake <span class="swing">−1.8</span></span>
+        <span class="mv"><span class="glyph" style="background:var(--m-blunder)">??</span>Blunder <span class="swing">−3.4</span></span>
+      </div>
+      <p class="note" style="margin-top:18px">Thresholds (tune on data): Brilliant ≥ +2.0 &amp; non-obvious · Great +1.0–2.0 · Good +0.2–1.0 · Inaccuracy −0.2 to −1.0 · Mistake −1.0 to −2.5 · Blunder ≤ −2.5.</p>
+    </div>
+  </section>
+
+  <!-- EVAL + BUBBLES -->
+  <section id="eval">
+    <div class="sec-head"><span class="num">07</span><h2>Eval bar &amp; message bubbles</h2></div>
+    <p class="lede">The eval bar renders the persona's hidden interest state as a tug-of-war — <b>You</b> (rosy) versus the <b>Match</b> (cream). Bubbles are re-rendered on-brand, never screenshotted, and carry their move tag.</p>
+    <div class="two-col">
+      <div class="card-surface">
+        <span class="tag">Eval bar · interest 72 / 100</span>
+        <div class="evalbar" style="margin-top:14px;">
+          <div class="you" style="width:72%"></div>
+          <div class="match" style="width:28%"></div>
+        </div>
+        <div class="eval-legend"><span style="color:var(--rosy-deep)">YOU 72</span><span>MATCH 28</span></div>
+        <div style="margin-top:26px;">
+          <span class="tag">Per-turn swing</span>
+          <div class="mono" style="font-size:22px;font-weight:700;margin-top:8px;">+1.6 <span style="color:var(--m-good)">▲</span> &nbsp; <span style="color:var(--ink-mute)">then</span> &nbsp; −0.7 <span style="color:var(--m-inaccuracy)">▼</span></div>
+        </div>
+      </div>
+      <div class="card-surface">
+        <span class="tag">Re-rendered thread</span>
+        <div class="thread" style="margin-top:16px;">
+          <div class="bubble match">wait you actually hike? name a trail 👀</div>
+          <div class="bubble you">only if you promise not to leave me for the summit. Franconia Ridge, Sunday?<span class="mvtag" style="background:var(--m-brilliant)">!! +2.4</span></div>
+          <div class="bubble match">lol deal. bring snacks or it's a blunder</div>
+          <div class="bubble you">idk lol<span class="mvtag" style="background:var(--m-blunder)">?? −3.4</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHIPS + FORMS -->
+  <section id="chips">
+    <div class="sec-head"><span class="num">08</span><h2>Chips &amp; selectable options</h2></div>
+    <p class="lede">Used throughout the quiz onboarding and filters. Mono label, pill shape; selected state flips to ink.</p>
+    <div class="card-surface">
+      <span class="tag">Single &amp; multi select</span>
+      <div class="chips" style="margin-top:14px;">
+        <span class="chip-pill on">Something serious</span>
+        <span class="chip-pill">Casual &amp; fun</span>
+        <span class="chip-pill">Just practicing</span>
+        <span class="chip-pill">Dry wit</span>
+        <span class="chip-pill on">Playful</span>
+        <span class="chip-pill">Bullet · 20s</span>
+        <span class="chip-pill">Rapid · 40s</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SHARE CARD -->
+  <section id="card">
+    <div class="sec-head"><span class="num">09</span><h2>The shareable card</h2></div>
+    <p class="lede">The atomic unit of distribution — identical across every mode. Re-rendered bubbles (never screenshots), per-move classifications, eval, accuracy, rizz rating + ELO delta, a gated "best move" reveal, and an anonymization trust badge. Built at 4:5 / 9:16 for TikTok, Reels &amp; Stories.</p>
+    <div style="display:flex;gap:var(--s6);flex-wrap:wrap;align-items:flex-start;">
+      <div class="sharecard">
+        <div class="sc-head">
+          <div class="sc-brand">Mate<span class="b">Date</span></div>
+          <div class="sc-acc"><div class="n">92%</div><div class="l">Accuracy</div></div>
+        </div>
+        <div class="evalbar" style="margin:0 18px;border-radius:0;height:8px;"><div class="you" style="width:72%"></div><div class="match" style="width:28%"></div></div>
+        <div class="sc-body">
+          <div class="bubble match">wait you actually hike? name a trail 👀</div>
+          <div class="bubble you">only if you promise not to leave me for the summit 😏<span class="mvtag" style="background:var(--m-brilliant)">!! +2.4</span></div>
+          <div class="bubble you">idk lol<span class="mvtag" style="background:var(--m-blunder)">?? −3.4</span></div>
+          <div class="sc-locked">
+            <div class="l1">🔒 Best move · unlock</div>
+            <div class="l2">Franconia Ridge, Sunday — bring the snacks</div>
+          </div>
+        </div>
+        <div class="sc-foot">
+          <div class="sc-rating">♟ 1487 <span class="sc-delta">+24</span></div>
+          <div class="sc-badge">🛡 Anonymized</div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:260px;">
+        <h3 style="margin-top:0">Anatomy</h3>
+        <ul style="font-size:15px;color:var(--ink-soft);line-height:1.7;padding-left:18px;">
+          <li><b>Header</b> — wordmark + big accuracy % (the shareable brag).</li>
+          <li><b>Eval strip</b> — the tug-of-war at a glance.</li>
+          <li><b>Thread</b> — 2–4 re-rendered bubbles with move tags. Never the original screenshot — no names, avatars, or source-app UI.</li>
+          <li><b>Locked best move</b> — blurred, the primary paywall lever. Free users share the verdict; the fix is paid.</li>
+          <li><b>Footer</b> — rizz rating + ELO delta, plus the anonymization trust badge.</li>
+        </ul>
+        <div class="dd do" style="margin-top:16px;">
+          <div class="h">✓ Privacy by construction</div>
+          Cards are re-rendered from cleaned, redacted text. Raw screenshots are processed in memory and dropped — they never reach the card. Market as <b>pseudonymized</b>, not "fully anonymous."
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div style="background:var(--ink);color:var(--ink-mute);text-align:center;padding:var(--s7) var(--s4);font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.1em;text-transform:uppercase;">
+  MateDate Design System · v1.0 · Grade your rizz
+</div>
+
+<style id="__om-edit-overrides"></style>
+</body>
+</html>

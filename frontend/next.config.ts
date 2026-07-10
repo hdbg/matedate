@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  /* config options here */
-};
+// Note: this project uses Yarn PnP, which Turbopack does not resolve here, so
+// the dev/build scripts pass --webpack. Webpack picks up .pnp.cjs correctly.
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

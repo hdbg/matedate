@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MateDate · Match</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --cream:#f1e8d9; --cream-2:#e7dcc8; --paper:#f7f0e3;
+    --ink:#272320; --ink-soft:#4a443c; --ink-mute:#8a8175;
+    --king:#fbf6ec; --rosy:#d6536a; --rosy-deep:#b8324c; --rosy-tint:#f3d9de;
+    --m-brilliant:#1f9e8a; --m-great:#3a7ca5; --m-good:#5f9a55;
+    --m-inaccuracy:#c99a33; --m-mistake:#cf7a3c; --m-blunder:#b8324c;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; }
+  body{
+    background:#ddd6ca;
+    background-image:radial-gradient(circle at 30% 20%, #e6dfd2, #d2cabd);
+    font-family:'Bricolage Grotesque', system-ui, sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:100vh; padding:20px 24px 24px; color:var(--ink); gap:16px;
+  }
+  .mono{ font-family:'Space Mono', monospace; }
+
+  /* demo mode toggle (outside the phone) */
+  .democtrl{ display:flex; align-items:center; gap:10px; background:rgba(39,35,32,.9); padding:7px 8px 7px 16px; border-radius:999px; box-shadow:0 8px 24px rgba(39,35,32,.28); }
+  .democtrl .dl{ font-family:'Space Mono',monospace; font-weight:700; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#cfc6b6; }
+  .seg{ display:flex; background:rgba(255,255,255,.1); border-radius:999px; padding:3px; }
+  .seg button{ font-family:'Space Mono',monospace; font-weight:700; font-size:11px; letter-spacing:.04em; color:#cfc6b6; background:none; border:none; padding:7px 15px; border-radius:999px; cursor:pointer; transition:.18s; }
+  .seg button.on{ background:var(--rosy); color:#fff; }
+
+  .phone{
+    width:390px; max-width:100%; height:min(844px, calc(100vh - 96px));
+    background:var(--paper); border-radius:40px; overflow:hidden;
+    box-shadow:0 30px 70px rgba(39,35,32,.34), 0 2px 0 rgba(255,255,255,.5) inset;
+    position:relative; display:flex; flex-direction:column;
+  }
+  .statusbar{ height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:0 26px; font-family:'Space Mono',monospace; font-weight:700; font-size:13px; color:var(--ink); }
+  .statusbar .dots-r{ display:flex; gap:5px; align-items:center; }
+  .statusbar .sig{ width:16px; height:10px; background:currentColor; border-radius:2px; opacity:.85; }
+  .statusbar .bat{ width:22px; height:11px; border:1.5px solid currentColor; border-radius:3px; position:relative; }
+  .statusbar .bat::after{ content:''; position:absolute; left:1.5px; top:1.5px; bottom:1.5px; width:78%; background:currentColor; border-radius:1px; }
+
+  /* ---- match header ---- */
+  .mhead{ flex-shrink:0; padding:2px 18px 12px; border-bottom:1px solid rgba(39,35,32,.08); }
+  .mhead .top{ display:flex; align-items:center; gap:12px; }
+  .iconbtn{ background:none; border:none; font-size:24px; color:var(--ink); cursor:pointer; padding:2px 4px; opacity:.7; line-height:1; }
+  .iconbtn:hover{ opacity:1; }
+  .persona{ display:flex; align-items:center; gap:11px; flex:1; min-width:0; }
+  .pav{ width:44px; height:44px; border-radius:14px; background:var(--ink); display:grid; place-items:center; flex-shrink:0; overflow:hidden; }
+  .pav img{ height:38px; margin-top:6px; }
+  .pmeta{ min-width:0; }
+  .pname{ font-weight:800; font-size:18px; letter-spacing:-.02em; line-height:1.1; }
+  .phint{ font-family:'Space Mono',monospace; font-size:11px; color:var(--ink-mute); font-weight:700; display:flex; align-items:center; gap:5px; margin-top:1px; }
+  /* clock */
+  .clock{ flex-shrink:0; text-align:center; }
+  .clock .cv{ font-family:'Space Mono',monospace; font-weight:700; font-size:22px; letter-spacing:-.02em; line-height:1; padding:6px 10px; border-radius:12px; background:var(--ink); color:var(--king); transition:background .2s, color .2s; }
+  .clock.warn .cv{ background:var(--rosy); color:#fff; animation:pulse .6s ease-in-out infinite; }
+  .clock .cl{ font-family:'Space Mono',monospace; font-size:8px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-mute); font-weight:700; margin-top:3px; }
+  @keyframes pulse{ 50%{ transform:scale(1.06); } }
+
+  /* ---- competitive strip (swaps by mode) ---- */
+  .vstrip{ display:flex; align-items:center; gap:10px; margin-top:12px; padding:9px 12px; border-radius:14px; background:var(--cream); }
+  .side{ display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
+  .side.right{ justify-content:flex-end; }
+  .savatar{ width:26px; height:26px; border-radius:8px; display:grid; place-items:center; font-size:14px; font-weight:800; font-family:'Space Mono',monospace; flex-shrink:0; }
+  .sinfo{ min-width:0; }
+  .sname{ font-weight:700; font-size:12px; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .side.right .sinfo{ text-align:right; }
+  .sacc{ font-family:'Space Mono',monospace; font-weight:700; font-size:14px; line-height:1; }
+  .vscenter{ display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; }
+  .rounddots{ display:flex; gap:4px; }
+  .rd{ width:7px; height:7px; border-radius:50%; background:rgba(39,35,32,.18); }
+  .rd.win{ background:var(--m-good); } .rd.loss{ background:var(--rosy); } .rd.now{ background:var(--ink); box-shadow:0 0 0 3px rgba(39,35,32,.12); }
+  .vslabel{ font-family:'Space Mono',monospace; font-size:8px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-mute); }
+  .disclosure{ font-family:'Space Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.04em; color:var(--ink-soft); text-align:center; margin-top:9px; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .disclosure .dot{ display:inline-block; padding:2px 8px; border-radius:999px; background:var(--cream-2); }
+
+  /* eval bar */
+  .evalwrap{ flex-shrink:0; padding:12px 18px 10px; }
+  .evaltop{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+  .evaltop .lbl{ font-family:'Space Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-mute); }
+  .evaltop .num{ font-family:'Space Mono',monospace; font-weight:700; font-size:14px; }
+  .evalbar{ height:14px; border-radius:999px; overflow:hidden; display:flex; background:var(--ink); box-shadow:inset 0 1px 2px rgba(0,0,0,.4); }
+  .evalbar .you{ background:var(--rosy); height:100%; transition:width .6s cubic-bezier(.34,1.2,.4,1); }
+
+  /* ---- thread ---- */
+  .thread{ flex:1; overflow-y:auto; padding:16px 18px 6px; display:flex; flex-direction:column; gap:14px; }
+  .msg{ display:flex; flex-direction:column; max-width:82%; }
+  .msg.you{ align-self:flex-end; align-items:flex-end; }
+  .msg.match{ align-self:flex-start; }
+  .bubble{ padding:11px 15px; border-radius:20px; font-size:15px; line-height:1.38; position:relative; }
+  .msg.match .bubble{ background:#fff; border-bottom-left-radius:6px; box-shadow:0 2px 6px rgba(39,35,32,.08); }
+  .msg.you .bubble{ background:var(--rosy); color:#fff; border-bottom-right-radius:6px; }
+  .mvtag{ display:inline-flex; align-items:center; gap:5px; margin-top:6px; font-family:'Space Mono',monospace; font-weight:700; font-size:11px; padding:3px 9px; border-radius:999px; color:#fff; }
+  .anim-in{ animation:bubbleIn .34s cubic-bezier(.34,1.3,.5,1); }
+  @keyframes bubbleIn{ from{ opacity:0; transform:translateY(10px) scale(.96); } }
+  .typing{ display:inline-flex; gap:4px; padding:13px 16px; background:#fff; border-radius:20px; border-bottom-left-radius:6px; box-shadow:0 2px 6px rgba(39,35,32,.08); }
+  .typing i{ width:7px; height:7px; border-radius:50%; background:var(--ink-mute); animation:td 1.1s ease-in-out infinite; }
+  .typing i:nth-child(2){ animation-delay:.15s; } .typing i:nth-child(3){ animation-delay:.3s; }
+  @keyframes td{ 0%,100%{ opacity:.3; transform:translateY(0); } 40%{ opacity:1; transform:translateY(-4px); } }
+
+  /* verdict flash */
+  .verdict{ position:absolute; left:50%; top:38%; transform:translate(-50%,-50%) scale(.6); opacity:0; pointer-events:none; z-index:8; display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .verdict.show{ animation:verdictPop 1.5s cubic-bezier(.3,1.3,.4,1) forwards; }
+  .verdict .glyph{ width:78px; height:78px; border-radius:50%; display:grid; place-items:center; color:#fff; font-family:'Space Mono',monospace; font-weight:700; font-size:30px; box-shadow:0 12px 30px rgba(39,35,32,.3); }
+  .verdict .vt{ font-weight:800; font-size:20px; letter-spacing:-.02em; background:var(--ink); color:var(--king); padding:5px 16px; border-radius:999px; }
+  .verdict .vs2{ font-family:'Space Mono',monospace; font-weight:700; font-size:14px; }
+  @keyframes verdictPop{ 15%{ opacity:1; transform:translate(-50%,-50%) scale(1.05); } 78%{ opacity:1; transform:translate(-50%,-58%) scale(1); } 100%{ opacity:0; transform:translate(-50%,-68%) scale(.95); } }
+
+  /* ---- composer ---- */
+  .composer{ flex-shrink:0; padding:10px 16px calc(14px + env(safe-area-inset-bottom)); border-top:1px solid rgba(39,35,32,.08); background:var(--paper); }
+  .suggests{ display:flex; gap:8px; overflow-x:auto; padding-bottom:10px; scrollbar-width:none; }
+  .suggests::-webkit-scrollbar{ display:none; }
+  .sg{ flex-shrink:0; font-size:13px; font-weight:600; padding:8px 14px; border-radius:999px; background:#fff; border:1.5px solid rgba(39,35,32,.14); cursor:pointer; white-space:nowrap; transition:.12s; }
+  .sg:hover{ border-color:var(--rosy); transform:translateY(-1px); }
+  .sg .q{ font-family:'Space Mono',monospace; font-size:10px; color:var(--ink-mute); margin-left:4px; }
+  .cbar{ display:flex; align-items:flex-end; gap:9px; }
+  .cbar .field{ flex:1; display:flex; align-items:center; background:#fff; border:2px solid rgba(39,35,32,.14); border-radius:22px; padding:4px 4px 4px 16px; }
+  .cbar input{ flex:1; border:none; background:none; font-family:inherit; font-size:15px; color:var(--ink); padding:9px 0; }
+  .cbar input:focus{ outline:none; }
+  .cbar .field:focus-within{ border-color:var(--rosy); }
+  .send{ width:40px; height:40px; border-radius:50%; border:none; background:var(--rosy); color:#fff; font-size:19px; cursor:pointer; display:grid; place-items:center; flex-shrink:0; box-shadow:0 4px 0 var(--rosy-deep); transition:.1s; }
+  .send:hover{ background:var(--rosy-deep); }
+  .send:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--rosy-deep); }
+  .send:disabled{ background:#c9beae; box-shadow:0 4px 0 #ab9f8d; cursor:not-allowed; }
+  .locked-hint{ font-family:'Space Mono',monospace; font-size:10px; color:var(--ink-mute); font-weight:700; text-align:center; margin-top:8px; }
+  .locked-hint b{ color:var(--rosy-deep); cursor:pointer; }
+</style>
+</head>
+<body>
+
+  <div class="democtrl">
+    <span class="dl">Preview as</span>
+    <div class="seg">
+      <button class="on" id="segRanked" onclick="setMode('ranked')">⚔️ Ranked PvP</button>
+      <button id="segBot" onclick="setMode('bot')">🤖 vs Bot</button>
+    </div>
+  </div>
+
+<div class="phone" data-screen-label="Match">
+  <div class="statusbar">
+    <span>9:41</span>
+    <span class="dots-r"><span class="sig"></span><span class="mono" style="font-size:11px;">5G</span><span class="bat"></span></span>
+  </div>
+
+  <!-- header -->
+  <div class="mhead">
+    <div class="top">
+      <button class="iconbtn" onclick="quit()">‹</button>
+      <div class="persona">
+        <div class="pav"><img src="assets/black-queen.svg" alt="" /></div>
+        <div class="pmeta">
+          <div class="pname">Maya, 26</div>
+          <div class="phint">🎭 persona type: hidden — read her</div>
+        </div>
+      </div>
+      <div class="clock" id="clock">
+        <div class="cv" id="clockVal">0:40</div>
+        <div class="cl" id="clockLbl">Rapid · your move</div>
+      </div>
+    </div>
+
+    <!-- competitive strip -->
+    <div class="vstrip" id="vstrip"><!-- filled by JS --></div>
+    <div class="disclosure" id="disclosure" style="display:none;"></div>
+  </div>
+
+  <!-- eval / interest meter -->
+  <div class="evalwrap">
+    <div class="evaltop">
+      <span class="lbl">Maya's interest</span>
+      <span class="num" id="evalNum"><span style="color:var(--rosy-deep)">58</span> <span style="color:var(--ink-mute)">/ 100</span></span>
+    </div>
+    <div class="evalbar"><div class="you" id="evalFill" style="width:58%"></div></div>
+  </div>
+
+  <!-- thread -->
+  <div class="thread" id="thread">
+    <div class="msg match"><div class="bubble">ok your profile says you'll "die on a hill about breakfast foods" — defend that immediately 🍳</div></div>
+  </div>
+
+  <!-- verdict flash overlay -->
+  <div class="verdict" id="verdict">
+    <div class="glyph" id="verdictGlyph">!!</div>
+    <div class="vt" id="verdictLabel">Brilliant</div>
+    <div class="vs2" id="verdictSwing">+2.4</div>
+  </div>
+
+  <!-- composer -->
+  <div class="composer">
+    <div class="suggests" id="suggests"></div>
+    <div class="cbar">
+      <div class="field">
+        <input id="input" placeholder="Type your move…" autocomplete="off" oninput="onType()" onkeydown="if(event.key==='Enter')sendInput()" />
+      </div>
+      <button class="send" id="send" onclick="sendInput()" disabled>➤</button>
+    </div>
+    <div class="locked-hint">💡 Stuck? <b onclick="peek()">Reveal the Brilliant line</b> · locked</div>
+  </div>
+</div>
+
+<script>
+/* ---------------- state ---------------- */
+let mode = 'ranked';
+let eval_ = 58;                 // Maya's interest 0-100
+let yourAcc = 0, oppAcc = 0, moveCount = 0, oppMoveTotal = 0;
+let round = 0;                  // index into rounddots
+const rounds = ['now','pending','pending'];
+let clock = 40, clockTimer = null, clockActive = false, timeControl = 40;
+
+const opponents = {
+  ranked: { name:'Alex_M', sub:'Gold II', av:'A', avbg:'var(--rosy-tint)', avcolor:'var(--rosy-deep)' },
+  bot:    { name:'RizzBot-1400', sub:'AI opponent', av:'🤖', avbg:'var(--cream-2)', avcolor:'var(--ink)' }
+};
+
+/* canned replies of graded quality (for tap-to-demo) */
+const suggestions = [
+  { text:"honestly? cereal is a soup and I'll take that to court ⚖️", label:'Brilliant', key:'brilliant', swing:2.4 },
+  { text:"pancakes obviously. what's your hill?", label:'Good', key:'good', swing:0.6 },
+  { text:"idk lol breakfast is breakfast", label:'Blunder', key:'blunder', swing:-3.2 },
+];
+const personaReplies = [
+  "ok that was actually kind of elite 😂 go on",
+  "hmm bold. I respect the conviction",
+  "...you're gonna have to work harder than that",
+  "wait that's unhinged (complimentary)",
+  "see now I'm invested. keep going",
+];
+const MV = {
+  brilliant:{ c:'var(--m-brilliant)', g:'!!', t:'Brilliant' },
+  great:{ c:'var(--m-great)', g:'!', t:'Great' },
+  good:{ c:'var(--m-good)', g:'✓', t:'Good' },
+  inaccuracy:{ c:'var(--m-inaccuracy)', g:'?!', t:'Inaccuracy' },
+  mistake:{ c:'var(--m-mistake)', g:'?', t:'Mistake' },
+  blunder:{ c:'var(--m-blunder)', g:'??', t:'Blunder' },
+};
+
+/* ---------------- mode chrome ---------------- */
+function setMode(m){
+  mode = m;
+  document.getElementById('segRanked').classList.toggle('on', m==='ranked');
+  document.getElementById('segBot').classList.toggle('on', m==='bot');
+  renderStrip();
+  const disc = document.getElementById('disclosure');
+  const clk = document.getElementById('clock');
+  if(m==='bot'){
+    disc.style.display='flex';
+    disc.innerHTML = '<span class="dot">🤖 You\'re playing a bot — unranked</span>';
+    document.getElementById('clockLbl').textContent = 'Practice · relaxed';
+    clk.style.opacity = .55;
+  } else {
+    disc.style.display='none';
+    document.getElementById('clockLbl').textContent = 'Rapid · your move';
+    clk.style.opacity = 1;
+  }
+}
+
+function renderStrip(){
+  const o = opponents[mode];
+  const dots = rounds.map((r,i)=>{
+    let cls = 'rd';
+    if(r==='win') cls+=' win'; else if(r==='loss') cls+=' loss'; else if(i===round) cls+=' now';
+    return `<span class="${cls}"></span>`;
+  }).join('');
+  const centerLabel = mode==='ranked' ? `Round ${round+1} of 3 · ELO` : `Round ${round+1} of 3 · casual`;
+  document.getElementById('vstrip').innerHTML = `
+    <div class="side">
+      <div class="savatar" style="background:var(--ink);color:var(--king)">♟</div>
+      <div class="sinfo"><div class="sname">You</div></div>
+      <div class="sacc" style="color:var(--rosy-deep)">${Math.round(yourAcc)||'—'}${yourAcc?'%':''}</div>
+    </div>
+    <div class="vscenter"><div class="rounddots">${dots}</div><div class="vslabel">${centerLabel}</div></div>
+    <div class="side right">
+      <div class="sacc" style="color:var(--ink-soft)">${Math.round(oppAcc)||'—'}${oppAcc?'%':''}</div>
+      <div class="sinfo"><div class="sname">${o.name}</div></div>
+      <div class="savatar" style="background:${o.avbg};color:${o.avcolor}">${o.av}</div>
+    </div>`;
+}
+
+/* ---------------- clock ---------------- */
+function startClock(){
+  stopClock();
+  clock = timeControl; clockActive = true; renderClock();
+  clockTimer = setInterval(()=>{
+    clock--; renderClock();
+    if(clock<=0){ stopClock(); flag(); }
+  }, 1000);
+}
+function stopClock(){ clearInterval(clockTimer); clockActive=false; }
+function renderClock(){
+  const m = Math.floor(clock/60), s = clock%60;
+  document.getElementById('clockVal').textContent = `${m}:${s<10?'0':''}${s}`;
+  document.getElementById('clock').classList.toggle('warn', clock<=10 && mode==='ranked');
+}
+function flag(){
+  if(mode==='ranked'){
+    document.getElementById('clockLbl').textContent = 'Flagged — you lose';
+    addMatch("(you ran out of time — opponent takes the round on the clock ⏱)", true);
+  }
+}
+
+/* ---------------- messaging ---------------- */
+function thread(){ return document.getElementById('thread'); }
+function scrollDown(){ const t=thread(); t.scrollTop = t.scrollHeight; }
+
+function addYou(text, mvKey, swing){
+  const el = document.createElement('div');
+  el.className = 'msg you anim-in';
+  const mv = MV[mvKey];
+  el.innerHTML = `<div class="bubble">${text}</div>` +
+    `<span class="mvtag" style="background:${mv.c}">${mv.g} ${mv.t} ${swing>=0?'+':''}${swing.toFixed(1)}</span>`;
+  thread().appendChild(el); scrollDown();
+}
+function addMatch(text, system){
+  const el = document.createElement('div');
+  el.className = 'msg match anim-in';
+  el.innerHTML = `<div class="bubble" ${system?'style="background:var(--cream-2);font-family:\'Space Mono\',monospace;font-size:13px;"':''}>${text}</div>`;
+  thread().appendChild(el); scrollDown();
+}
+function showTyping(){
+  const el = document.createElement('div');
+  el.className = 'msg match'; el.id='typing';
+  el.innerHTML = `<div class="typing"><i></i><i></i><i></i></div>`;
+  thread().appendChild(el); scrollDown();
+}
+function hideTyping(){ const t=document.getElementById('typing'); if(t) t.remove(); }
+
+function flashVerdict(mvKey, swing){
+  const mv = MV[mvKey];
+  const v = document.getElementById('verdict');
+  document.getElementById('verdictGlyph').textContent = mv.g;
+  document.getElementById('verdictGlyph').style.background = mv.c;
+  document.getElementById('verdictLabel').textContent = mv.t;
+  const sw = document.getElementById('verdictSwing');
+  sw.textContent = (swing>=0?'+':'')+swing.toFixed(1);
+  sw.style.color = mv.c;
+  v.classList.remove('show'); void v.offsetWidth; v.classList.add('show');
+}
+
+function setEval(v){
+  eval_ = Math.max(2, Math.min(98, v));
+  document.getElementById('evalFill').style.width = eval_+'%';
+  document.getElementById('evalNum').innerHTML =
+    `<span style="color:var(--rosy-deep)">${Math.round(eval_)}</span> <span style="color:var(--ink-mute)">/ 100</span>`;
+}
+
+/* grade free-typed text loosely so the prototype feels alive */
+function gradeFree(text){
+  const t = text.toLowerCase();
+  if(t.length < 6 || /^(idk|lol|k|hey|hi|sup)\b/.test(t)) return { key:'mistake', swing:-1.4 };
+  if(/[😂😏🔥⚖️👀]|\?$/.test(text) || t.length > 40) return { key:'great', swing:1.5 };
+  return { key:'good', swing:0.7 };
+}
+
+function playMove(text, mvKey, swing){
+  if(!clockActive && mode==='ranked' && clock<=0) return; // flagged
+  stopClock();
+  addYou(text, mvKey, swing);
+  flashVerdict(mvKey, swing);
+  setEval(eval_ + swing*7);
+
+  // update your running accuracy
+  moveCount++;
+  const quality = { brilliant:100, great:88, good:74, inaccuracy:52, mistake:35, blunder:12 }[mvKey];
+  yourAcc = (yourAcc*(moveCount-1) + quality) / moveCount;
+  // opponent progresses a bit
+  oppMoveTotal++;
+  oppAcc = (oppAcc*(oppMoveTotal-1) + (mode==='ranked' ? 70+Math.random()*20 : 60+Math.random()*18)) / oppMoveTotal;
+  renderStrip();
+
+  // persona replies
+  showTyping();
+  setTimeout(()=>{
+    hideTyping();
+    addMatch(personaReplies[Math.floor(Math.random()*personaReplies.length)]);
+    if(mode==='ranked') startClock();
+  }, 1400);
+}
+
+/* ---------------- inputs ---------------- */
+function renderSuggests(){
+  document.getElementById('suggests').innerHTML = suggestions.map((s,i)=>
+    `<button class="sg" onclick="sendSuggest(${i})">${s.text}</button>`
+  ).join('');
+}
+function sendSuggest(i){
+  const s = suggestions[i];
+  playMove(s.text, s.key, s.swing);
+}
+function onType(){
+  const v = document.getElementById('input').value.trim();
+  document.getElementById('send').disabled = v.length===0;
+}
+function sendInput(){
+  const inp = document.getElementById('input');
+  const v = inp.value.trim();
+  if(!v) return;
+  const g = gradeFree(v);
+  playMove(v, g.key, g.swing);
+  inp.value=''; document.getElementById('send').disabled = true;
+}
+function peek(){
+  alert('🔒 The Brilliant line is a paid reveal.\n\nStart your 3-day free trial to unlock best moves in every match.');
+}
+function quit(){
+  if(mode==='ranked') alert('Leaving now forfeits the match (counts as a timeout loss for ranked ELO).');
+}
+
+/* ---------------- init ---------------- */
+setMode('ranked');
+renderSuggests();
+setEval(58);
+startClock();
+</script>
+</body>
+</html>

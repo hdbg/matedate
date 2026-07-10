@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MateDate · Loading</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --cream:#f1e8d9; --ink:#272320; --king:#fbf6ec;
+    --rosy:#d6536a; --rosy-deep:#b8324c;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{
+    background:var(--ink);
+    font-family:'Bricolage Grotesque', system-ui, sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; overflow:hidden;
+  }
+
+  .loader{
+    width:min(88vmin, 560px);
+    aspect-ratio:1 / 1;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:clamp(20px, 5vmin, 44px);
+    position:relative;
+  }
+
+  /* --- the face-off scene --- */
+  .scene{
+    position:relative;
+    width:100%;
+    height:56%;
+    display:flex; align-items:flex-end; justify-content:center;
+    gap:clamp(4px, 1.5vmin, 14px);
+  }
+  .piece{ display:block; width:auto; }
+
+  .queen{
+    height:clamp(120px, 30vmin, 205px);
+    /* subtle cream rim so the black queen reads on dark */
+    filter:
+      drop-shadow(1px 0 0 rgba(241,232,217,.5)) drop-shadow(-1px 0 0 rgba(241,232,217,.5))
+      drop-shadow(0 1px 0 rgba(241,232,217,.5)) drop-shadow(0 -1px 0 rgba(241,232,217,.5));
+    transform-origin:bottom center;
+    animation:queenLoom 2.4s ease-in-out infinite;
+  }
+
+  .king-wrap{ position:relative; display:flex; align-items:flex-end; transform-origin:bottom center; animation:kingBob 2.4s ease-in-out infinite; }
+  .king{
+    height:clamp(135px, 34vmin, 230px);
+    transform-origin:bottom center;
+    animation:kingShake .5s ease-in-out infinite;
+  }
+  .bang{
+    position:absolute; top:-2%; right:-14%;
+    font-weight:800; letter-spacing:-.04em; line-height:.8;
+    color:var(--rosy);
+    font-size:clamp(28px, 8vmin, 62px);
+    text-shadow:0 0 22px rgba(214,83,106,.55);
+    transform-origin:bottom left;   /* bursts outward from the king */
+    animation:bangBurst 1.6s cubic-bezier(.2,.9,.25,1) infinite;
+  }
+
+  /* soft floor glow under the pieces */
+  .floor{
+    position:absolute; left:50%; bottom:0; transform:translateX(-50%);
+    width:70%; height:26px; border-radius:50%;
+    background:radial-gradient(ellipse at center, rgba(214,83,106,.28), rgba(214,83,106,0) 70%);
+    animation:floorPulse 2.4s ease-in-out infinite;
+  }
+
+  /* --- wordmark + status --- */
+  .wordmark{ font-weight:800; letter-spacing:-.035em; font-size:clamp(34px, 9vmin, 62px); line-height:1; }
+  .wm-mate{ color:var(--king); }
+  .wm-date{ color:var(--rosy); }
+
+  .status{
+    display:flex; align-items:center; gap:.5em;
+    font-family:'Space Mono', monospace; font-weight:700;
+    font-size:clamp(12px, 2.6vmin, 15px); letter-spacing:.14em; text-transform:uppercase;
+    color:#8a8175;
+  }
+  .dots{ display:inline-flex; gap:.28em; }
+  .dots i{ width:.42em; height:.42em; border-radius:50%; background:var(--rosy); display:inline-block; animation:dot 1.2s ease-in-out infinite; }
+  .dots i:nth-child(2){ animation-delay:.16s; }
+  .dots i:nth-child(3){ animation-delay:.32s; }
+
+  /* --- keyframes --- */
+  @keyframes queenLoom{
+    0%,100%{ transform:translateX(0) scale(1); }
+    45%    { transform:translateX(6%) scale(1.05); }
+    55%    { transform:translateX(6%) scale(1.05); }
+  }
+  @keyframes kingBob{
+    0%,100%{ transform:translateX(0); }
+    45%,55%{ transform:translateX(4%); }
+  }
+  @keyframes kingShake{
+    0%,100%{ transform:rotate(9deg); }
+    25%    { transform:rotate(16deg); }
+    50%    { transform:rotate(11deg); }
+    75%    { transform:rotate(15deg); }
+  }
+  @keyframes bangBurst{
+    /* anime "!!" surprise: pop out from nothing, overshoot, hold, collapse to loop */
+    0%     { transform:rotate(13deg) scale(0);    opacity:0; }
+    14%    { transform:rotate(13deg) scale(1.28); opacity:1; }
+    26%    { transform:rotate(13deg) scale(.94); }
+    34%    { transform:rotate(13deg) scale(1); }
+    82%    { transform:rotate(13deg) scale(1);    opacity:1; }
+    100%   { transform:rotate(13deg) scale(0);    opacity:0; }
+  }
+  @keyframes floorPulse{
+    0%,100%{ opacity:.5; transform:translateX(-50%) scaleX(.9); }
+    50%    { opacity:1;  transform:translateX(-50%) scaleX(1.1); }
+  }
+  @keyframes dot{
+    0%,100%{ opacity:.25; transform:translateY(0); }
+    40%    { opacity:1;   transform:translateY(-.28em); }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .queen,.king-wrap,.king,.bang,.floor,.dots i{ animation:none; }
+    .king{ transform:rotate(13deg); }
+    .bang{ transform:rotate(13deg) scale(1); opacity:1; }
+  }
+</style>
+</head>
+<body>
+  <div class="loader" role="status" aria-label="Loading MateDate">
+    <div class="scene">
+      <div class="floor"></div>
+      <img class="piece queen" src="assets/black-queen.svg" alt="" />
+      <div class="king-wrap">
+        <span class="bang">!!</span>
+        <img class="piece king" src="assets/white-king.svg" alt="" />
+      </div>
+    </div>
+
+    <div class="wordmark"><span class="wm-mate">Mate</span><span class="wm-date">Date</span></div>
+
+    <div class="status">
+      <span>Analyzing your moves</span>
+      <span class="dots"><i></i><i></i><i></i></span>
+    </div>
+  </div>
+</body>
+</html>

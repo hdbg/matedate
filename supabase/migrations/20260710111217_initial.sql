@@ -53,6 +53,11 @@ create type public.game_mode as enum ('solo', 'screenshot', 'puzzle');
 -- Which ELO a rating change applies to.
 create type public.rating_kind as enum ('rizz', 'ranked', 'casual');
 
+-- Onboarding quiz answers (SPEC §8, funnel). dating_goal is single-select;
+-- texting_style is multi-select and stored as an array of these values.
+create type public.dating_goal as enum ('serious', 'casual', 'confidence', 'practice');
+create type public.texting_style as enum ('drywit', 'playful', 'dark', 'earnest');
+
 -- A ranked match's lifecycle.
 create type public.match_status as enum ('queued', 'active', 'scoring', 'completed', 'abandoned');
 
@@ -108,6 +113,11 @@ create table public.profiles (
   -- was cleared; we deliberately do not collect data that would trigger COPPA.
   date_of_birth     date,
   age_verified_at   timestamptz,
+
+  -- Onboarding quiz answers (SPEC §8). Tune AI dates / puzzles to the player.
+  -- dating_goal is single-select; texting_style is multi-select (default empty).
+  dating_goal       public.dating_goal,
+  texting_style     public.texting_style[] not null default '{}',
 
   -- Ratings live in player_ratings (its own table) so RLS alone can make them
   -- read-only to the owner while the rest of the profile stays user-editable —
