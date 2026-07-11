@@ -78,12 +78,16 @@ export function useAnalysisNotifications() {
 
   useEffect(() => {
     const supabase = createClient();
+    // The channel is created after `await`s; a `cancelled` guard checked after each await lets a
+    // torn-down mount (React StrictMode double-invokes effects) bail before subscribing — otherwise
+    // the second mount reuses the same-named channel instance and `.on()` throws "after subscribe()".
+    let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
-      if (!userId) return;
+      if (!userId || cancelled) return;
 
       // Catch up on reviews that finished while we weren't listening.
       const { data } = await supabase
@@ -93,6 +97,7 @@ export function useAnalysisNotifications() {
         .in("status", ["completed", "failed"])
         .order("updated_at", { ascending: false })
         .limit(MAX);
+      if (cancelled) return;
       const initial = ((data ?? []) as AnalysisJobRow[])
         .map(toNotification)
         .filter((n): n is AnalysisNotification => n !== null);
@@ -119,6 +124,7 @@ export function useAnalysisNotifications() {
     })();
 
     return () => {
+      cancelled = true;
       if (channel) void supabase.removeChannel(channel);
     };
   }, [recount, upsert]);

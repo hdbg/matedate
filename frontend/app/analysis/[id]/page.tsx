@@ -3,134 +3,131 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
-import { createClient } from "@/app/lib/supabase/client";
-import { MOVE_CLASSES, type MoveClassKey } from "@/app/lib/game/service";
-import type { GameAnalysisMoveRow, GameAnalysisRow } from "@/app/lib/supabase/types";
+import { AnalysisPanel } from "./components/AnalysisPanel";
+import { ReviewControls } from "./components/ReviewControls";
+import { ReviewHeader } from "./components/ReviewHeader";
+import { ReviewThread } from "./components/ReviewThread";
+import { SummaryStrip } from "./components/SummaryStrip";
+import { loadReview, rankCounts, type ReviewData } from "./review";
+import { useReviewReplay } from "./useReviewReplay";
 
-/** Derive the move rank from the stored swing (eval_delta/10) — mirrors backend grading.py. */
-function classifyKey(evalDelta: number | null): MoveClassKey {
-  const swing = (evalDelta ?? 0) / 10;
-  if (swing >= 2.0) return "brilliant";
-  if (swing >= 1.0) return "great";
-  if (swing >= 0.2) return "good";
-  if (swing >= -1.0) return "inaccuracy";
-  if (swing >= -2.5) return "mistake";
-  return "blunder";
-}
-
-/**
- * Analysis View — STUB. A functional placeholder that renders the deep-review data (title,
- * description, tags, and each re-scored "You" move) until the Game Review mock exists and the
- * real screen is built. Reads the owner-scoped rows with the browser client (RLS-gated).
- */
 export default function AnalysisPage() {
-  const router = useRouter();
   const id = String(useParams().id);
-  const [analysis, setAnalysis] = useState<GameAnalysisRow | null>(null);
-  const [moves, setMoves] = useState<GameAnalysisMoveRow[]>([]);
+  const router = useRouter();
+  const [data, setData] = useState<ReviewData | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "missing">("loading");
 
   useEffect(() => {
-    const supabase = createClient();
+    let active = true;
     (async () => {
-      const { data: a } = await supabase
-        .from("game_analyses")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
-      if (!a) {
-        setState("missing");
-        return;
-      }
-      const { data: m } = await supabase
-        .from("game_analysis_moves")
-        .select("*")
-        .eq("analysis_id", id)
-        .order("position");
-      setAnalysis(a as GameAnalysisRow);
-      setMoves((m ?? []) as GameAnalysisMoveRow[]);
-      setState("ready");
+      const review = await loadReview(id);
+      if (!active) return;
+      setData(review);
+      setState(review ? "ready" : "missing");
     })();
+    return () => {
+      active = false;
+    };
   }, [id]);
+
+  if (state !== "ready" || !data) {
+    return (
+      <AppShell>
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center font-mono text-[13px] text-ink-mute">
+          {state === "missing" ? (
+            <>
+              <span className="text-m-blunder">Review not found (or not yours).</span>
+              <button
+                type="button"
+                onClick={() => router.push("/play")}
+                className="cursor-pointer text-rosy-deep underline"
+              >
+                Back to play
+              </button>
+            </>
+          ) : (
+            "Loading review…"
+          )}
+        </div>
+      </AppShell>
+    );
+  }
+
+  return <ReviewScreen id={id} data={data} />;
+}
+
+function ReviewScreen({ id, data }: { id: string; data: ReviewData }) {
+  const router = useRouter();
+  const [unlocked, setUnlocked] = useState(false);
+  const replay = useReviewReplay(data.youMoves.length, `matedate.reviewStep.${id}`);
+  const { step } = replay;
+
+  const currentMove = step === 0 ? null : (data.youMoves[step - 1] ?? null);
+  const currentEval = currentMove ? currentMove.evalAfter : data.finalEval;
+  const currentIndex = currentMove ? currentMove.threadIndex : -1;
+  const counts = rankCounts(data.youMoves);
+
+  const back = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push("/play");
+  };
+  const share = () => {
+    const text = `${data.title} — my MateDate game review`;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      void navigator.share({ title: "MateDate", text }).catch(() => {});
+    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+      void navigator.clipboard.writeText(text).catch(() => {});
+    }
+  };
+
+  const panel = (
+    <AnalysisPanel
+      step={step}
+      overview={{ title: data.title, description: data.description, tags: data.tags }}
+      move={currentMove}
+      unlocked={unlocked}
+      onUnlock={() => setUnlocked(true)}
+    />
+  );
 
   return (
     <AppShell>
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-8">
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-mute">
-            Game review · stub
-          </span>
-          <button
-            type="button"
-            onClick={() => router.push("/play")}
-            className="cursor-pointer font-mono text-[11px] uppercase tracking-[0.06em] text-rosy-deep hover:text-rosy"
-          >
-            New game →
-          </button>
+      <div className="flex h-full min-h-0 flex-col lg:flex-row">
+        {/* left column: header, summary, thread, (mobile) analysis sheet, controls */}
+        <div className="flex min-h-0 flex-1 flex-col lg:border-r lg:border-ink/10">
+          <ReviewHeader
+            title={data.title}
+            dateISO={data.dateISO}
+            personaName={data.personaName}
+            youEval={data.finalEval}
+            endReason={data.endReason}
+            onBack={back}
+            onShare={share}
+          />
+          <SummaryStrip
+            accuracy={data.accuracy}
+            brilliant={counts.brilliant}
+            blunder={counts.blunder}
+            ratingDelta={data.ratingDelta}
+            youEval={currentEval}
+          />
+          <ReviewThread thread={data.thread} currentIndex={currentIndex} />
+
+          {/* analysis as a bottom sheet on mobile (a persistent rail on desktop, below) */}
+          <div className="max-h-[38%] flex-shrink-0 overflow-y-auto border-t border-ink/10 bg-cream lg:hidden">
+            {panel}
+          </div>
+
+          <ReviewControls youMoves={data.youMoves} replay={replay} />
         </div>
 
-        {state === "loading" && (
-          <p className="font-mono text-[13px] text-ink-mute">Loading review…</p>
-        )}
-        {state === "missing" && (
-          <p className="font-mono text-[13px] text-m-blunder">
-            Analysis not found (or not yours).
-          </p>
-        )}
-
-        {state === "ready" && analysis && (
-          <>
-            <header className="flex flex-col gap-2">
-              <h1 className="text-[28px] font-extrabold tracking-[-0.035em]">{analysis.title}</h1>
-              <p className="text-[15px] text-ink-soft">{analysis.description}</p>
-              {analysis.tags.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1.5">
-                  {analysis.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full bg-cream-2 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-soft"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </header>
-
-            <ol className="flex flex-col gap-3">
-              {moves.map((move) => {
-                const meta = MOVE_CLASSES[classifyKey(move.eval_delta)];
-                const swing = (move.eval_delta ?? 0) / 10;
-                return (
-                  <li
-                    key={move.id}
-                    className="rounded-2xl border border-ink/[0.08] bg-paper p-4 shadow-[var(--sh-1)]"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-[14px] text-ink">“{move.content}”</p>
-                      <span
-                        className="shrink-0 rounded-full px-2 py-1 font-mono text-[11px] font-bold text-white"
-                        style={{ background: meta.color }}
-                      >
-                        {meta.glyph} {swing >= 0 ? "+" : ""}
-                        {swing.toFixed(1)}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-[13px] text-ink-soft">{move.comment}</p>
-                    {move.best_line && (
-                      <p className="mt-2 rounded-lg bg-rosy-tint/60 px-3 py-2 text-[13px] text-ink">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-rosy-deep">
-                          Best line ·{" "}
-                        </span>
-                        {move.best_line}
-                      </p>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          </>
-        )}
+        {/* persistent analysis rail on desktop */}
+        <aside className="hidden min-h-0 w-[380px] flex-col overflow-y-auto bg-cream lg:flex xl:w-[400px]">
+          <div className="px-[26px] pt-[22px] font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-ink-mute">
+            Move analysis
+          </div>
+          {panel}
+        </aside>
       </div>
     </AppShell>
   );

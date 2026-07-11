@@ -70,6 +70,24 @@ export function formatSwing(swing: number): string {
 }
 
 /**
+ * Derive a move's rank from its pawn-scale swing. Mirrors the server's `classify()` thresholds
+ * (backend `app/grading.py`) — quality is stored as the numeric eval, the label is derived on read.
+ */
+export function classifySwing(swing: number): MoveClassKey {
+  if (swing >= 2.0) return "brilliant";
+  if (swing >= 1.0) return "great";
+  if (swing >= 0.2) return "good";
+  if (swing >= -1.0) return "inaccuracy";
+  if (swing >= -2.5) return "mistake";
+  return "blunder";
+}
+
+/** Same, from a raw eval delta (0–100 interest scale; swing = delta / 10). */
+export function classifyEvalDelta(evalDelta: number | null): MoveClassKey {
+  return classifySwing((evalDelta ?? 0) / 10);
+}
+
+/**
  * The gameplay data source. Personas come from Supabase; move scoring is graded
  * client-side by the interim engine until a real analysis backend exists.
  */

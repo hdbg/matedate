@@ -52,6 +52,27 @@ type ProfileUpdate = Partial<
   >
 >;
 
+/** Source game of a solo analysis (owner-readable). Supplies the review's summary + date. */
+export interface GameRow {
+  id: string;
+  user_id: string | null;
+  mode: string;
+  status: string;
+  end_reason: string | null;
+  accuracy: number | null;
+  title: string | null;
+  description: string | null;
+  created_at: string;
+  ended_at: string | null;
+}
+
+/** Solo-specific columns: the rizz delta and which persona was played. */
+export interface SoloGameRow {
+  game_id: string;
+  persona_id: string | null;
+  rating_delta: number;
+}
+
 /** Lifecycle row for a queued analysis. Owner-readable; the notifications bell watches it. */
 export interface AnalysisJobRow {
   id: string;

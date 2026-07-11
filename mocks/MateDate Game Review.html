@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MateDate · Game Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --cream:#f1e8d9; --cream-2:#e7dcc8; --paper:#f7f0e3;
+    --ink:#272320; --ink-soft:#4a443c; --ink-mute:#8a8175;
+    --king:#fbf6ec; --rosy:#d6536a; --rosy-deep:#b8324c; --rosy-tint:#f3d9de;
+    --m-brilliant:#1f9e8a; --m-great:#3a7ca5; --m-good:#5f9a55;
+    --m-inaccuracy:#c99a33; --m-mistake:#cf7a3c; --m-blunder:#b8324c;
+    --sh-1:0 2px 6px rgba(39,35,32,.08);
+    --sh-2:0 8px 22px rgba(39,35,32,.12);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; }
+  body{
+    background:#ddd6ca;
+    background-image:radial-gradient(circle at 30% 20%, #e6dfd2, #d2cabd);
+    font-family:'Bricolage Grotesque', system-ui, sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; padding:24px; color:var(--ink);
+  }
+  a{ color:var(--rosy-deep); } a:hover{ color:var(--rosy); }
+  .mono{ font-family:'Space Mono', monospace; }
+
+  /* ============================================================
+     ADAPTIVE SHELL
+     - mobile: .app is a 390px phone, single column, analysis
+       lives in a bottom sheet above the controls.
+     - desktop: .app widens into a two-pane workspace; the same
+       analysis node is promoted into a persistent right rail.
+     Same DOM + JS; only layout CSS differs.
+     ============================================================ */
+  .app{
+    width:390px; max-width:100%;
+    height:min(844px, calc(100vh - 48px));
+    background:var(--paper); border-radius:40px; overflow:hidden;
+    box-shadow:0 30px 70px rgba(39,35,32,.34), 0 2px 0 rgba(255,255,255,.5) inset;
+    position:relative; display:flex; flex-direction:column;
+  }
+  .statusbar{ height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:0 26px; font-family:'Space Mono',monospace; font-weight:700; font-size:13px; color:var(--ink); }
+  .statusbar .dots-r{ display:flex; gap:5px; align-items:center; }
+  .statusbar .sig{ width:16px; height:10px; background:currentColor; border-radius:2px; opacity:.85; }
+  .statusbar .bat{ width:22px; height:11px; border:1.5px solid currentColor; border-radius:3px; position:relative; }
+  .statusbar .bat::after{ content:''; position:absolute; left:1.5px; top:1.5px; bottom:1.5px; width:78%; background:currentColor; border-radius:1px; }
+
+  /* ---- header ---- */
+  .rhead{ flex-shrink:0; display:flex; align-items:center; gap:12px; padding:2px 16px 12px; border-bottom:1px solid rgba(39,35,32,.08); }
+  .iconbtn{ background:none; border:none; font-size:24px; color:var(--ink); cursor:pointer; padding:2px 6px; opacity:.7; line-height:1; border-radius:10px; }
+  .iconbtn:hover{ opacity:1; background:rgba(39,35,32,.06); }
+  .rhead .hmid{ flex:1; min-width:0; }
+  .rhead .eyebrow{ font-family:'Space Mono',monospace; font-weight:700; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--rosy-deep); }
+  .rhead .htitle{ font-weight:800; letter-spacing:-.03em; font-size:19px; line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rhead .opp{ font-family:'Space Mono',monospace; font-size:11px; color:var(--ink-mute); font-weight:700; margin-top:1px; }
+
+  /* ---- summary strip ---- */
+  .sumstrip{ flex-shrink:0; display:flex; align-items:stretch; gap:0; padding:12px 16px 10px; }
+  .stat{ flex:1; text-align:center; position:relative; }
+  .stat + .stat::before{ content:''; position:absolute; left:0; top:14%; height:72%; width:1px; background:rgba(39,35,32,.12); }
+  .stat .v{ font-family:'Space Mono',monospace; font-weight:700; font-size:22px; letter-spacing:-.02em; line-height:1; }
+  .stat .l{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-mute); font-weight:700; margin-top:5px; }
+  .evalmini{ padding:0 16px 12px; }
+  .evalmini .bar{ height:10px; border-radius:999px; overflow:hidden; display:flex; background:var(--ink); box-shadow:inset 0 1px 2px rgba(0,0,0,.4); }
+  .evalmini .you{ background:var(--rosy); height:100%; transition:width .5s cubic-bezier(.34,1.2,.4,1); }
+  .evalmini .leg{ display:flex; justify-content:space-between; margin-top:6px; font-family:'Space Mono',monospace; font-size:10px; font-weight:700; color:var(--ink-mute); }
+
+  /* ---- panes wrapper (adaptive grid on desktop) ---- */
+  .panes{ flex:1; min-height:0; display:flex; flex-direction:column; }
+
+  /* ---- thread ---- */
+  .thread{ flex:1; min-height:0; overflow-y:auto; padding:14px 18px 12px; display:flex; flex-direction:column; gap:13px; scroll-behavior:smooth; }
+  .thread::-webkit-scrollbar{ width:0; }
+  .msg{ display:flex; flex-direction:column; max-width:82%; transition:opacity .35s ease, filter .35s ease; }
+  .msg.you{ align-self:flex-end; align-items:flex-end; }
+  .msg.match{ align-self:flex-start; }
+  .bubble{ padding:11px 15px; border-radius:20px; font-size:15px; line-height:1.38; position:relative; }
+  .msg.match .bubble{ background:#fff; border-bottom-left-radius:6px; box-shadow:var(--sh-1); }
+  .msg.you .bubble{ background:var(--rosy); color:#fff; border-bottom-right-radius:6px; }
+  .mvtag{ display:inline-flex; align-items:center; gap:5px; margin-top:6px; font-family:'Space Mono',monospace; font-weight:700; font-size:11px; padding:3px 9px; border-radius:999px; color:#fff; }
+  /* replay states */
+  .msg.hidden{ display:none; }
+  .msg.past{ opacity:.5; }
+  .msg.past.you .bubble{ filter:saturate(.7); }
+  .msg.current{ opacity:1; }
+  .msg.current .bubble{ animation:bubbleIn .34s cubic-bezier(.34,1.3,.5,1); }
+  .msg.current.you .bubble{ box-shadow:0 0 0 3px var(--paper), 0 0 0 6px var(--rosy); }
+  .msg.current.match .bubble{ box-shadow:0 0 0 3px var(--paper), 0 0 0 5px rgba(39,35,32,.35); }
+  @keyframes bubbleIn{ from{ opacity:0; transform:translateY(10px) scale(.96); } }
+
+  /* left column fills remaining height on mobile so thread scrolls
+     and the pieces below (analysis + controls) stay on screen */
+  .boardcol{ flex:1; min-height:0; display:flex; flex-direction:column; }
+
+  /* ---- analysis panel (shared node) ----
+     mobile: a capped, scrollable bottom sheet above the controls */
+  .analysis{ flex-shrink:0; max-height:38%; overflow-y:auto; background:var(--cream); border-top:1px solid rgba(39,35,32,.1); }
+  .anacard{ background:var(--cream); padding:14px 18px 14px; }
+  .an-head{ display:flex; align-items:center; gap:11px; margin-bottom:10px; }
+  .an-glyph{ width:40px; height:40px; border-radius:50%; display:grid; place-items:center; color:#fff; font-family:'Space Mono',monospace; font-weight:700; font-size:16px; flex-shrink:0; box-shadow:var(--sh-1); }
+  .an-htext{ min-width:0; flex:1; }
+  .an-cls{ font-weight:800; letter-spacing:-.02em; font-size:19px; line-height:1; }
+  .an-sub{ font-family:'Space Mono',monospace; font-size:11px; font-weight:700; color:var(--ink-mute); margin-top:3px; }
+  .an-swing{ font-family:'Space Mono',monospace; font-weight:700; font-size:20px; flex-shrink:0; }
+  .an-desc{ font-size:14.5px; line-height:1.5; color:var(--ink-soft); margin:0 0 12px; }
+  .an-best{ background:#fff; border:1.5px solid rgba(39,35,32,.1); border-radius:14px; padding:11px 13px; position:relative; }
+  .an-best .bl{ font-family:'Space Mono',monospace; font-weight:700; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--rosy-deep); display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .an-best .bt{ font-size:14.5px; line-height:1.45; font-weight:600; }
+  .an-best.locked .bt{ filter:blur(5px); user-select:none; }
+  .an-best .unlock{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; }
+  .an-best.locked .unlock{ display:flex; }
+  .an-best .unlock button{ font-family:'Space Mono',monospace; font-weight:700; font-size:11px; letter-spacing:.04em; background:var(--ink); color:var(--king); border:none; padding:9px 15px; border-radius:999px; cursor:pointer; box-shadow:var(--sh-2); }
+  .an-best .unlock button:hover{ background:#000; }
+
+  /* overview variant of the analysis card (step 0) */
+  .an-overview .an-glyph{ background:var(--ink); font-size:18px; }
+  .an-overview .an-tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+  .an-tag{ font-family:'Space Mono',monospace; font-weight:700; font-size:10px; letter-spacing:.04em; padding:4px 9px; border-radius:999px; background:#fff; border:1px solid rgba(39,35,32,.12); display:inline-flex; gap:5px; align-items:center; }
+
+  /* ---- controls / scrubber ---- */
+  .controls{ flex-shrink:0; background:var(--paper); border-top:1px solid rgba(39,35,32,.08); padding:11px 16px calc(14px + env(safe-area-inset-bottom)); }
+  .scrub{ display:flex; align-items:center; gap:6px; margin-bottom:11px; }
+  .scrubdot{ flex:1; height:9px; border-radius:999px; background:rgba(39,35,32,.14); cursor:pointer; position:relative; transition:transform .12s; }
+  .scrubdot:hover{ transform:scaleY(1.5); }
+  .scrubdot[data-on]{ background:var(--dot-c, var(--ink)); }
+  .scrubdot.at{ box-shadow:0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
+  .scrubdot.ov{ flex:0 0 24px; background:var(--ink); }
+  .transport{ display:flex; align-items:center; justify-content:center; gap:8px; }
+  .tbtn{ width:44px; height:44px; border-radius:50%; border:none; background:#fff; box-shadow:var(--sh-1); color:var(--ink); font-size:17px; cursor:pointer; display:grid; place-items:center; transition:.12s; }
+  .tbtn:hover{ background:var(--cream); }
+  .tbtn:active{ transform:translateY(1px); }
+  .tbtn:disabled{ opacity:.35; cursor:not-allowed; }
+  .tbtn.play{ width:56px; height:56px; background:var(--rosy); color:#fff; font-size:22px; box-shadow:0 5px 0 var(--rosy-deep); }
+  .tbtn.play:hover{ background:var(--rosy-deep); }
+  .tbtn.play:active{ transform:translateY(3px); box-shadow:0 2px 0 var(--rosy-deep); }
+  .movecount{ font-family:'Space Mono',monospace; font-weight:700; font-size:12px; color:var(--ink-mute); min-width:74px; text-align:center; }
+
+  /* desktop-only chrome, hidden on mobile */
+  .deskonly{ display:none; }
+
+  /* ============================================================
+     DESKTOP ADAPTATION  ≥ 900px
+     ============================================================ */
+  @media (min-width:900px){
+    body{ padding:32px; }
+    .app{
+      width:min(1120px, 100%); height:min(760px, calc(100vh - 64px));
+      border-radius:28px;
+      display:grid;
+      grid-template-columns:1fr 400px;
+      grid-template-rows:auto 1fr auto;
+      grid-template-areas:
+        "head  rail"
+        "board rail"
+        "ctrl  rail";
+      box-shadow:0 30px 80px rgba(39,35,32,.3);
+    }
+    .statusbar{ display:none; }
+    .rhead{ grid-area:head; padding:20px 28px; border-bottom:1px solid rgba(39,35,32,.08); }
+    .rhead .htitle{ font-size:23px; }
+    .rhead .eyebrow{ font-size:11px; }
+    /* left board column holds summary + thread */
+    .boardcol{ grid-area:board; flex:none; min-height:0; display:flex; flex-direction:column; border-right:1px solid rgba(39,35,32,.1); }
+    .controls{ grid-area:ctrl; border-right:1px solid rgba(39,35,32,.1); }
+    .sumstrip{ padding:18px 28px 10px; }
+    .stat .v{ font-size:26px; }
+    .evalmini{ padding:0 28px 14px; }
+    .thread{ padding:18px 28px; gap:15px; }
+    .msg{ max-width:74%; }
+    .controls{ padding:14px 28px 20px; }
+
+    /* right rail = the analysis panel, persistent */
+    .analysis{ grid-area:rail; min-height:0; max-height:none; display:flex; flex-direction:column; background:var(--cream); overflow-y:auto; border-top:none; }
+    .anacard{ border-top:none; padding:26px 26px 22px; flex:1; }
+    .an-cls{ font-size:24px; }
+    .an-swing{ font-size:24px; }
+    .an-desc{ font-size:16px; }
+    .an-best .bt{ font-size:16px; }
+    .rail-head{ display:block; }
+    .deskonly{ display:block; }
+    .rail-head{ padding:22px 26px 0; font-family:'Space Mono',monospace; font-weight:700; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-mute); }
+  }
+  @media (min-width:900px) and (max-width:1040px){
+    .app{ grid-template-columns:1fr 340px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app" data-screen-label="Game Review">
+
+  <!-- status bar (mobile only) -->
+  <div class="statusbar">
+    <span>9:41</span>
+    <span class="dots-r"><span class="sig"></span><span class="mono" style="font-size:11px;">5G</span><span class="bat"></span></span>
+  </div>
+
+  <!-- header -->
+  <div class="rhead">
+    <button class="iconbtn" title="Back">‹</button>
+    <div class="hmid">
+      <div class="eyebrow">Game Review · Jul 9</div>
+      <div class="htitle" id="gameTitle">The Breakfast Gambit</div>
+      <div class="opp">vs Maya, 26 · Rapid · won 71–29</div>
+    </div>
+    <button class="iconbtn" title="Share">↗</button>
+  </div>
+
+  <!-- left column (summary + thread + controls) -->
+  <div class="boardcol">
+
+    <!-- summary strip -->
+    <div class="sumstrip">
+      <div class="stat"><div class="v" id="statAcc" style="color:var(--rosy-deep)">84%</div><div class="l">Accuracy</div></div>
+      <div class="stat"><div class="v" style="color:var(--m-brilliant)">1</div><div class="l">Brilliant</div></div>
+      <div class="stat"><div class="v" style="color:var(--m-blunder)">1</div><div class="l">Blunder</div></div>
+      <div class="stat"><div class="v">+18</div><div class="l">Rizz Δ</div></div>
+    </div>
+    <div class="evalmini">
+      <div class="bar"><div class="you" id="evalFill" style="width:71%"></div></div>
+      <div class="leg"><span style="color:var(--rosy-deep)">YOU 71</span><span>MATCH 29</span></div>
+    </div>
+
+    <!-- thread -->
+    <div class="thread" id="thread"><!-- filled by JS --></div>
+  </div>
+
+  <!-- analysis panel (shared: bottom sheet on mobile, right rail on desktop) -->
+  <div class="analysis">
+    <div class="rail-head deskonly">Move analysis</div>
+    <div class="anacard" id="anacard"><!-- filled by JS --></div>
+  </div>
+
+  <!-- controls / replay transport (pinned to bottom on mobile, ctrl row on desktop) -->
+  <div class="controls">
+    <div class="scrub" id="scrub"><!-- filled by JS --></div>
+    <div class="transport">
+      <button class="tbtn" id="btnFirst" title="First">⏮</button>
+      <button class="tbtn" id="btnPrev" title="Previous">‹</button>
+      <button class="tbtn play" id="btnPlay" title="Play">▶</button>
+      <button class="tbtn" id="btnNext" title="Next">›</button>
+      <span class="movecount" id="moveCount">Overview</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ---------------- move classification ---------------- */
+const MV = {
+  brilliant:{ c:'var(--m-brilliant)', g:'!!', t:'Brilliant' },
+  great:{ c:'var(--m-great)', g:'!', t:'Great' },
+  good:{ c:'var(--m-good)', g:'✓', t:'Good' },
+  inaccuracy:{ c:'var(--m-inaccuracy)', g:'?!', t:'Inaccuracy' },
+  mistake:{ c:'var(--m-mistake)', g:'?', t:'Mistake' },
+  blunder:{ c:'var(--m-blunder)', g:'??', t:'Blunder' },
+};
+
+/* ---------------- generated overview ---------------- */
+const overview = {
+  title: 'The Breakfast Gambit',
+  desc: 'A high-variance game built on one absurd hill. You converted a chaotic "cereal is soup" line into real momentum, nearly hung it all with a lazy one-liner, then recovered with a specific plan. Watchable, spicy, and closed with a date on the board.',
+  tags: ['⏱ 6 moves', '🎯 84% accuracy', '♟ +18 rizz', '💬 date secured'],
+};
+
+/* ---------------- the game (re-rendered thread) ----------------
+   Each 'you' entry carries its per-move analysis + best line.     */
+const messages = [
+  { who:'match', text:'ok your profile says you\'ll "die on a hill about breakfast foods" — defend that immediately 🍳' },
+  { who:'you', text:'honestly? cereal is a soup and I\'ll take that to court ⚖️',
+    mv:'brilliant', swing:2.4, eval:64,
+    desc:'Committed to the bit instantly and raised the stakes. Confident, specific, and funny — it hands her an easy volley and sets the whole tone.',
+    best:'This was the top move. Nothing beats leaning all the way into your own premise — no notes.', bestFree:true },
+  { who:'match', text:'ok that was actually kind of elite 😂 the prosecution rests. what else you got' },
+  { who:'you', text:'your honor, I\'d like to enter waffles into evidence 🧇',
+    mv:'great', swing:1.5, eval:73,
+    desc:'Kept the courtroom metaphor alive and stayed playful. Slightly safe — you extended her bit instead of adding a fresh hook of your own.',
+    best:'Add a light challenge: "objection — waffles are just pancakes with abs. defend those." Flips the pressure back onto her.' },
+  { who:'match', text:'lmaooo ok you\'re actually funny. do you even cook or is this all talk' },
+  { who:'you', text:'idk lol',
+    mv:'blunder', swing:-3.2, eval:41,
+    desc:'A momentum killer. She opened a real door — cooking — and you shut it with a low-effort reply. Interest dropped off a cliff.',
+    best:'Answer the invitation with a vivid, specific image: "I make a dangerously good shakshuka — audition me sunday." Turns banter into a plan.' },
+  { who:'match', text:'...ok' },
+  { who:'you', text:'kidding — I make a shakshuka that\'s caused at least one marriage proposal. sunday?',
+    mv:'good', swing:1.4, eval:71,
+    desc:'Solid recovery. You reintroduced the specific hook and made a soft ask. A beat late, but it stabilizes the position and gets the number moving again.',
+    best:'Recover with even more confidence and a time: "that was a test, you passed. sunday 11am, I\'m cooking, you bring the orange juice."' },
+];
+
+/* index list of gradeable (your) moves */
+const youIdx = messages.map((m,i)=>m.who==='you'?i:-1).filter(i=>i>=0);
+const STEP_MAX = youIdx.length;            // 1..N are moves; 0 is overview
+let step = 0;
+let playing = false, playTimer = null;
+let unlocked = false;
+
+const LS = 'matedate_review_step';
+
+/* ---------------- build thread ---------------- */
+function buildThread(){
+  const t = document.getElementById('thread');
+  t.innerHTML = messages.map((m,i)=>{
+    if(m.who==='you'){
+      const mv = MV[m.mv];
+      return `<div class="msg you hidden" data-i="${i}">
+        <div class="bubble">${m.text}</div>
+        <span class="mvtag" style="background:${mv.c}">${mv.g} ${mv.t} ${m.swing>=0?'+':''}${m.swing.toFixed(1)}</span>
+      </div>`;
+    }
+    return `<div class="msg match hidden" data-i="${i}"><div class="bubble">${m.text}</div></div>`;
+  }).join('');
+}
+
+/* ---------------- build scrubber ---------------- */
+function buildScrub(){
+  const s = document.getElementById('scrub');
+  let html = `<div class="scrubdot ov" title="Overview" onclick="goTo(0)"></div>`;
+  youIdx.forEach((mi, k)=>{
+    const mv = MV[messages[mi].mv];
+    html += `<div class="scrubdot" data-step="${k+1}" style="--dot-c:${mv.c}" title="Move ${k+1} · ${mv.t}" onclick="goTo(${k+1})"></div>`;
+  });
+  s.innerHTML = html;
+}
+
+/* ---------------- render current step ---------------- */
+function render(){
+  // thread reveal
+  const upto = step===0 ? -1 : youIdx[step-1];
+  document.querySelectorAll('.msg').forEach(el=>{
+    const i = +el.dataset.i;
+    el.classList.remove('hidden','past','current');
+    if(step===0){ el.classList.add('hidden'); return; }
+    if(i>upto){ el.classList.add('hidden'); }
+    else if(i===upto){ el.classList.add('current'); }
+    else { el.classList.add('past'); }
+  });
+  // scroll current into view within thread
+  const cur = document.querySelector('.msg.current');
+  const thread = document.getElementById('thread');
+  if(cur){ thread.scrollTop = cur.offsetTop - thread.clientHeight*0.55; }
+  else { thread.scrollTop = 0; }
+
+  // scrub state
+  document.querySelectorAll('.scrubdot').forEach(d=>{
+    d.classList.remove('at');
+    const ds = d.dataset.step;
+    if(ds!==undefined){ if(+ds <= step) d.setAttribute('data-on',''); else d.removeAttribute('data-on'); }
+  });
+  const atDot = step===0 ? document.querySelector('.scrubdot.ov') : document.querySelector(`.scrubdot[data-step="${step}"]`);
+  if(atDot) atDot.classList.add('at');
+
+  // eval + move counter
+  const evalV = step===0 ? 71 : messages[youIdx[step-1]].eval;
+  document.getElementById('evalFill').style.width = evalV+'%';
+  document.querySelector('.evalmini .leg').innerHTML =
+    `<span style="color:var(--rosy-deep)">YOU ${evalV}</span><span>MATCH ${100-evalV}</span>`;
+  document.getElementById('moveCount').textContent = step===0 ? 'Overview' : `Move ${step} / ${STEP_MAX}`;
+
+  // transport enable/disable
+  document.getElementById('btnFirst').disabled = step===0;
+  document.getElementById('btnPrev').disabled = step===0;
+  document.getElementById('btnNext').disabled = step===STEP_MAX;
+
+  renderAnalysis();
+  try{ localStorage.setItem(LS, String(step)); }catch(e){}
+}
+
+function renderAnalysis(){
+  const card = document.getElementById('anacard');
+  if(step===0){
+    card.className = 'anacard an-overview';
+    card.innerHTML = `
+      <div class="an-head">
+        <div class="an-glyph">♟</div>
+        <div class="an-htext">
+          <div class="an-cls">${overview.title}</div>
+          <div class="an-sub">Generated game report</div>
+        </div>
+      </div>
+      <p class="an-desc">${overview.desc}</p>
+      <div class="an-tags">${overview.tags.map(t=>`<span class="an-tag">${t}</span>`).join('')}</div>
+      <p class="an-desc" style="margin-top:14px;font-size:13px;color:var(--ink-mute);">▶ Press play or tap a move to replay the game beat by beat.</p>`;
+    return;
+  }
+  const m = messages[youIdx[step-1]];
+  const mv = MV[m.mv];
+  const lockable = !m.bestFree;
+  const locked = lockable && !unlocked;
+  card.className = 'anacard';
+  card.innerHTML = `
+    <div class="an-head">
+      <div class="an-glyph" style="background:${mv.c}">${mv.g}</div>
+      <div class="an-htext">
+        <div class="an-cls">${mv.t}</div>
+        <div class="an-sub">Move ${step} · your reply</div>
+      </div>
+      <div class="an-swing" style="color:${mv.c}">${m.swing>=0?'+':''}${m.swing.toFixed(1)}</div>
+    </div>
+    <p class="an-desc">${m.desc}</p>
+    <div class="an-best ${locked?'locked':''}">
+      <div class="bl">${m.bestFree?'✓ Top move':'✦ Best line'}</div>
+      <div class="bt">${m.best}</div>
+      <div class="unlock"><button onclick="unlock()">🔒 Unlock best move</button></div>
+    </div>`;
+}
+
+/* ---------------- nav ---------------- */
+function goTo(n){ stopPlay(); step = Math.max(0, Math.min(STEP_MAX, n)); render(); }
+function next(){ if(step<STEP_MAX){ step++; render(); return true; } return false; }
+function prev(){ if(step>0){ step--; render(); } }
+
+function togglePlay(){ playing ? stopPlay() : startPlay(); }
+function startPlay(){
+  if(step>=STEP_MAX) step = 0;           // restart from overview
+  playing = true;
+  document.getElementById('btnPlay').textContent = '❚❚';
+  render();
+  playTimer = setInterval(()=>{ if(!next()){ stopPlay(); } }, 2400);
+}
+function stopPlay(){
+  playing = false; clearInterval(playTimer);
+  document.getElementById('btnPlay').textContent = '▶';
+}
+
+function unlock(){ unlocked = true; renderAnalysis(); }
+
+/* ---------------- wire up ---------------- */
+document.getElementById('btnFirst').onclick = ()=>goTo(0);
+document.getElementById('btnPrev').onclick  = ()=>{ stopPlay(); prev(); };
+document.getElementById('btnNext').onclick  = ()=>{ stopPlay(); next(); };
+document.getElementById('btnPlay').onclick  = togglePlay;
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight'){ stopPlay(); next(); }
+  else if(e.key==='ArrowLeft'){ stopPlay(); prev(); }
+  else if(e.key===' '){ e.preventDefault(); togglePlay(); }
+});
+
+/* ---------------- init ---------------- */
+buildThread();
+buildScrub();
+try{ const s = parseInt(localStorage.getItem(LS)); if(!isNaN(s) && s>=0 && s<=STEP_MAX) step = s; }catch(e){}
+render();
+</script>
+
+<style id="__om-edit-overrides"></style>
+</body>
+</html>

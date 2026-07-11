@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MateDate · Game Review — Responsive</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{ --ink:#272320; --ink-mute:#8a8175; --rosy:#d6536a; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; min-height:100%; }
+  body{
+    background:#ddd6ca;
+    background-image:radial-gradient(circle at 30% 10%, #e6dfd2, #cfc7ba);
+    font-family:'Bricolage Grotesque', system-ui, sans-serif;
+    color:var(--ink); padding:40px 32px 64px;
+  }
+  .head{ max-width:1600px; margin:0 auto 30px; }
+  .eyebrow{ font-family:'Space Mono',monospace; font-weight:700; font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--rosy); }
+  h1{ font-weight:800; letter-spacing:-.035em; font-size:38px; margin:8px 0 6px; }
+  h1 .b{ color:var(--rosy); }
+  .sub{ color:#5a544c; font-size:16px; max-width:60ch; margin:0; }
+
+  .stage{
+    max-width:1600px; margin:0 auto;
+    display:flex; gap:48px; align-items:flex-start; justify-content:center; flex-wrap:wrap;
+  }
+  .col{ display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .caption{ font-family:'Space Mono',monospace; font-weight:700; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); display:flex; align-items:center; gap:8px; }
+  .caption .dim{ color:var(--ink-mute); font-weight:400; letter-spacing:.04em; text-transform:none; }
+  .caption .dot{ width:8px; height:8px; border-radius:50%; background:var(--rosy); }
+
+  /* each frame gets its OWN viewport width via iframe width, so the
+     SAME adaptive file resolves to mobile vs desktop independently.
+     The desktop iframe is ALWAYS 1120px internally (well past the
+     file's 900px breakpoint); we shrink it visually with a scaled
+     wrapper so it fits smaller outer viewports without ever tripping
+     back into the mobile branch. */
+  .frame{ border:none; background:transparent; display:block; }
+  .mobile{ width:430px; height:880px; }
+
+  .deskwrap{ width:1120px; height:800px; }
+  .desktop{ width:1120px; height:800px; transform-origin:top left; }
+
+  @media (max-width:1600px){
+    .deskwrap{ width:952px; height:680px; }
+    .desktop{ transform:scale(.85); }
+  }
+  @media (max-width:1180px){
+    .stage{ gap:32px; }
+    .deskwrap{ width:784px; height:560px; }
+    .desktop{ transform:scale(.7); }
+  }
+  @media (max-width:860px){
+    .deskwrap{ width:616px; height:440px; }
+    .desktop{ transform:scale(.55); }
+  }
+</style>
+</head>
+<body>
+  <div class="head">
+    <div class="eyebrow">MateDate · Game Review</div>
+    <h1>One adaptive screen, <span class="b">two platforms</span></h1>
+    <p class="sub">The exact same file — same DOM, same JavaScript. Only CSS reflows: below 900px it collapses into the phone frame; above, it expands into a two-pane review workspace with a persistent analysis rail.</p>
+  </div>
+
+  <div class="stage">
+    <div class="col">
+      <div class="caption"><span class="dot"></span>Mobile <span class="dim">· 390px · phone frame</span></div>
+      <iframe class="frame mobile" src="MateDate Game Review.html" title="Mobile"></iframe>
+    </div>
+    <div class="col">
+      <div class="caption"><span class="dot"></span>Desktop <span class="dim">· two-pane workspace</span></div>
+      <div class="deskwrap"><iframe class="frame desktop" src="MateDate Game Review.html" title="Desktop"></iframe></div>
+    </div>
+  </div>
+</body>
+</html>

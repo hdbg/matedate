@@ -180,8 +180,15 @@ disables ("Review requested ✓") — no waiting, no redirect. The result surfac
 `/play` mounts `components/ui/NotificationsBell.tsx` (driven by
 `lib/notifications/useAnalysisNotifications.ts`), which catch-up-queries + subscribes to realtime on
 `analysis_jobs` and shows a notification when a review finishes; a ready one links to
-**`/analysis/[id]`** — a functional **stub** view (title/description/tags + per-move
-eval/rank/comment/best-line) until a Game Review mock exists. `components/ui/LoadingScene.tsx`
+**`/analysis/[id]`** — the full **Game Review** screen (`app/analysis/[id]/`, ported from
+`mocks/MateDate Game Review.html`): a chess-style replay player (scrubber + transport + autoplay in
+`useReviewReplay`, `←`/`→`/space, `localStorage` step), a summary strip (accuracy · brilliant ·
+blunder · rizz Δ), a live eval meter, and a per-move analysis panel (overview at step 0, else the
+derived rank + comment + best line; the best line sits behind a **cosmetic** unlock — the data is
+already owner-readable). It reads `game_analyses`/`game_analysis_moves` plus the source
+`games`/`solo_games`/`personas`/`moves` (all owner-RLS), matching analysis↔thread by `position` and
+deriving each rank from `eval_delta` via `classifySwing` (`app/lib/game/types.ts`).
+`components/ui/LoadingScene.tsx`
 (ported from `mocks/MateDate Loading.html`) is kept but **currently unused** (no `/analyzing`
 route). Both `mode=ranked|bot` currently use the solo backend (ranked PvH is a later layer) — mode
 only affects UI labels. `app/lib/game/service.ts` remains as the shared type re-export; its
