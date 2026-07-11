@@ -765,18 +765,29 @@ create policy rating_history_select_own on public.rating_history
 -- persona_secrets & puzzle_solutions: intentionally have NO policy. RLS is on and no
 -- policy grants access, so only the service_role (the engine) can ever read them.
 
--- personas: the active catalog is readable by any signed-in user. The hidden_type
--- and system_prompt columns must be filtered by the API layer for in-progress play.
+-- personas: the active catalog is readable by any signed-in user. The secret half (hidden_type +
+-- system_prompt) is NOT here — it lives in persona_secrets, which has no client GRANT or policy, so
+-- there is no per-column filtering to do on this table.
 create policy personas_select_active on public.personas
   for select using (is_active);
 
--- matchmaking_queue: manage your own spot in line.
+-- matchmaking_queue: read your own spot; join the queue for yourself only. The pairing snapshot
+-- (ranked_elo) must equal your *real* rating, and you may only enqueue in the fresh 'queued' state
+-- (no pre-set match_id/matched_at) — otherwise a client could self-assign an easy-pairing ELO or
+-- fake a match link. Leaving the queue is a DELETE, which clients don't get by default; cancel is
+-- service-mediated (an RPC / the backend) when ranked PvP is built.
 create policy matchmaking_queue_select_own on public.matchmaking_queue
   for select using (auth.uid() = user_id);
 create policy matchmaking_queue_insert_own on public.matchmaking_queue
-  for insert with check (auth.uid() = user_id);
-create policy matchmaking_queue_delete_own on public.matchmaking_queue
-  for delete using (auth.uid() = user_id);
+  for insert with check (
+    auth.uid() = user_id
+    and status = 'queued'
+    and match_id is null
+    and matched_at is null
+    and ranked_elo = (
+      select pr.ranked_elo from public.player_ratings pr where pr.user_id = auth.uid()
+    )
+  );
 
 -- Helper: is the current user a competitor in this match? Checks each per-mode table.
 create or replace function public.is_match_participant(p_match_id uuid)
@@ -798,6 +809,25 @@ as $$
   );
 $$;
 
+-- Helper: which side ('a' / 'b') is the current user in this match? Side 'a' is always the primary
+-- human (the player in ai/ghost matches, player_a in pvp); 'b' is the pvp opponent. Null if not a
+-- participant. Used to gate match_moves so a player sees the opponent's line only after it's scored.
+create or replace function public.my_match_side(p_match_id uuid)
+returns public.match_side
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select case
+    when exists (
+      select 1 from public.pvp_matches m where m.match_id = p_match_id and m.player_b = auth.uid()
+    ) then 'b'::public.match_side
+    when public.is_match_participant(p_match_id) then 'a'::public.match_side
+    else null
+  end;
+$$;
+
 -- matches and everything under them: visible to their competitors.
 create policy matches_select_participant on public.matches
   for select using (public.is_match_participant(id));
@@ -813,12 +843,20 @@ create policy ghost_matches_select on public.ghost_matches
 create policy match_rounds_select on public.match_rounds
   for select using (public.is_match_participant(match_id));
 
+-- match_moves: a participant sees their OWN side's moves at any time, but the opponent's line only
+-- once the round is scored (scored_at set). This preserves the "same persona, results become
+-- arguable/shareable after scoring" model (SPEC §2.2) while stopping a player from reading the
+-- opponent's un-scored message + its hidden eval mid-round and copying it.
 create policy match_moves_select on public.match_moves
   for select using (
     exists (
       select 1 from public.match_rounds mr
       where mr.id = match_moves.round_id
         and public.is_match_participant(mr.match_id)
+        and (
+          match_moves.side = public.my_match_side(mr.match_id)
+          or mr.scored_at is not null
+        )
     )
   );
 
@@ -826,13 +864,14 @@ create policy match_moves_select on public.match_moves
 create policy analysis_jobs_select_own on public.analysis_jobs
   for select using (auth.uid() = user_id);
 
--- games: full ownership of your own analyses (parent row).
+-- games: read-only to the owner. There is deliberately NO client INSERT/UPDATE/DELETE — every
+-- server-authoritative column (status/accuracy/end_reason/title) is written only by the service_role
+-- backend (live solo play over the WS; screenshot/puzzle via the FastAPI service, SPEC §5.1). A
+-- client INSERT would let a user forge a "completed" game with a fabricated accuracy/share card, and
+-- a DELETE would let them tamper with server-owned history; both go through the backend, matching
+-- "the service role is the sole writer of game state".
 create policy games_select_own on public.games
   for select using (auth.uid() = user_id);
-create policy games_insert_own on public.games
-  for insert with check (auth.uid() = user_id);
-create policy games_delete_own on public.games
-  for delete using (auth.uid() = user_id);
 
 -- Helper: does the current user own this game? (Used by the per-mode child tables.)
 create or replace function public.owns_game(p_game_id uuid)
@@ -848,25 +887,23 @@ as $$
   );
 $$;
 
--- Per-mode child rows: readable/insertable if you own the parent game.
--- (Deletes cascade from the parent, whose delete policy already guards ownership.)
+-- Per-mode child rows: read-only if you own the parent game. Like `games`, these carry
+-- server-authoritative fields the client must not set — solo_games.rating_delta, the Fischer clock,
+-- screenshot_games.provisional_rating, puzzle_attempts.solved/eval_delta (the grade). They are
+-- written only by the service_role backend, so grading/clock/rating stay server-authoritative
+-- (SPEC §3) and can't be forged by a direct PostgREST insert.
 create policy solo_games_select on public.solo_games
   for select using (public.owns_game(game_id));
-create policy solo_games_insert on public.solo_games
-  for insert with check (public.owns_game(game_id));
 
 create policy screenshot_games_select on public.screenshot_games
   for select using (public.owns_game(game_id));
-create policy screenshot_games_insert on public.screenshot_games
-  for insert with check (public.owns_game(game_id));
 
 create policy puzzle_attempts_select on public.puzzle_attempts
   for select using (public.owns_game(game_id));
-create policy puzzle_attempts_insert on public.puzzle_attempts
-  for insert with check (public.owns_game(game_id));
 
--- puzzles: the active catalog is readable by any signed-in user. best_move must be
--- filtered by the API layer until a puzzle is solved / unlocked.
+-- puzzles: the active catalog is readable by any signed-in user. The answer (best_move) is NOT
+-- here — it lives in puzzle_solutions, which has no client GRANT or policy, so only the service_role
+-- (the engine) ever reads it.
 create policy puzzles_select_active on public.puzzles
   for select using (is_active);
 
@@ -874,18 +911,11 @@ create policy puzzles_select_active on public.puzzles
 create policy moves_select_own on public.moves
   for select using (public.owns_game(game_id));
 
--- engine_responses: readable if you own the parent game or are in the parent match.
-create policy engine_responses_select on public.engine_responses
-  for select using (
-    (game_id is not null and exists (
-      select 1 from public.games g where g.id = engine_responses.game_id and g.user_id = auth.uid()
-    ))
-    or
-    (round_id is not null and exists (
-      select 1 from public.match_rounds mr
-      where mr.id = engine_responses.round_id and public.is_match_participant(mr.match_id)
-    ))
-  );
+-- engine_responses: intentionally has NO client policy (and no client GRANT below). This is raw
+-- engine output kept for tuning — its `raw_response` holds the model's private `reasoning` and the
+-- hidden 0-100 `eval_after` the player is meant to *read*, not be handed (SPEC §2.2, §3). Only the
+-- service_role reads/writes it, exactly like persona_secrets / puzzle_solutions. The client sees the
+-- derived swing/classification over the wire (and eval_delta on `moves`), never this row.
 
 -- game_analyses: readable if you own the parent game or are in the parent match. Writes go
 -- through the service_role worker only. Mirrors the engine_responses source-XOR predicate.
@@ -1064,12 +1094,25 @@ create policy game_analysis_move_reveals_select on public.game_analysis_move_rev
 
 grant usage on schema public to authenticated;
 
--- Read-only surfaces (RLS scopes them to the caller's own rows / entitlements).
+-- Supabase's bootstrap (roles.sql default privileges) hands anon/authenticated ALL privileges on
+-- every table `postgres` creates in `public` — so each table above lands with TRUNCATE, REFERENCES,
+-- and TRIGGER already granted to both client roles, on top of anything we intend. TRUNCATE in
+-- particular bypasses RLS (it's a whole-table wipe, not a DELETE), so no client role should hold it.
+-- Strip the whole default surface here, then re-grant below exactly the SELECT/INSERT/UPDATE each
+-- client role needs. anon ends with no table privileges at all (the app only ever acts as an
+-- authenticated user, incl. anonymous sign-ins). Not reachable through the PostgREST Data API today,
+-- but this keeps the grant surface honest and least-privilege. Function grants are untouched (the
+-- request_game_analysis / pgmq_* EXECUTE grants are set explicitly elsewhere).
+revoke all on all tables in schema public from anon, authenticated;
+revoke all on all sequences in schema public from anon, authenticated;
+
+-- Read-only surfaces (RLS scopes them to the caller's own rows / entitlements). engine_responses is
+-- NOT here: it's service_role-only raw tuning output (private reasoning + the hidden eval).
 grant select on
   public.player_ratings, public.rating_history, public.personas,
   public.matches, public.pvp_matches, public.ai_matches, public.ghost_matches,
   public.match_rounds, public.match_moves,
-  public.analysis_jobs, public.puzzles, public.moves, public.engine_responses,
+  public.analysis_jobs, public.puzzles, public.moves,
   public.game_analyses, public.game_analysis_moves,
   public.game_reveal_unlocks, public.match_reveal_unlocks,
   public.move_reveals, public.match_move_reveals, public.game_analysis_move_reveals
@@ -1078,12 +1121,15 @@ grant select on
 -- Profile is readable + editable (no rating columns live here anymore).
 grant select, update on public.profiles to authenticated;
 
--- Matchmaking queue: join / leave.
-grant select, insert, delete on public.matchmaking_queue to authenticated;
+-- Matchmaking queue: join only. Clients don't get DELETE (see the policy note); leaving is
+-- service-mediated when ranked PvP lands.
+grant select, insert on public.matchmaking_queue to authenticated;
 
--- Single-player analyses the client may author.
-grant select, insert, delete on public.games to authenticated;
-grant select, insert on
+-- Single-player game state is read-only to the client. Every row (games + the per-mode children)
+-- is authored by the service_role backend so grading/clock/rating/status stay server-authoritative
+-- and can't be forged or deleted via a direct PostgREST call. No client INSERT/UPDATE/DELETE.
+grant select on
+  public.games,
   public.solo_games, public.screenshot_games, public.puzzle_attempts
   to authenticated;
 
