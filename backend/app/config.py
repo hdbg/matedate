@@ -17,8 +17,10 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     openrouter_model: str = "anthropic/claude-sonnet-4"
 
-    # Solo PvE tuning.
-    solo_move_seconds: int = 30
+    # Solo PvE tuning. The clock is a per-game Fischer clock: the player starts with
+    # `solo_base_seconds` and gains `solo_increment_seconds` back after each submitted move.
+    solo_base_seconds: int = 30
+    solo_increment_seconds: int = 5
     solo_max_exchanges: int = 6
 
     # Dev/test escape hatch: when true, skip the real LLM and use a deterministic

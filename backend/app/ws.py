@@ -1,5 +1,6 @@
 """WebSocket transport: one authenticated socket per user, one active game per user."""
 
+import asyncio
 from functools import lru_cache
 from typing import Any
 
@@ -46,10 +47,6 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def _send(websocket: WebSocket, message: BaseModel) -> None:
-    await websocket.send_json(message.model_dump())
-
-
 async def _handle(service: SoloGameService, user_id: str, data: Any) -> list[BaseModel]:
     if not isinstance(data, dict) or data.get("type") != "move":
         return [ErrorMsg(code="bad_message", message="expected {'type':'move', ...}")]
@@ -72,10 +69,22 @@ async def solo_ws(websocket: WebSocket) -> None:
         return
 
     await manager.register(user_id, websocket)
-    service = SoloGameService(supabase, get_settings(), _engine())
+
+    # Serialize every send: the request loop and the service's background timeout timer can
+    # both push frames, and interleaved send_json calls would corrupt the WS framing.
+    send_lock = asyncio.Lock()
+
+    async def send(message: BaseModel) -> None:
+        async with send_lock:
+            try:
+                await websocket.send_json(message.model_dump())
+            except Exception:
+                pass  # socket closing/closed — nothing more we can do
+
+    service = SoloGameService(supabase, get_settings(), _engine(), send=send)
     try:
         for message in await service.start_or_resume(user_id):
-            await _send(websocket, message)
+            await send(message)
 
         while True:
             try:
@@ -83,11 +92,12 @@ async def solo_ws(websocket: WebSocket) -> None:
             except WebSocketDisconnect:
                 break
             except Exception:
-                await _send(websocket, ErrorMsg(code="bad_message", message="invalid JSON"))
+                await send(ErrorMsg(code="bad_message", message="invalid JSON"))
                 continue
             for message in await _handle(service, user_id, data):
-                await _send(websocket, message)
+                await send(message)
     except WebSocketDisconnect:
         pass
     finally:
+        await service.aclose()
         manager.unregister(user_id, websocket)

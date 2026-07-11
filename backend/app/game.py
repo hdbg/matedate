@@ -5,6 +5,15 @@ clock (SPEC §2.6), and the end conditions. Every public method returns a list o
 messages to send to the client. The Supabase client is an async service-role client, so RLS is
 bypassed, the server is the sole writer of game state, and queries never block the event loop.
 
+The clock is a per-game **Fischer** clock (SPEC §2.6): the player starts with `base_seconds` and
+gains `increment_seconds` back after each submitted move (rewarding quick answers). The running
+bank is encoded as `solo_games.turn_deadline` (= now + remaining bank when a turn opens); it is
+paused across the persona's reply and the next turn's deadline is anchored to reply-send time, so
+LLM latency is never charged. Expiry is enforced *proactively*: whenever a turn opens a background
+task is armed for that turn's deadline (via the optional `send` callback the transport supplies)
+so an idle player is finished with `timeout` at the deadline rather than only on their next
+message. A lock serializes the timer against the request path so a game is finished at most once.
+
 Reads are parsed into the generated `database_types` pydantic models (which coerce the REST
 JSON into datetime/UUID/float); writes annotate their payloads with the generated
 `*Insert`/`*Update` TypedDicts and pass them through `_json_row` to keep values JSON-safe.
@@ -12,8 +21,9 @@ JSON into datetime/UUID/float); writes annotate their payloads with the generate
 
 from __future__ import annotations
 
+import asyncio
 import uuid
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
@@ -55,6 +65,13 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# Callback the transport supplies so the service can push a message unprompted (the timeout
+# timer fires with no client request in flight). Fire the timer a hair *after* the deadline so
+# the DB re-check (`now > deadline`) is unambiguously true.
+Sender = Callable[[BaseModel], Awaitable[None]]
+_TIMEOUT_EPSILON = 0.05
+
+
 def _json_row(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Make a typed write payload JSON-safe for postgrest (which serializes via json.dumps).
 
@@ -79,33 +96,63 @@ class _ActiveGame:
 
 
 class SoloGameService:
-    def __init__(self, supabase: AsyncClient, settings: Settings, engine: Engine) -> None:
+    def __init__(
+        self,
+        supabase: AsyncClient,
+        settings: Settings,
+        engine: Engine,
+        *,
+        send: Sender | None = None,
+    ) -> None:
         self._db = supabase
         self._settings = settings
         self._engine = engine
+        # `send` lets the service push the timeout `finish` with no client request in flight.
+        # Without it (e.g. in tests) the clock is still enforced reactively on the next call.
+        self._send = send
+        # Serializes the request-driven path against the background timeout so the game can
+        # only be finished once; per-connection, since one service is built per socket.
+        self._lock = asyncio.Lock()
+        self._timeout_task: asyncio.Task[None] | None = None
 
     # -- public entrypoints -------------------------------------------------
 
     async def start_or_resume(self, user_id: str) -> list[BaseModel]:
+        async with self._lock:
+            return await self._start_or_resume(user_id)
+
+    async def apply_move(self, user_id: str, content: str) -> list[BaseModel]:
+        async with self._lock:
+            return await self._apply_move(user_id, content)
+
+    async def aclose(self) -> None:
+        """Cancel the pending timeout timer (call when the socket closes)."""
+        self._arm(None, None)
+
+    async def _start_or_resume(self, user_id: str) -> list[BaseModel]:
         game = await self._load_active(user_id)
         if game is None:
-            return [await self._create_game(user_id)]
+            new_game = await self._create_game(user_id)
+            self._arm(user_id, _now() + timedelta(seconds=self._settings.solo_base_seconds))
+            return [new_game]
 
         deadline = game.solo.turn_deadline
         if deadline is not None and _now() > deadline:
             finish = await self._finish(game, "timeout")
             fresh = await self._create_game(user_id)
+            self._arm(user_id, _now() + timedelta(seconds=self._settings.solo_base_seconds))
             return [finish, fresh]
 
         if deadline is None:
-            # No open turn on an active game (rare); reopen one deterministically.
-            new_deadline = _now() + timedelta(seconds=game.solo.move_seconds)
-            await self._update_solo(game.id, {"turn_deadline": new_deadline})
-            game.solo.turn_deadline = new_deadline
+            # No open turn on an active game (rare); reopen one at the base bank.
+            deadline = _now() + timedelta(seconds=game.solo.base_seconds)
+            await self._update_solo(game.id, {"turn_deadline": deadline})
+            game.solo.turn_deadline = deadline
 
+        self._arm(user_id, deadline)
         return [await self._game_state(game)]
 
-    async def apply_move(self, user_id: str, content: str) -> list[BaseModel]:
+    async def _apply_move(self, user_id: str, content: str) -> list[BaseModel]:
         content = content.strip()
         if not content:
             return [ErrorMsg(code="empty_move", message="message is empty")]
@@ -120,8 +167,12 @@ class SoloGameService:
 
         now = _now()
         if now > deadline:
-            return [await self._finish(game, "timeout")]
-        time_left_ms = max(0, int((deadline - now).total_seconds() * 1000))
+            finish = await self._finish(game, "timeout")
+            self._arm(user_id, None)
+            return [finish]
+        # Fischer clock: what's left of the bank when the player submits (their thinking time
+        # has already ticked off, since the bank == turn_deadline - now).
+        remaining_ms = max(0, int((deadline - now).total_seconds() * 1000))
 
         persona = await get_persona_by_id(self._db, str(game.solo.persona_id))
         moves = await self._load_moves(game.id)
@@ -149,12 +200,16 @@ class SoloGameService:
             {"model": turn.model, "latency_ms": turn.latency_ms, "verdict": turn.verdict.model_dump()},
         )
 
+        # Reward a quick answer: the bank carried into the next turn is what was left plus the
+        # increment. The clock is paused across the persona's reply — the next turn's countdown
+        # is anchored below to _now() (reply-send time), so LLM latency is never charged.
         exchanges = game.solo.exchanges + 1
+        new_bank_ms = remaining_ms + game.solo.increment_seconds * 1000
         response = ResponseMsg(
             content=turn.verdict.reply,
             classification=grade.class_key,
             swing=swing,
-            time_left=time_left_ms,
+            time_left=new_bank_ms,
         )
 
         # The persona blocked the human — end the game early, but still deliver the parting
@@ -162,28 +217,62 @@ class SoloGameService:
         if turn.verdict.is_blocked:
             await self._update_solo(game.id, {"exchanges": exchanges, "turn_deadline": None})
             game.solo.exchanges = exchanges
-            return [response, await self._finish(game, "blocked")]
+            finish = await self._finish(game, "blocked")
+            self._arm(user_id, None)
+            return [response, finish]
 
         if exchanges >= self._settings.solo_max_exchanges:
             await self._update_solo(game.id, {"exchanges": exchanges, "turn_deadline": None})
             game.solo.exchanges = exchanges
-            return [await self._finish(game, "scored")]
+            finish = await self._finish(game, "scored")
+            self._arm(user_id, None)
+            return [finish]
 
-        new_deadline = now + timedelta(seconds=game.solo.move_seconds)
+        new_deadline = _now() + timedelta(milliseconds=new_bank_ms)
         await self._update_solo(
             game.id,
             {"exchanges": exchanges, "turn_deadline": new_deadline},
         )
+        self._arm(user_id, new_deadline)
         return [response]
+
+    # -- timeout timer ------------------------------------------------------
+
+    def _arm(self, user_id: str | None, deadline: datetime | None) -> None:
+        """(Re)schedule the background timeout for the current open turn, cancelling any prior
+        one. `deadline=None` just disarms (game ended / socket closing)."""
+        if self._timeout_task is not None:
+            self._timeout_task.cancel()
+            self._timeout_task = None
+        if user_id is None or deadline is None or self._send is None:
+            return
+        self._timeout_task = asyncio.create_task(self._run_timeout(user_id, deadline))
+
+    async def _run_timeout(self, user_id: str, deadline: datetime) -> None:
+        try:
+            await asyncio.sleep(max(0.0, (deadline - _now()).total_seconds()) + _TIMEOUT_EPSILON)
+            async with self._lock:
+                game = await self._load_active(user_id)
+                if game is None:
+                    return  # already finished
+                current = game.solo.turn_deadline
+                if current is None or _now() <= current:
+                    return  # a move advanced or closed the turn while we slept
+                finish = await self._finish(game, "timeout")
+                if self._send is not None:
+                    await self._send(finish)
+        except asyncio.CancelledError:
+            pass
 
     # -- game lifecycle -----------------------------------------------------
 
     async def _create_game(self, user_id: str) -> NewGameMsg:
         persona = await pick_persona(self._db)
-        move_seconds = self._settings.solo_move_seconds
-        deadline = _now() + timedelta(seconds=move_seconds)
-        await self._insert_game(user_id, persona, move_seconds, deadline)
-        return NewGameMsg(persona=_persona_out(persona), time=move_seconds * 1000)
+        base_seconds = self._settings.solo_base_seconds
+        increment_seconds = self._settings.solo_increment_seconds
+        deadline = _now() + timedelta(seconds=base_seconds)
+        await self._insert_game(user_id, persona, base_seconds, increment_seconds, deadline)
+        return NewGameMsg(persona=_persona_out(persona), time=base_seconds * 1000)
 
     async def _game_state(self, game: _ActiveGame) -> GameStateMsg:
         persona = await get_persona_by_id(self._db, str(game.solo.persona_id))
@@ -193,7 +282,7 @@ class SoloGameService:
         return GameStateMsg(
             persona=_persona_out(persona),
             moves=[_move_out(m) for m in moves],
-            time=game.solo.move_seconds * 1000,
+            time=game.solo.base_seconds * 1000,
             time_left=time_left,
             status="active",
         )
@@ -247,7 +336,12 @@ class SoloGameService:
         )
 
     async def _insert_game(
-        self, user_id: str, persona: Persona, move_seconds: int, deadline: datetime
+        self,
+        user_id: str,
+        persona: Persona,
+        base_seconds: int,
+        increment_seconds: int,
+        deadline: datetime,
     ) -> None:
         game_payload: PublicGamesInsert = {
             "user_id": uuid.UUID(user_id),
@@ -260,7 +354,8 @@ class SoloGameService:
         solo_payload: PublicSoloGamesInsert = {
             "game_id": game_id,
             "persona_id": uuid.UUID(persona.id),
-            "move_seconds": move_seconds,
+            "base_seconds": base_seconds,
+            "increment_seconds": increment_seconds,
             "exchanges": 0,
             "turn_deadline": deadline,
         }

@@ -44,7 +44,7 @@ class MoveOut(BaseModel):
 class NewGameMsg(BaseModel):
     type: Literal["new_game"] = "new_game"
     persona: PersonaOut
-    time: int  # per-move clock budget, ms
+    time: int  # base game clock, ms (starting time bank; Fischer clock, SPEC §2.6)
 
 
 class GameStateMsg(BaseModel):
@@ -53,8 +53,8 @@ class GameStateMsg(BaseModel):
     type: Literal["game_state"] = "game_state"
     persona: PersonaOut
     moves: list[MoveOut]
-    time: int  # per-move clock budget, ms (so resumed later turns reset correctly)
-    time_left: int  # ms remaining in the currently open turn
+    time: int  # base game clock, ms (reference/full bank)
+    time_left: int  # ms left in the running bank for the currently open turn
     status: str
 
 
@@ -63,7 +63,7 @@ class ResponseMsg(BaseModel):
     content: str  # persona's in-character reply
     classification: MoveClassKey  # verdict on the player's move
     swing: float
-    time_left: int  # ms that were left in the move the player just submitted
+    time_left: int  # ms in the player's bank for the upcoming turn (leftover + increment)
 
 
 class FinishMsg(BaseModel):

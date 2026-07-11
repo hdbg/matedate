@@ -455,12 +455,16 @@ create table public.solo_games (
   persona_id   uuid references public.personas (id) on delete set null,
   is_practice  boolean not null default false, -- disclosed-AI practice opponent (SPEC §2.3)
   rating_delta integer not null default 0,     -- rizz, or casual when is_practice
-  -- Live-play clock (SPEC §2.6). Per-move budget snapshotted at game start; turn_deadline is
-  -- set (now() + move_seconds) whenever the player's turn opens and cleared while it's the
-  -- persona's turn or the game is over. exchanges counts completed player↔persona rounds.
-  move_seconds  smallint not null default 30,
-  turn_deadline timestamptz,
-  exchanges     smallint not null default 0
+  -- Live-play clock (SPEC §2.6): a per-GAME Fischer clock. base_seconds is the player's
+  -- starting time bank (snapshotted at game start); increment_seconds is added to the bank
+  -- after each submitted move (rewards quick answers). turn_deadline is the absolute instant
+  -- the running bank hits zero for the open turn — set to now() + remaining_bank when the turn
+  -- opens, cleared while it's the persona's turn or the game is over — so the remaining bank is
+  -- turn_deadline - now(). exchanges counts completed player↔persona rounds.
+  base_seconds      smallint not null default 30,
+  increment_seconds smallint not null default 5,
+  turn_deadline     timestamptz,
+  exchanges         smallint not null default 0
 );
 
 -- Screenshot review (SPEC §2.5, §6). Only the cleaned/redacted transcript survives;

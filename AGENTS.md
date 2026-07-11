@@ -47,11 +47,24 @@ active game per user, reconnect-safe. `main.py` → `app/ws.py`.
     `response`{content,classification,swing,time_left} ·
     `finish`{end_reason,accuracy,rating_delta,moves,title,description} · `error`{code,message}
   - client→ `move`{content}
-- **Clock (SPEC §2.6):** per-move budget in ms; `solo_games.turn_deadline` persists it so the
-  server is authoritative and reconnect restores the right `time_left`. `time` is the full budget
-  (so resumed later turns reset correctly); `time_left` is what remains in the open turn.
+- **Clock (SPEC §2.6):** a per-game **Fischer** clock, not a per-move budget. The player starts
+  with `solo_games.base_seconds` (`SOLO_BASE_SECONDS`, default 30) and gains
+  `solo_games.increment_seconds` (`SOLO_INCREMENT_SECONDS`, default 5) back after each submitted
+  move — a single bank that **depletes across turns**, so quick answers are rewarded. The running
+  bank is encoded as `turn_deadline` (= `now + remaining_bank` when a turn opens), so
+  `time_left = turn_deadline - now` and reconnect restores it exactly. The clock is **paused across
+  the persona's reply**: the next turn's deadline is anchored to reply-send time (`_now()` after
+  the engine call), so LLM latency is never charged to the player. Wire fields: `time` = base bank
+  (ms); `time_left` = ms in the bank for the open/upcoming turn (on `response`, that's
+  leftover + increment). Every open turn also arms a **background timeout task**
+  (`SoloGameService._arm`/`_run_timeout`, using the transport's `send` callback) so an idle player
+  is finished with `timeout` *at* the deadline, not only on their next message; a per-connection
+  `asyncio.Lock` serializes the timer against the request path so a game finishes at most once.
+  `ws.py` serializes all sends and calls `service.aclose()` to cancel the timer when the socket
+  closes.
 - **End conditions:** whichever comes first — `SOLO_MAX_EXCHANGES` (default 6, → `scored`), the
-  move clock expiring (→ `timeout`), or a **block** (→ `blocked`).
+  move clock expiring (→ `timeout`, fired proactively by the timer or reactively on the next
+  move/reconnect), or a **block** (→ `blocked`).
 - **The engine (`app/engine.py`):** one combined **PydanticAI** agent per turn returns
   `MoveVerdict{eval_after 0-100, reply, reasoning, is_blocked}` — it both role-plays the persona's
   reply and scores the player's message. Provider-agnostic via **OpenRouter** (no vendor lock-in;

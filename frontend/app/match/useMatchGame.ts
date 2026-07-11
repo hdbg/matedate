@@ -71,7 +71,7 @@ export function useMatchGame(mode: VersusMode) {
   const idRef = useRef(0);
   const nextId = useCallback(() => ++idRef.current, []);
   const socketRef = useRef<WebSocket | null>(null);
-  const budgetRef = useRef(30); // per-move budget (s), set from the server
+  const budgetRef = useRef(30); // base game clock (s), set from the server
   const moveCountRef = useRef(0);
   const oppCountRef = useRef(0);
   const pendingYouRef = useRef<number | null>(null);
@@ -188,7 +188,9 @@ export function useMatchGame(mode: VersusMode) {
           scoreAccuracy(graded.classKey);
           setTyping(false);
           appendMessage({ side: "match", text: msg.content });
-          startClock(budgetRef.current);
+          // Fischer clock: resume from the server-reported bank (leftover + increment), not a
+          // fresh full budget — a quick answer carries its saved time into the next turn.
+          startClock(Math.max(1, Math.round(msg.time_left / 1000)));
           break;
         }
         case "finish": {

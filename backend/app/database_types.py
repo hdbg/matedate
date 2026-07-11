@@ -531,28 +531,31 @@ class PublicGamesUpdate(TypedDict):
     user_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="user_id")]]
 
 class PublicSoloGames(BaseModel):
+    base_seconds: int = Field(alias="base_seconds")
     exchanges: int = Field(alias="exchanges")
     game_id: uuid.UUID = Field(alias="game_id")
+    increment_seconds: int = Field(alias="increment_seconds")
     is_practice: bool = Field(alias="is_practice")
-    move_seconds: int = Field(alias="move_seconds")
     persona_id: Optional[uuid.UUID] = Field(alias="persona_id")
     rating_delta: int = Field(alias="rating_delta")
     turn_deadline: Optional[datetime.datetime] = Field(alias="turn_deadline")
 
 class PublicSoloGamesInsert(TypedDict):
+    base_seconds: NotRequired[Annotated[int, Field(alias="base_seconds")]]
     exchanges: NotRequired[Annotated[int, Field(alias="exchanges")]]
     game_id: Annotated[uuid.UUID, Field(alias="game_id")]
+    increment_seconds: NotRequired[Annotated[int, Field(alias="increment_seconds")]]
     is_practice: NotRequired[Annotated[bool, Field(alias="is_practice")]]
-    move_seconds: NotRequired[Annotated[int, Field(alias="move_seconds")]]
     persona_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="persona_id")]]
     rating_delta: NotRequired[Annotated[int, Field(alias="rating_delta")]]
     turn_deadline: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="turn_deadline")]]
 
 class PublicSoloGamesUpdate(TypedDict):
+    base_seconds: NotRequired[Annotated[int, Field(alias="base_seconds")]]
     exchanges: NotRequired[Annotated[int, Field(alias="exchanges")]]
     game_id: NotRequired[Annotated[uuid.UUID, Field(alias="game_id")]]
+    increment_seconds: NotRequired[Annotated[int, Field(alias="increment_seconds")]]
     is_practice: NotRequired[Annotated[bool, Field(alias="is_practice")]]
-    move_seconds: NotRequired[Annotated[int, Field(alias="move_seconds")]]
     persona_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="persona_id")]]
     rating_delta: NotRequired[Annotated[int, Field(alias="rating_delta")]]
     turn_deadline: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="turn_deadline")]]
