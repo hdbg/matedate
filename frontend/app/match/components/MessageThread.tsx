@@ -1,21 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { formatSwing, MOVE_CLASSES, type GradedMove } from "@/app/lib/game/service";
+import { MoveBadge } from "@/app/components/ui/MoveIcon";
 import { cn } from "@/app/lib/utils";
 import type { Message } from "../useMatchGame";
-
-function MoveTag({ move }: { move: GradedMove }) {
-  const mv = MOVE_CLASSES[move.classKey];
-  return (
-    <span
-      className="mt-1.5 inline-flex items-center gap-[5px] rounded-full px-[9px] py-[3px] font-mono text-[11px] font-bold text-white"
-      style={{ background: mv.color }}
-    >
-      {mv.glyph} {mv.label} {formatSwing(move.swing)}
-    </span>
-  );
-}
 
 function TypingIndicator() {
   return (
@@ -55,7 +43,9 @@ function MessageBubble({ message }: { message: Message }) {
       >
         {message.text}
       </div>
-      {message.move && <MoveTag move={message.move} />}
+      {message.move && (
+        <MoveBadge classKey={message.move.classKey} swing={message.move.swing} className="mt-1.5" />
+      )}
     </div>
   );
 }

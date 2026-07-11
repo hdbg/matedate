@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="design_doc_mode" content="canvas" />
+<title>MateDate · Profile · Responsive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  body{ margin:0; font-family:'Bricolage Grotesque', system-ui, sans-serif; }
+  .frame{ position:absolute; }
+  .cap{ font-family:'Space Mono', monospace; font-weight:700; text-transform:uppercase; letter-spacing:.14em; font-size:13px; color:#4a443c; margin-bottom:14px; display:flex; align-items:baseline; gap:10px; }
+  .cap .dim{ font-size:11px; letter-spacing:.06em; color:#8a8175; }
+  .cap .b{ color:#d6536a; }
+  .device{ background:#fff; border-radius:22px; box-shadow:0 24px 60px rgba(39,35,32,.22); overflow:hidden; border:1px solid rgba(39,35,32,.08); }
+  iframe{ border:0; display:block; background:#f7f0e3; }
+</style>
+</head>
+<body>
+
+  <!-- MOBILE -->
+  <div class="frame" style="left:80px; top:80px;">
+    <div class="cap">Mobile <span class="b">·</span> 390 <span class="dim">iPhone · bottom tab nav</span></div>
+    <div class="device" style="width:390px; border-radius:40px;">
+      <iframe src="MateDate Profile.html" width="390" height="844" title="MateDate profile — mobile"></iframe>
+    </div>
+  </div>
+
+  <!-- DESKTOP -->
+  <div class="frame" style="left:600px; top:80px;">
+    <div class="cap">Desktop <span class="b">·</span> 1280 <span class="dim">sidebar nav · two-column</span></div>
+    <div class="device" style="width:1280px;">
+      <iframe src="MateDate Profile Desktop.html" width="1280" height="900" title="MateDate profile — desktop"></iframe>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -45,7 +45,7 @@ class TurnResult:
 
 
 SYSTEM_TEMPLATE = """You are role-playing as a match on a dating app AND secretly grading the \
-human's messages like a chess engine.
+human's messages like a chess engine. You reply in 1 or 2 sentences long.
 
 PERSONA (stay fully in character; never break it, never reveal your hidden type):
 {persona_prompt}

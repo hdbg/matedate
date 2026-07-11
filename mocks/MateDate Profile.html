@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MateDate · Profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --cream:#f1e8d9; --cream-2:#e7dcc8; --paper:#f7f0e3;
+    --ink:#272320; --ink-soft:#4a443c; --ink-mute:#8a8175;
+    --king:#fbf6ec; --rosy:#d6536a; --rosy-deep:#b8324c; --rosy-tint:#f3d9de;
+    --m-brilliant:#1f9e8a; --m-great:#3a7ca5; --m-good:#5f9a55;
+    --m-inaccuracy:#c99a33; --m-mistake:#cf7a3c; --m-blunder:#b8324c;
+    --gold:#c99a33;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; }
+  body{
+    background:#ddd6ca;
+    background-image:radial-gradient(circle at 30% 20%, #e6dfd2, #d2cabd);
+    font-family:'Bricolage Grotesque', system-ui, sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; padding:24px; color:var(--ink);
+  }
+  a{ color:var(--rosy-deep); } a:hover{ color:var(--rosy); }
+  .mono{ font-family:'Space Mono', monospace; }
+
+  .phone{
+    width:390px; max-width:100%; height:min(844px, calc(100vh - 48px));
+    background:var(--paper); border-radius:40px; overflow:hidden;
+    box-shadow:0 30px 70px rgba(39,35,32,.34), 0 2px 0 rgba(255,255,255,.5) inset;
+    position:relative; display:flex; flex-direction:column;
+  }
+  .statusbar{ height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:0 26px; font-family:'Space Mono',monospace; font-weight:700; font-size:13px; color:var(--king); position:relative; z-index:3; }
+  .statusbar .dots-r{ display:flex; gap:5px; align-items:center; }
+  .statusbar .sig{ width:16px; height:10px; background:currentColor; border-radius:2px; opacity:.85; }
+  .statusbar .bat{ width:22px; height:11px; border:1.5px solid currentColor; border-radius:3px; position:relative; }
+  .statusbar .bat::after{ content:''; position:absolute; left:1.5px; top:1.5px; bottom:1.5px; width:82%; background:currentColor; border-radius:1px; }
+
+  .scroll{ flex:1; overflow-y:auto; }
+
+  /* ---------- header (dark) ---------- */
+  .head{ background:var(--ink); color:var(--king); padding:0 22px 24px; margin-top:-44px; padding-top:52px; position:relative; overflow:hidden; }
+  .head::after{ content:''; position:absolute; right:-40px; top:-30px; width:190px; height:190px; border-radius:50%; background:radial-gradient(circle, rgba(214,83,106,.22), transparent 70%); }
+  .head-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; position:relative; z-index:2; }
+  .head-top .brand{ font-weight:800; letter-spacing:-.03em; font-size:19px; }
+  .head-top .brand .b{ color:var(--rosy); }
+  .iconbtn{ width:38px; height:38px; border-radius:50%; border:1px solid rgba(251,246,236,.16); background:rgba(251,246,236,.06); color:var(--king); font-size:17px; cursor:pointer; display:grid; place-items:center; transition:background .15s; }
+  .iconbtn:hover{ background:rgba(251,246,236,.14); }
+
+  .idrow{ display:flex; gap:16px; align-items:center; position:relative; z-index:2; }
+  .avatar-wrap{ width:88px; height:88px; flex-shrink:0; position:relative; }
+  .avatar-wrap image-slot{ width:88px; height:88px; border:3px solid var(--rosy); border-radius:50%; box-shadow:0 6px 18px rgba(0,0,0,.3); }
+  .avatar-wrap .tier-chip{ position:absolute; bottom:-4px; right:-6px; background:var(--gold); color:var(--ink); font-family:'Space Mono',monospace; font-weight:700; font-size:10px; letter-spacing:.04em; padding:3px 8px; border-radius:999px; border:2px solid var(--ink); white-space:nowrap; }
+  .idcol{ flex:1; min-width:0; }
+  .idcol h1{ font-weight:800; letter-spacing:-.03em; font-size:24px; line-height:1.05; margin:0; }
+  .idcol .handle{ font-family:'Space Mono',monospace; font-size:13px; color:var(--ink-mute); margin-top:3px; }
+  .idcol .flags{ display:flex; gap:6px; margin-top:9px; flex-wrap:wrap; }
+  .flag{ display:inline-flex; align-items:center; gap:5px; font-family:'Space Mono',monospace; font-weight:700; font-size:10px; letter-spacing:.05em; text-transform:uppercase; padding:4px 9px; border-radius:999px; }
+  .flag-elo{ background:var(--rosy); color:#fff; }
+  .flag-streak{ background:rgba(251,246,236,.1); color:var(--king); border:1px solid rgba(251,246,236,.2); }
+
+  .bio{ font-size:14.5px; line-height:1.5; color:#e4dccd; margin:16px 0 0; position:relative; z-index:2; }
+  .bio .pin{ color:var(--rosy); font-weight:700; }
+
+  .edit-row{ display:flex; gap:10px; margin-top:16px; position:relative; z-index:2; }
+  .btn-edit{ flex:1; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:14px; border:none; cursor:pointer; border-radius:999px; padding:11px; background:rgba(251,246,236,.1); color:var(--king); border:1px solid rgba(251,246,236,.2); transition:background .15s; }
+  .btn-edit:hover{ background:rgba(251,246,236,.18); }
+  .btn-edit.primary{ background:var(--rosy); border-color:var(--rosy); box-shadow:0 4px 0 var(--rosy-deep); }
+  .btn-edit.primary:hover{ background:var(--rosy-deep); }
+  .btn-edit.primary:active{ box-shadow:0 2px 0 var(--rosy-deep); transform:translateY(2px); }
+
+  /* ---------- body sections ---------- */
+  .body{ padding:20px 20px 8px; }
+  .sectlabel{ font-family:'Space Mono',monospace; font-weight:700; text-transform:uppercase; letter-spacing:.14em; font-size:11px; color:var(--ink-mute); margin:24px 2px 12px; display:flex; align-items:center; justify-content:space-between; }
+  .sectlabel:first-child{ margin-top:2px; }
+  .sectlabel .edit-link{ font-family:'Space Mono',monospace; font-weight:700; font-size:11px; letter-spacing:.06em; color:var(--rosy-deep); cursor:pointer; text-transform:uppercase; }
+
+  /* rank card */
+  .rankcard{ background:#fff; border:1px solid rgba(39,35,32,.07); border-radius:22px; padding:18px; box-shadow:0 4px 14px rgba(39,35,32,.07); }
+  .rank-head{ display:flex; align-items:center; gap:13px; margin-bottom:16px; }
+  .rank-medal{ width:52px; height:52px; border-radius:15px; flex-shrink:0; display:grid; place-items:center; font-size:26px; background:linear-gradient(150deg,#e8c25f,#c99a33); box-shadow:0 4px 12px rgba(201,154,51,.35), inset 0 1px 0 rgba(255,255,255,.5); }
+  .rank-head .rk-name{ font-weight:800; letter-spacing:-.02em; font-size:20px; line-height:1.1; }
+  .rank-head .rk-sub{ font-family:'Space Mono',monospace; font-size:12px; color:var(--ink-mute); margin-top:2px; }
+  .rank-elo{ margin-left:auto; text-align:right; }
+  .rank-elo .rk-val{ font-family:'Space Mono',monospace; font-weight:700; font-size:26px; letter-spacing:-.02em; line-height:1; }
+  .rank-elo .rk-val .pc{ color:var(--rosy); }
+  .rank-elo .rk-lbl{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-mute); margin-top:3px; }
+
+  .rk-progress{ margin-top:4px; }
+  .rk-bar{ height:10px; border-radius:999px; background:var(--cream-2); overflow:hidden; box-shadow:inset 0 1px 2px rgba(39,35,32,.12); }
+  .rk-bar i{ display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,var(--rosy),var(--rosy-deep)); }
+  .rk-scale{ display:flex; justify-content:space-between; margin-top:7px; font-family:'Space Mono',monospace; font-size:11px; font-weight:700; color:var(--ink-mute); }
+  .rk-scale b{ color:var(--ink); }
+  .rk-note{ font-size:12.5px; color:var(--ink-soft); margin-top:11px; text-align:center; }
+  .rk-note b{ color:var(--rosy-deep); }
+
+  /* career stats */
+  .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:9px; }
+  .stat{ background:#fff; border:1px solid rgba(39,35,32,.07); border-radius:16px; padding:14px 6px; text-align:center; box-shadow:0 3px 10px rgba(39,35,32,.05); }
+  .stat .sv{ font-family:'Space Mono',monospace; font-weight:700; font-size:21px; letter-spacing:-.02em; }
+  .stat .sl{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-mute); margin-top:4px; line-height:1.3; }
+  .stat.brill .sv{ color:var(--m-brilliant); }
+  .stat.win .sv{ color:var(--m-good); }
+
+  /* preferences */
+  .prefcard{ background:#fff; border:1px solid rgba(39,35,32,.07); border-radius:20px; padding:6px 16px; box-shadow:0 3px 10px rgba(39,35,32,.05); }
+  .prefrow{ display:flex; align-items:flex-start; gap:13px; padding:14px 0; border-bottom:1px dashed rgba(39,35,32,.13); }
+  .prefrow:last-child{ border-bottom:none; }
+  .prefrow .pr-lbl{ font-family:'Space Mono',monospace; font-weight:700; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-mute); width:78px; flex-shrink:0; padding-top:6px; line-height:1.4; }
+  .prefrow .pr-vals{ display:flex; flex-wrap:wrap; gap:7px; flex:1; }
+  .prefchip{ display:inline-flex; align-items:center; gap:6px; font-weight:600; font-size:13.5px; padding:7px 13px; border-radius:999px; background:var(--rosy-tint); color:var(--rosy-deep); border:1.5px solid rgba(214,83,106,.3); }
+  .prefchip.neutral{ background:var(--cream); color:var(--ink-soft); border-color:rgba(39,35,32,.12); }
+  .prefchip .pe{ font-size:15px; }
+
+  /* history filter chips */
+  .filters{ display:flex; gap:8px; overflow-x:auto; padding:2px 0 4px; margin:0 -20px 14px; padding-left:20px; padding-right:20px; scrollbar-width:none; }
+  .filters::-webkit-scrollbar{ display:none; }
+  .fchip{ font-family:'Space Mono',monospace; font-weight:700; font-size:12px; letter-spacing:.02em; padding:8px 14px; border-radius:999px; background:#fff; border:1.5px solid rgba(39,35,32,.14); cursor:pointer; white-space:nowrap; flex-shrink:0; transition:.14s; color:var(--ink-soft); }
+  .fchip .ct{ color:var(--ink-mute); margin-left:5px; }
+  .fchip:hover{ border-color:rgba(39,35,32,.32); }
+  .fchip.on{ background:var(--ink); color:var(--king); border-color:var(--ink); }
+  .fchip.on .ct{ color:var(--king); opacity:.6; }
+
+  /* history list */
+  .games{ display:flex; flex-direction:column; gap:10px; }
+  .game{ display:flex; align-items:center; gap:13px; padding:13px 14px; border-radius:18px; background:#fff; border:1px solid rgba(39,35,32,.07); box-shadow:0 3px 9px rgba(39,35,32,.05); transition:transform .12s ease, box-shadow .12s ease; cursor:pointer; }
+  .game:hover{ transform:translateY(-2px); box-shadow:0 9px 20px rgba(39,35,32,.11); }
+  .game .g-ic{ width:46px; height:46px; border-radius:13px; display:grid; place-items:center; font-size:22px; flex-shrink:0; }
+  .game .g-body{ flex:1; min-width:0; }
+  .game .g-row1{ display:flex; align-items:center; gap:7px; }
+  .game .g-title{ font-weight:700; font-size:15.5px; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .game .g-cat{ font-family:'Space Mono',monospace; font-weight:700; font-size:9px; letter-spacing:.06em; text-transform:uppercase; padding:2px 7px; border-radius:999px; background:var(--cream-2); color:var(--ink-soft); flex-shrink:0; }
+  .game .g-meta{ font-family:'Space Mono',monospace; font-size:11.5px; color:var(--ink-mute); margin-top:4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .game .g-meta .dot{ opacity:.4; }
+  .game .g-meta .bestmv{ color:var(--m-brilliant); font-weight:700; }
+  .game .g-meta .blunder{ color:var(--m-blunder); font-weight:700; }
+  .game .g-right{ text-align:right; flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
+  .g-result{ font-family:'Space Mono',monospace; font-weight:700; font-size:11px; letter-spacing:.04em; padding:3px 8px; border-radius:7px; }
+  .g-result.w{ background:rgba(95,154,85,.16); color:var(--m-good); }
+  .g-result.l{ background:rgba(184,50,76,.12); color:var(--m-blunder); }
+  .g-result.solve{ background:rgba(31,158,138,.15); color:var(--m-brilliant); }
+  .g-result.rev{ background:var(--cream-2); color:var(--ink-soft); }
+  .g-delta{ font-family:'Space Mono',monospace; font-weight:700; font-size:13px; }
+  .g-delta.up{ color:var(--m-good); }
+  .g-delta.down{ color:var(--m-blunder); }
+  .g-delta.flat{ color:var(--ink-mute); }
+
+  .empty{ text-align:center; color:var(--ink-mute); font-size:14px; padding:30px 20px; display:none; }
+  .empty .mono{ display:block; font-size:12px; margin-top:6px; }
+
+  .footnote{ font-family:'Space Mono',monospace; font-size:11px; color:var(--ink-mute); text-align:center; margin:20px 8px 6px; line-height:1.6; }
+
+  /* tab bar */
+  .tabbar{ flex-shrink:0; height:66px; border-top:1px solid rgba(39,35,32,.1); background:rgba(247,240,227,.94); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:space-around; padding:0 8px 6px; }
+  .tab{ display:flex; flex-direction:column; align-items:center; gap:3px; font-family:'Space Mono',monospace; font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-mute); background:none; border:none; cursor:pointer; padding:8px 14px; text-decoration:none; }
+  .tab .ti{ font-size:20px; }
+  .tab.on{ color:var(--rosy-deep); }
+
+  .toast{ position:absolute; left:50%; bottom:82px; transform:translateX(-50%) translateY(12px); background:var(--ink); color:var(--king); font-size:14px; font-weight:600; padding:12px 20px; border-radius:999px; box-shadow:0 10px 24px rgba(39,35,32,.3); opacity:0; pointer-events:none; transition:.28s; white-space:nowrap; z-index:30; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="phone" data-screen-label="Profile · You">
+  <div class="statusbar">
+    <span>9:41</span>
+    <span class="dots-r"><span class="sig"></span><span class="mono" style="font-size:11px;">5G</span><span class="bat"></span></span>
+  </div>
+
+  <div class="scroll">
+
+    <!-- ============ HEADER ============ -->
+    <div class="head">
+      <div class="head-top">
+        <div class="brand">Mate<span class="b">Date</span></div>
+        <button class="iconbtn" onclick="toast('Settings')" title="Settings">⚙</button>
+      </div>
+
+      <div class="idrow">
+        <div class="avatar-wrap">
+          <image-slot id="profile-pfp" shape="circle" placeholder="Add photo"></image-slot>
+          <span class="tier-chip">♛ GOLD II</span>
+        </div>
+        <div class="idcol">
+          <h1>Jordan R.</h1>
+          <div class="handle">@jordan_gambit</div>
+          <div class="flags">
+            <span class="flag flag-elo">♟ 1487 ELO</span>
+            <span class="flag flag-streak">🔥 5-day</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="bio">Trail runner, terrible cook, will open with a <span class="pin">book move</span>. Deadpan until proven otherwise. Prove otherwise. 🥾</p>
+
+      <div class="edit-row">
+        <button class="btn-edit primary" onclick="toast('Edit profile')">Edit profile</button>
+        <button class="btn-edit" onclick="toast('Share your card')">Share card</button>
+      </div>
+    </div>
+
+    <!-- ============ BODY ============ -->
+    <div class="body">
+
+      <!-- RANK -->
+      <div class="sectlabel">Rank &amp; rating</div>
+      <div class="rankcard">
+        <div class="rank-head">
+          <div class="rank-medal">♛</div>
+          <div>
+            <div class="rk-name">Gold II</div>
+            <div class="rk-sub">Top 18% of players</div>
+          </div>
+          <div class="rank-elo">
+            <div class="rk-val"><span class="pc">♟</span> 1487</div>
+            <div class="rk-lbl">Rizz ELO · peak 1520</div>
+          </div>
+        </div>
+        <div class="rk-progress">
+          <div class="rk-bar"><i style="width:62%"></i></div>
+          <div class="rk-scale"><span><b>Gold II</b> · 1487</span><span>Gold I · 1600</span></div>
+        </div>
+        <div class="rk-note">113 ELO to <b>Gold I</b> — about 4 clean wins.</div>
+      </div>
+
+      <!-- CAREER STATS -->
+      <div class="sectlabel">Career</div>
+      <div class="stats">
+        <div class="stat"><div class="sv">248</div><div class="sl">Games</div></div>
+        <div class="stat win"><div class="sv">64%</div><div class="sl">Win rate</div></div>
+        <div class="stat"><div class="sv">88%</div><div class="sl">Avg acc.</div></div>
+        <div class="stat brill"><div class="sv">31</div><div class="sl">Brilliants</div></div>
+      </div>
+
+      <!-- PREFERENCES -->
+      <div class="sectlabel">From your setup <span class="edit-link" onclick="toast('Edit preferences')">Edit</span></div>
+      <div class="prefcard">
+        <div class="prefrow">
+          <div class="pr-lbl">Playing for</div>
+          <div class="pr-vals">
+            <span class="prefchip"><span class="pe">💍</span>Something serious</span>
+          </div>
+        </div>
+        <div class="prefrow">
+          <div class="pr-lbl">Texting style</div>
+          <div class="pr-vals">
+            <span class="prefchip"><span class="pe">😏</span>Playful &amp; flirty</span>
+            <span class="prefchip"><span class="pe">🌵</span>Dry wit</span>
+          </div>
+        </div>
+        <div class="prefrow">
+          <div class="pr-lbl">Clock</div>
+          <div class="pr-vals">
+            <span class="prefchip neutral"><span class="pe">⚡</span>Bullet · 20s</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- GAME HISTORY -->
+      <div class="sectlabel">Game history</div>
+      <div class="filters" id="filters">
+        <button class="fchip on" data-cat="all" onclick="filterGames(this)">All <span class="ct">248</span></button>
+        <button class="fchip" data-cat="solo" onclick="filterGames(this)">Solo AI <span class="ct">121</span></button>
+        <button class="fchip" data-cat="ranked" onclick="filterGames(this)">Ranked <span class="ct">64</span></button>
+        <button class="fchip" data-cat="practice" onclick="filterGames(this)">Practice <span class="ct">28</span></button>
+        <button class="fchip" data-cat="review" onclick="filterGames(this)">Reviews <span class="ct">19</span></button>
+        <button class="fchip" data-cat="puzzle" onclick="filterGames(this)">Puzzles <span class="ct">16</span></button>
+      </div>
+
+      <div class="games" id="games">
+
+        <div class="game" data-cat="ranked" onclick="toast('Opening game review')">
+          <div class="g-ic" style="background:var(--rosy-tint); color:var(--rosy-deep);">⚔️</div>
+          <div class="g-body">
+            <div class="g-row1"><span class="g-title">vs. @mira_endgame</span><span class="g-cat">Ranked</span></div>
+            <div class="g-meta">94% acc <span class="dot">·</span> <span class="bestmv">!! Franconia line</span> <span class="dot">·</span> 2h ago</div>
+          </div>
+          <div class="g-right"><span class="g-result w">WON</span><span class="g-delta up">+24</span></div>
+        </div>
+
+        <div class="game" data-cat="solo" onclick="toast('Opening game review')">
+          <div class="g-ic" style="background:var(--cream-2);">💘</div>
+          <div class="g-body">
+            <div class="g-row1"><span class="g-title">AI date · "Skeptical barista"</span><span class="g-cat">Solo</span></div>
+            <div class="g-meta">88% acc <span class="dot">·</span> 3 Great moves <span class="dot">·</span> 5h ago</div>
+          </div>
+          <div class="g-right"><span class="g-result w">MATCH</span><span class="g-delta flat">solo</span></div>
+        </div>
+
+        <div class="game" data-cat="review" onclick="toast('Opening game review')">
+          <div class="g-ic" style="background:rgba(31,158,138,.15); color:var(--m-brilliant);">📸</div>
+          <div class="g-body">
+            <div class="g-row1"><span class="g-title">Screenshot · Hinge convo</span><span class="g-cat">Review</span></div>
+            <div class="g-meta">71% acc <span class="dot">·</span> <span class="blunder">?? "idk lol"</span> <span class="dot">·</span> yesterday</div>
+          </div>
+          <div class="g-right"><span class="g-result rev">CARD</span><span class="g-delta flat">—</span></div>
+        </div>
+
+        <div class="game" data-cat="puzzle" onclick="toast('Opening game review')">
+          <div class="g-ic" style="background:rgba(58,124,165,.15); color:var(--m-great);">🧩</div>
+          <div class="g-body">
+            <div class="g-row1"><span class="g-title">Daily puzzle · "The double text"</span><span class="g-cat">Puzzle</span></div>
+            <div class="g-meta">Solved in 1 <span class="dot">·</span> <span class="bestmv">!! Brilliant</span> <span class="dot">·</span> yesterday</div>
+          </div>
+          <div class="g-right"><span class="g-result solve">SOLVED</span><span class="g-delta up">+8</span></div>
+        </div>
+
+        <div class="game" data-cat="ranked" onclick="toast('Opening game review')">
+          <div class="g-ic" style="background:var(--rosy-tint); color:var(--rosy-deep);">⚔️</div>
+          <div class="g-body">
+            <div class="g-row1"><span class="g-title">vs. @theo_blitz</span><span class="g-cat">Ranked</span></div>
+            <div class="g-meta">79% acc <span class="dot">·</span> flagged on time <span class="dot">·</span> 2d ago</div>
+          </div>
+          <div class="g-right"><span class="g-result l">LOST</span><span class="g-delta down">−19</span></div>
+        </div>
+
+        <div class="game" data-cat="practice" onclick="toast('Opening game review')">
+          <div class="g-ic" style="background:var(--cream-2);">🤖</div>
+          <div class="g-body">
+            <div class="g-row1"><span class="g-title">Practice vs. RizzBot</span><span class="g-cat">Practice</span></div>
+            <div class="g-meta">91% acc <span class="dot">·</span> 2 Brilliants <span class="dot">·</span> 2d ago</div>
+          </div>
+          <div class="g-right"><span class="g-result w">MATCH</span><span class="g-delta flat">casual</span></div>
+        </div>
+
+        <div class="game" data-cat="solo" onclick="toast('Opening game review')">
+          <div class="g-ic" style="background:var(--cream-2);">💘</div>
+          <div class="g-body">
+            <div class="g-row1"><span class="g-title">AI date · "Rival gym crush"</span><span class="g-cat">Solo</span></div>
+            <div class="g-meta">85% acc <span class="dot">·</span> 1 Inaccuracy <span class="dot">·</span> 3d ago</div>
+          </div>
+          <div class="g-right"><span class="g-result w">MATCH</span><span class="g-delta flat">solo</span></div>
+        </div>
+
+        <div class="game" data-cat="ranked" onclick="toast('Opening game review')">
+          <div class="g-ic" style="background:var(--rosy-tint); color:var(--rosy-deep);">⚔️</div>
+          <div class="g-body">
+            <div class="g-row1"><span class="g-title">vs. @sam_castle</span><span class="g-cat">Ranked</span></div>
+            <div class="g-meta">90% acc <span class="dot">·</span> <span class="bestmv">!! clutch recovery</span> <span class="dot">·</span> 4d ago</div>
+          </div>
+          <div class="g-right"><span class="g-result w">WON</span><span class="g-delta up">+21</span></div>
+        </div>
+
+        <div class="game" data-cat="review" onclick="toast('Opening game review')">
+          <div class="g-ic" style="background:rgba(31,158,138,.15); color:var(--m-brilliant);">📸</div>
+          <div class="g-body">
+            <div class="g-row1"><span class="g-title">Screenshot · Tinder opener</span><span class="g-cat">Review</span></div>
+            <div class="g-meta">83% acc <span class="dot">·</span> 2 Good moves <span class="dot">·</span> 5d ago</div>
+          </div>
+          <div class="g-right"><span class="g-result rev">CARD</span><span class="g-delta flat">—</span></div>
+        </div>
+
+      </div>
+
+      <div class="empty" id="empty">No games in this category yet.<span class="mono">Go play a round →</span></div>
+
+      <p class="footnote">All history is private by default.<br/>Cards are pseudonymized before sharing.</p>
+    </div>
+  </div>
+
+  <!-- tab bar -->
+  <div class="tabbar">
+    <a class="tab" href="MateDate Mode Selector.html"><span class="ti">♟</span>Play</a>
+    <button class="tab" onclick="toast('Ladder coming soon')"><span class="ti">🏆</span>Ladder</button>
+    <button class="tab" onclick="toast('Your reviews')"><span class="ti">🗂</span>Reviews</button>
+    <button class="tab on"><span class="ti">👤</span>You</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script src="image-slot.js"></script>
+<script>
+  let toastTimer;
+  function toast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>t.classList.remove('show'), 1800);
+  }
+
+  function filterGames(btn){
+    document.querySelectorAll('#filters .fchip').forEach(c=>c.classList.remove('on'));
+    btn.classList.add('on');
+    const cat = btn.dataset.cat;
+    let shown = 0;
+    document.querySelectorAll('#games .game').forEach(g=>{
+      const match = cat==='all' || g.dataset.cat===cat;
+      g.style.display = match ? '' : 'none';
+      if(match) shown++;
+    });
+    document.getElementById('empty').style.display = shown===0 ? 'block' : 'none';
+  }
+</script>
+</body>
+</html>

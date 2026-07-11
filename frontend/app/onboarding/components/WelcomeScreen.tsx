@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { Button } from "@/app/components/ui/Button";
 import { HeroScene } from "@/app/components/ui/HeroScene";
+import { MoveIcon } from "@/app/components/ui/MoveIcon";
 import { Wordmark } from "@/app/components/ui/Wordmark";
 import { OnboardingScreen, Spacer } from "./chrome";
 
-function Feature({ icon, title, children }: { icon: string; title: string; children: ReactNode }) {
+function Feature({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
     <div className="flex items-start gap-[13px] py-[11px]">
       <div className="grid h-[38px] w-[38px] flex-shrink-0 place-items-center rounded-[11px] bg-rosy/[0.16] font-mono text-[15px] font-bold text-rosy">
@@ -33,14 +34,20 @@ export function WelcomeScreen({
         <Wordmark className="text-center text-[48px] leading-none text-king" />
         <p className="mt-3.5 text-center text-[16px] leading-[1.45] text-[#cfc6b6]">
           Flirting, graded like a chess engine. Every text gets a verdict —{" "}
-          <span className="font-mono text-m-brilliant">!! Brilliant</span> to{" "}
-          <span className="font-mono text-rosy">?? Blunder</span>.
+          <span className="whitespace-nowrap font-mono text-m-brilliant">
+            <MoveIcon classKey="brilliant" size={15} className="inline align-[-2px]" /> Brilliant
+          </span>{" "}
+          to{" "}
+          <span className="whitespace-nowrap font-mono text-rosy">
+            <MoveIcon classKey="blunder" size={15} className="inline align-[-2px]" /> Blunder
+          </span>
+          .
         </p>
       </div>
 
       {/* On desktop the features headline the dark flow pane. */}
       <div className="mt-2 lg:mt-10">
-        <Feature icon="!!" title="Get graded">
+        <Feature icon={<MoveIcon classKey="brilliant" size={22} />} title="Get graded">
           Chess-style classification + accuracy % on every move.
         </Feature>
         <Feature icon="♟" title="Climb the ladder">

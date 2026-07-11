@@ -1,7 +1,9 @@
+import type { ReactNode } from "react";
 import { Button } from "@/app/components/ui/Button";
+import { MoveIcon } from "@/app/components/ui/MoveIcon";
 import { OnboardingScreen, Spacer, Sub, Title } from "./chrome";
 
-function Stat({ value, label, valueClassName }: { value: string; label: string; valueClassName?: string }) {
+function Stat({ value, label, valueClassName }: { value: ReactNode; label: string; valueClassName?: string }) {
   return (
     <div className="text-center">
       <div className={`font-mono text-[26px] font-bold ${valueClassName ?? ""}`}>{value}</div>
@@ -32,7 +34,10 @@ export function DoneScreen({
         <div className="mt-5 flex w-full justify-around rounded-2xl bg-cream p-[18px]">
           <Stat value="1200" label="Starting elo" />
           <Stat value="3" label="Free / day" />
-          <Stat value="!!" label="Best move locked" valueClassName="text-rosy" />
+          <Stat
+            value={<MoveIcon classKey="brilliant" size={26} className="inline align-[-4px]" />}
+            label="Best move locked"
+          />
         </div>
       </div>
 

@@ -18,7 +18,7 @@ export type MoveClassKey =
 
 export interface MoveClass {
   key: MoveClassKey;
-  /** Chess-style glyph shown in the verdict/tag, e.g. "!!" or "??". */
+  /** Chess-style text fallback, e.g. "!!" or "??" — UI renders `MoveIcon` instead. */
   glyph: string;
   label: string;
   /** CSS var reference for the classification color, for inline styles. */

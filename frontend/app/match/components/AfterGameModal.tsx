@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { formatSwing, MOVE_CLASSES, type MoveClassKey } from "@/app/lib/game/service";
+import { MoveIcon } from "@/app/components/ui/MoveIcon";
+import { formatSwing, type MoveClassKey } from "@/app/lib/game/service";
 import type { WireMove } from "@/app/lib/game/live";
 import type { GameResult } from "../useMatchGame";
 
@@ -237,16 +238,13 @@ function RecapBubble({ move }: { move: WireMove }) {
     );
   }
   const cls = move.classification as MoveClassKey | null | undefined;
-  const meta = cls ? MOVE_CLASSES[cls] : null;
   return (
     <div className="relative max-w-[80%] self-end rounded-[16px] rounded-br-[5px] bg-rosy px-3 py-2.5 text-[13px] leading-[1.35] text-white">
       {move.content}
-      {meta && (
-        <span
-          className="absolute right-1.5 top-[-8px] rounded-full px-[7px] py-0.5 font-mono text-[10px] font-bold text-white"
-          style={{ background: meta.color }}
-        >
-          {meta.glyph} {formatSwing(move.swing ?? 0)}
+      {cls && (
+        <span className="absolute right-1.5 top-[-9px] inline-flex items-center gap-[4px] rounded-full bg-white py-[2px] pl-[2px] pr-[7px] font-mono text-[10px] font-bold text-ink shadow-[var(--sh-1)]">
+          <MoveIcon classKey={cls} size={15} />
+          {formatSwing(move.swing ?? 0)}
         </span>
       )}
     </div>

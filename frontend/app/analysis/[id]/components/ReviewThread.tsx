@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { formatSwing, MOVE_CLASSES } from "@/app/lib/game/service";
+import { MoveBadge } from "@/app/components/ui/MoveIcon";
 import { cn } from "@/app/lib/utils";
 import type { ReviewThreadItem } from "../review";
 
@@ -27,7 +27,6 @@ export function ReviewThread({ thread, currentIndex }: ReviewThreadProps) {
           if (i > currentIndex) return null; // hidden (incl. all of them at the overview)
           const isCurrent = i === currentIndex;
           const isYou = item.side === "you";
-          const mv = item.move ? MOVE_CLASSES[item.move.classKey] : null;
           return (
             <div
               key={item.key}
@@ -51,13 +50,8 @@ export function ReviewThread({ thread, currentIndex }: ReviewThreadProps) {
               >
                 {item.content}
               </div>
-              {item.move && mv && (
-                <span
-                  className="mt-1.5 inline-flex items-center gap-[5px] rounded-full px-[9px] py-[3px] font-mono text-[11px] font-bold text-white"
-                  style={{ background: mv.color }}
-                >
-                  {mv.glyph} {mv.label} {formatSwing(item.move.swing)}
-                </span>
+              {item.move && (
+                <MoveBadge classKey={item.move.classKey} swing={item.move.swing} className="mt-1.5" />
               )}
             </div>
           );

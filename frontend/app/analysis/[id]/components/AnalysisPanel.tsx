@@ -1,3 +1,4 @@
+import { MoveIcon } from "@/app/components/ui/MoveIcon";
 import { formatSwing, MOVE_CLASSES } from "@/app/lib/game/service";
 import { cn } from "@/app/lib/utils";
 import type { ReviewMove } from "../review";
@@ -67,12 +68,11 @@ export function AnalysisPanel({ step, overview, move, onUnlock }: AnalysisPanelP
   return (
     <div className="p-[18px] lg:p-[26px]">
       <div className="mb-2.5 flex items-center gap-3">
-        <div
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full font-mono text-[16px] font-bold text-white shadow-[var(--sh-1)]"
-          style={{ background: mv.color }}
-        >
-          {mv.glyph}
-        </div>
+        <MoveIcon
+          classKey={move.classKey}
+          size={40}
+          className="drop-shadow-[0_2px_6px_rgba(39,35,32,0.12)]"
+        />
         <div className="min-w-0 flex-1">
           <div className="text-[19px] font-extrabold leading-none tracking-[-0.02em] lg:text-[24px]">
             {mv.label}

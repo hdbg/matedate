@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
 import { NotificationsBell } from "@/app/components/ui/NotificationsBell";
@@ -8,12 +9,13 @@ import { Wordmark } from "@/app/components/ui/Wordmark";
 import { createClient } from "@/app/lib/supabase/client";
 import type { TimeControl } from "@/app/lib/game/service";
 import { cn } from "@/app/lib/utils";
+import { TabBar, TABS } from "@/app/components/ui/TabBar";
 import { FeaturedCard } from "./components/FeaturedCard";
 import { ModeBadge, ModeRow } from "./components/ModeRow";
-import { TabBar, TABS } from "./components/TabBar";
 import { TimeControlSheet } from "./components/TimeControlSheet";
 
-const FALLBACK_ELO = 1200;
+// New accounts start at 1000 (the player_ratings default, minted by the signup trigger).
+const FALLBACK_ELO = 1000;
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -68,19 +70,26 @@ export default function PlayPage() {
         <Wordmark className="text-[22px] tracking-[-0.03em] text-ink" />
 
         <nav className="hidden items-center gap-1 lg:flex">
-          {TABS.map((tab, i) => (
-            <button
-              key={tab.label}
-              type="button"
-              onClick={() => (i === 0 ? undefined : showToast(`${tab.label} coming soon`))}
-              className={cn(
-                "rounded-full px-4 py-2 text-[14px] font-semibold transition-colors",
-                i === 0 ? "bg-ink text-king" : "text-ink-soft hover:bg-ink/[0.05]",
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {TABS.map((tab) => {
+            const navClass = cn(
+              "rounded-full px-4 py-2 text-[14px] font-semibold transition-colors",
+              tab.label === "Play" ? "bg-ink text-king" : "text-ink-soft hover:bg-ink/[0.05]",
+            );
+            return tab.href ? (
+              <Link key={tab.label} href={tab.href} className={navClass}>
+                {tab.label}
+              </Link>
+            ) : (
+              <button
+                key={tab.label}
+                type="button"
+                onClick={() => showToast(`${tab.label} coming soon`)}
+                className={navClass}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </nav>
 
         <div className="flex items-center gap-2.5">
@@ -159,6 +168,7 @@ export default function PlayPage() {
 
       <TabBar
         className="lg:hidden"
+        active="Play"
         onInactive={(label) => showToast(`${label} coming soon`)}
       />
 

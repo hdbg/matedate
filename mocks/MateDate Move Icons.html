@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MateDate · Move Classification Icons</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --cream:#f1e8d9; --cream-2:#e7dcc8; --paper:#f7f0e3;
+    --ink:#272320; --ink-soft:#4a443c; --ink-mute:#8a8175;
+    --king:#fbf6ec;
+    --rosy:#d6536a; --rosy-deep:#b8324c; --rosy-tint:#f3d9de;
+    /* move classification */
+    --m-brilliant:#1f9e8a; --m-great:#3a7ca5; --m-good:#5f9a55;
+    --m-inaccuracy:#c99a33; --m-mistake:#cf7a3c; --m-blunder:#b8324c;
+    /* NEW — terminal endgame states */
+    --m-mate-win:#4e8c46; --m-mate-lose:#a3283f;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+    --r-sm:8px; --r-md:12px; --r-lg:18px; --r-xl:26px; --r-pill:999px;
+    --sh-1:0 2px 6px rgba(39,35,32,.08);
+    --sh-2:0 8px 22px rgba(39,35,32,.12);
+    --sh-3:0 18px 40px rgba(39,35,32,.16);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:'Bricolage Grotesque', system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  a{ color:var(--rosy-deep); } a:hover{ color:var(--rosy); }
+  .mono{ font-family:'Space Mono', monospace; }
+
+  .wrap{ max-width:1120px; margin:0 auto; padding:0 var(--s6) var(--s8); }
+  header.masthead{ background:var(--ink); color:var(--king); padding:var(--s8) var(--s6) var(--s7); }
+  .masthead .inner{ max-width:1120px; margin:0 auto; }
+  .eyebrow{ font-family:'Space Mono',monospace; font-weight:700; text-transform:uppercase; letter-spacing:.22em; font-size:12px; color:var(--rosy); }
+  .masthead h1{ font-weight:800; letter-spacing:-.035em; line-height:.98; font-size:clamp(40px,7vw,80px); margin:var(--s4) 0 var(--s4); }
+  .masthead h1 .b{ color:var(--rosy); }
+  .masthead p{ max-width:60ch; color:#cfc6b6; font-size:18px; margin:0; }
+
+  section{ padding-top:var(--s8); scroll-margin-top:var(--s5); }
+  .sec-head{ display:flex; align-items:baseline; gap:var(--s3); margin-bottom:var(--s3); border-bottom:2px solid var(--ink); padding-bottom:var(--s3); }
+  .sec-head .num{ font-family:'Space Mono',monospace; font-weight:700; color:var(--rosy); font-size:15px; }
+  .sec-head h2{ font-weight:800; letter-spacing:-.03em; font-size:clamp(26px,4vw,38px); margin:0; }
+  .lede{ color:var(--ink-soft); font-size:17px; max-width:70ch; margin:var(--s4) 0 var(--s6); }
+
+  /* ---------- icon primitive ---------- */
+  .mv-icon{ display:inline-block; line-height:0; }
+  .mv-icon svg{ width:100%; height:100%; display:block; }
+  .i-brilliant{ color:var(--m-brilliant); }
+  .i-great{ color:var(--m-great); }
+  .i-good{ color:var(--m-good); }
+  .i-inaccuracy{ color:var(--m-inaccuracy); }
+  .i-mistake{ color:var(--m-mistake); }
+  .i-blunder{ color:var(--m-blunder); }
+  .i-mate-win{ color:var(--m-mate-win); }
+  .i-mate-lose{ color:var(--m-mate-lose); }
+
+  /* ---------- family grid ---------- */
+  .family{ display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:var(--s4); }
+  .fcard{ background:#fff; border:1px solid rgba(39,35,32,.08); border-radius:var(--r-lg); padding:var(--s5) var(--s4) var(--s4); text-align:center; box-shadow:var(--sh-1); position:relative; }
+  .fcard .mv-icon{ width:76px; height:76px; margin:0 auto var(--s3); filter:drop-shadow(0 6px 12px rgba(39,35,32,.12)); }
+  .fcard .fname{ font-weight:700; font-size:17px; letter-spacing:-.01em; }
+  .fcard .fold{ font-family:'Space Mono',monospace; font-size:12px; color:var(--ink-mute); margin-top:2px; }
+  .fcard .fhex{ font-family:'Space Mono',monospace; font-size:11px; color:var(--ink-mute); margin-top:6px; letter-spacing:.02em; }
+  .fcard .sev{ position:absolute; top:12px; right:12px; font-family:'Space Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--ink-mute); text-transform:uppercase; }
+
+  /* ---------- endgame feature ---------- */
+  .mate-row{ display:grid; grid-template-columns:1fr 1fr; gap:var(--s4); }
+  @media(max-width:720px){ .mate-row{ grid-template-columns:1fr; } }
+  .mate-card{ border-radius:var(--r-xl); padding:var(--s6); display:flex; gap:var(--s5); align-items:center; color:var(--king); box-shadow:var(--sh-2); }
+  .mate-card.win{ background:linear-gradient(135deg,#2f2b27,#37432f); }
+  .mate-card.lose{ background:linear-gradient(135deg,#2f2b27,#3d2429); }
+  .mate-card .mv-icon{ width:104px; height:104px; flex-shrink:0; filter:drop-shadow(0 8px 18px rgba(0,0,0,.35)); }
+  .mate-card .badge{ font-family:'Space Mono',monospace; font-size:11px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; }
+  .mate-card.win .badge{ color:#8fd07f; } .mate-card.lose .badge{ color:#e88ea0; }
+  .mate-card h3{ margin:6px 0 6px; font-size:24px; font-weight:800; letter-spacing:-.02em; }
+  .mate-card p{ margin:0; font-size:14.5px; color:#d8cfbf; line-height:1.45; }
+
+  /* ---------- scale test ---------- */
+  .scale-row{ display:flex; align-items:flex-end; gap:var(--s6); flex-wrap:wrap; background:#fff; border:1px solid rgba(39,35,32,.08); border-radius:var(--r-lg); padding:var(--s6); box-shadow:var(--sh-1); }
+  .scale-item{ text-align:center; }
+  .scale-item .mv-icon{ display:inline-block; }
+  .scale-item .cap{ font-family:'Space Mono',monospace; font-size:11px; color:var(--ink-mute); margin-top:var(--s3); }
+  .scale-note{ font-size:14px; color:var(--ink-soft); margin-top:var(--s4); }
+
+  /* ---------- in context ---------- */
+  .ctx-grid{ display:grid; grid-template-columns:1fr 1fr; gap:var(--s6); align-items:start; }
+  @media(max-width:820px){ .ctx-grid{ grid-template-columns:1fr; } }
+  .panel-label{ font-family:'Space Mono',monospace; font-weight:700; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-mute); margin-bottom:var(--s4); }
+
+  .badges{ display:flex; flex-direction:column; gap:var(--s3); align-items:flex-start; }
+  .mv{ display:inline-flex; align-items:center; gap:10px; padding:7px 16px 7px 7px; border-radius:var(--r-pill); background:#fff; box-shadow:var(--sh-1); font-weight:700; font-size:15px; }
+  .mv .mv-icon{ width:32px; height:32px; }
+  .mv .swing{ font-family:'Space Mono',monospace; font-size:12px; color:var(--ink-mute); font-weight:700; margin-left:2px; }
+
+  .thread{ display:flex; flex-direction:column; gap:16px; max-width:420px; }
+  .bubble{ max-width:82%; padding:11px 15px; border-radius:20px; font-size:15px; line-height:1.35; position:relative; }
+  .bubble.match{ align-self:flex-start; background:#fff; border-bottom-left-radius:6px; box-shadow:var(--sh-1); }
+  .bubble.you{ align-self:flex-end; background:var(--rosy); color:#fff; border-bottom-right-radius:6px; }
+  .bubble .mvtag{ position:absolute; top:-14px; right:6px; display:flex; align-items:center; gap:5px; font-size:11px; font-family:'Space Mono',monospace; font-weight:700; padding:2px 9px 2px 3px; border-radius:var(--r-pill); background:#fff; color:var(--ink); box-shadow:var(--sh-1); }
+  .bubble .mvtag .mv-icon{ width:20px; height:20px; }
+
+  /* ---------- usage ---------- */
+  .usage{ background:var(--ink); color:#e9e2d4; border-radius:var(--r-lg); padding:var(--s6); }
+  .usage code, .usage pre{ font-family:'Space Mono',monospace; font-size:13px; }
+  .usage pre{ margin:0; white-space:pre-wrap; line-height:1.6; color:#d8cfbf; }
+  .usage .k{ color:#8fd07f; } .usage .a{ color:#e0b968; } .usage .c{ color:var(--rosy); }
+  .usage p{ color:#cfc6b6; font-size:14px; margin:0 0 var(--s4); }
+</style>
+</head>
+<body>
+
+<!-- ============ SVG SYMBOL LIBRARY (define once, reuse everywhere) ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- BRILLIANT — double spark -->
+    <symbol id="mv-brilliant" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="19" fill="currentColor"/>
+      <path d="M17.5,9.5 L20.9,17.6 L29,21 L20.9,24.4 L17.5,32.5 L14.1,24.4 L6,21 L14.1,17.6 Z" fill="#fff"/>
+      <path d="M28.6,6.5 L30.2,10.4 L34,12 L30.2,13.6 L28.6,17.5 L27,13.6 L23,12 L27,10.4 Z" fill="#fff"/>
+    </symbol>
+    <!-- GREAT — single spark -->
+    <symbol id="mv-great" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="19" fill="currentColor"/>
+      <path d="M20,7 L23.7,16.3 L33,20 L23.7,23.7 L20,33 L16.3,23.7 L7,20 L16.3,16.3 Z" fill="#fff"/>
+    </symbol>
+    <!-- GOOD — check -->
+    <symbol id="mv-good" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="19" fill="currentColor"/>
+      <path d="M12,20.5 L17.8,26.5 L28.5,14" fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <!-- INACCURACY — wobble / tilde -->
+    <symbol id="mv-inaccuracy" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="19" fill="currentColor"/>
+      <path d="M10.5,22.5 C13.2,16.8 16.6,16.8 20,20 C23.4,23.2 26.8,23.2 29.5,17.5" fill="none" stroke="#fff" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <!-- MISTAKE — dip / down chevron -->
+    <symbol id="mv-mistake" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="19" fill="currentColor"/>
+      <path d="M11.5,15.5 L20,25.5 L28.5,15.5" fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <!-- BLUNDER — cross -->
+    <symbol id="mv-blunder" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="19" fill="currentColor"/>
+      <path d="M13,13 L27,27 M27,13 L13,27" fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round"/>
+    </symbol>
+    <!-- CHECKMATE · WIN — crown (you crowned the date) -->
+    <symbol id="mv-mate-win" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="19" fill="currentColor"/>
+      <path d="M10.5,27.5 L10.5,15 L15.7,19.2 L20,11.5 L24.3,19.2 L29.5,15 L29.5,27.5 Z" fill="#fff" stroke-linejoin="round"/>
+      <path d="M10.5,24 L29.5,24" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <circle cx="20" cy="11.5" r="1.9" fill="#fff"/>
+    </symbol>
+    <!-- CHECKMATE · LOSE — broken heart (date unmatched you) -->
+    <symbol id="mv-mate-lose" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="19" fill="currentColor"/>
+      <path d="M20,30.5 C9.5,22.5 8,15.2 13,12.9 C16.4,11.3 19,13.8 20,15.8 C21,13.8 23.6,11.3 27,12.9 C32,15.2 30.5,22.5 20,30.5 Z" fill="#fff"/>
+      <path d="M20,15.8 L17,20 L21.5,23.2 L18,27 L20,30.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="masthead">
+  <div class="inner">
+    <div class="eyebrow">Design System · Iconography</div>
+    <h1>Move classification<br><span class="b">icons.</span></h1>
+    <p>A geometric, single-color icon family for every verdict the engine can hand out — drawn as pure SVG so they stay razor-sharp from a 16px chat tag to a full-screen endgame reveal. Includes the new terminal <span class="mono">checkmate</span> states: win and lose.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ============ THE FAMILY ============ -->
+  <section id="family">
+    <div class="sec-head"><span class="num">01</span><h2>The family</h2></div>
+    <p class="lede">Eight grades on one severity ladder. Each glyph is a white knockout on a disc tinted with the move's semantic color — the shape alone carries meaning, so the set still reads in grayscale or at a glance. The old monospace glyphs are kept as a fallback label.</p>
+    <div class="family">
+      <div class="fcard">
+        <span class="sev">Best</span>
+        <span class="mv-icon i-brilliant"><svg><use href="#mv-brilliant"/></svg></span>
+        <div class="fname">Brilliant</div>
+        <div class="fold">was !!</div>
+        <div class="fhex">#1f9e8a</div>
+      </div>
+      <div class="fcard">
+        <span class="sev">Strong</span>
+        <span class="mv-icon i-great"><svg><use href="#mv-great"/></svg></span>
+        <div class="fname">Great</div>
+        <div class="fold">was !</div>
+        <div class="fhex">#3a7ca5</div>
+      </div>
+      <div class="fcard">
+        <span class="sev">Solid</span>
+        <span class="mv-icon i-good"><svg><use href="#mv-good"/></svg></span>
+        <div class="fname">Good</div>
+        <div class="fold">was ✓</div>
+        <div class="fhex">#5f9a55</div>
+      </div>
+      <div class="fcard">
+        <span class="sev">Off</span>
+        <span class="mv-icon i-inaccuracy"><svg><use href="#mv-inaccuracy"/></svg></span>
+        <div class="fname">Inaccuracy</div>
+        <div class="fold">was ?!</div>
+        <div class="fhex">#c99a33</div>
+      </div>
+      <div class="fcard">
+        <span class="sev">Weak</span>
+        <span class="mv-icon i-mistake"><svg><use href="#mv-mistake"/></svg></span>
+        <div class="fname">Mistake</div>
+        <div class="fold">was ?</div>
+        <div class="fhex">#cf7a3c</div>
+      </div>
+      <div class="fcard">
+        <span class="sev">Bad</span>
+        <span class="mv-icon i-blunder"><svg><use href="#mv-blunder"/></svg></span>
+        <div class="fname">Blunder</div>
+        <div class="fold">was ??</div>
+        <div class="fhex">#b8324c</div>
+      </div>
+      <div class="fcard">
+        <span class="sev">Endgame</span>
+        <span class="mv-icon i-mate-win"><svg><use href="#mv-mate-win"/></svg></span>
+        <div class="fname">Checkmate · Win</div>
+        <div class="fold">new</div>
+        <div class="fhex">#4e8c46</div>
+      </div>
+      <div class="fcard">
+        <span class="sev">Endgame</span>
+        <span class="mv-icon i-mate-lose"><svg><use href="#mv-mate-lose"/></svg></span>
+        <div class="fname">Checkmate · Lose</div>
+        <div class="fold">new</div>
+        <div class="fhex">#a3283f</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ENDGAME STATES ============ -->
+  <section id="endgame">
+    <div class="sec-head"><span class="num">02</span><h2>The new checkmate states</h2></div>
+    <p class="lede">Unlike per-move grades, checkmate is terminal — it ends the game. Both icons swap the abstract glyph for a loaded, on-theme mark: the <b>crown</b> (you converted the king — you landed the date) and the <b>broken heart</b> (you got mated — the date unmatched you).</p>
+    <div class="mate-row">
+      <div class="mate-card win">
+        <span class="mv-icon i-mate-win" style="color:#8fd07f"><svg><use href="#mv-mate-win"/></svg></span>
+        <div>
+          <div class="badge">Win · Checkmate</div>
+          <h3>You landed the date</h3>
+          <p>Interest converted to a real plan. The crown = the king is yours; the match is on the board.</p>
+        </div>
+      </div>
+      <div class="mate-card lose">
+        <span class="mv-icon i-mate-lose" style="color:#e88ea0"><svg><use href="#mv-mate-lose"/></svg></span>
+        <div>
+          <div class="badge">Lose · Checkmate</div>
+          <h3>The date unmatched you</h3>
+          <p>Game over on their move. The broken heart is the only verdict the engine gives that can't be recovered.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SCALE TEST ============ -->
+  <section id="scale">
+    <div class="sec-head"><span class="num">03</span><h2>Infinitely scalable</h2></div>
+    <p class="lede">One vector definition, any size. No @2x, no sprite sheet, no blur — the same <span class="mono">Brilliant</span> icon rendered from 16px to 220px straight from its SVG path.</p>
+    <div class="scale-row">
+      <div class="scale-item"><span class="mv-icon i-brilliant" style="width:16px;height:16px"><svg><use href="#mv-brilliant"/></svg></span><div class="cap">16</div></div>
+      <div class="scale-item"><span class="mv-icon i-brilliant" style="width:24px;height:24px"><svg><use href="#mv-brilliant"/></svg></span><div class="cap">24</div></div>
+      <div class="scale-item"><span class="mv-icon i-brilliant" style="width:40px;height:40px"><svg><use href="#mv-brilliant"/></svg></span><div class="cap">40</div></div>
+      <div class="scale-item"><span class="mv-icon i-brilliant" style="width:72px;height:72px"><svg><use href="#mv-brilliant"/></svg></span><div class="cap">72</div></div>
+      <div class="scale-item"><span class="mv-icon i-brilliant" style="width:120px;height:120px"><svg><use href="#mv-brilliant"/></svg></span><div class="cap">120</div></div>
+      <div class="scale-item"><span class="mv-icon i-brilliant" style="width:220px;height:220px"><svg><use href="#mv-brilliant"/></svg></span><div class="cap">220</div></div>
+    </div>
+    <p class="scale-note">Try it: zoom the page to 400% — the edges stay perfectly crisp because there are no pixels, only paths.</p>
+  </section>
+
+  <!-- ============ IN CONTEXT ============ -->
+  <section id="context">
+    <div class="sec-head"><span class="num">04</span><h2>In context</h2></div>
+    <p class="lede">Dropping straight into the existing verdict badges and chat move-tags, replacing the punctuation glyphs.</p>
+    <div class="ctx-grid">
+      <div>
+        <div class="panel-label">Verdict badges</div>
+        <div class="badges">
+          <span class="mv"><span class="mv-icon i-brilliant"><svg><use href="#mv-brilliant"/></svg></span>Brilliant<span class="swing">+2.4</span></span>
+          <span class="mv"><span class="mv-icon i-good"><svg><use href="#mv-good"/></svg></span>Good<span class="swing">+0.6</span></span>
+          <span class="mv"><span class="mv-icon i-inaccuracy"><svg><use href="#mv-inaccuracy"/></svg></span>Inaccuracy<span class="swing">−0.9</span></span>
+          <span class="mv"><span class="mv-icon i-blunder"><svg><use href="#mv-blunder"/></svg></span>Blunder<span class="swing">−3.2</span></span>
+          <span class="mv"><span class="mv-icon i-mate-win"><svg><use href="#mv-mate-win"/></svg></span>Checkmate · Win<span class="swing">+∞</span></span>
+          <span class="mv"><span class="mv-icon i-mate-lose"><svg><use href="#mv-mate-lose"/></svg></span>Checkmate · Lose<span class="swing">−∞</span></span>
+        </div>
+      </div>
+      <div>
+        <div class="panel-label">Chat move-tags</div>
+        <div class="thread">
+          <div class="bubble match">you'll "die on a hill about breakfast foods" — defend that 🍳</div>
+          <div class="bubble you">cereal is a soup and I'll take that to court ⚖️
+            <span class="mvtag"><span class="mv-icon i-brilliant"><svg><use href="#mv-brilliant"/></svg></span>+2.4</span>
+          </div>
+          <div class="bubble you">idk lol breakfast is breakfast
+            <span class="mvtag"><span class="mv-icon i-blunder"><svg><use href="#mv-blunder"/></svg></span>−3.2</span>
+          </div>
+          <div class="bubble match">omg stop 😭 ok what are you doing sunday
+            <span class="mvtag"><span class="mv-icon i-mate-win"><svg><use href="#mv-mate-win"/></svg></span>mate</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ USAGE ============ -->
+  <section id="usage">
+    <div class="sec-head"><span class="num">05</span><h2>How to use</h2></div>
+    <p class="lede">Define the symbol library once per page, then reference any icon with <span class="mono">&lt;use&gt;</span>. Size with CSS on the wrapper; recolor with a single <span class="mono">color</span> property.</p>
+    <div class="usage">
+      <p>1 · Paste the <code>&lt;svg&gt;&lt;defs&gt;…&lt;/defs&gt;&lt;/svg&gt;</code> symbol block once, near the top of the page.</p>
+      <p>2 · Reference an icon anywhere — set size + color on the wrapper:</p>
+      <pre><span class="c">&lt;!-- 40px Brilliant --&gt;</span>
+<span class="k">&lt;span</span> <span class="a">class</span>=<span class="c">"mv-icon i-brilliant"</span> <span class="a">style</span>=<span class="c">"width:40px;height:40px"</span><span class="k">&gt;</span>
+  <span class="k">&lt;svg&gt;&lt;use</span> <span class="a">href</span>=<span class="c">"#mv-brilliant"</span><span class="k">/&gt;&lt;/svg&gt;</span>
+<span class="k">&lt;/span&gt;</span>
+
+<span class="c">/* the disc reads `currentColor`, so one rule recolors it */</span>
+<span class="a">.i-brilliant</span> { <span class="k">color</span>: <span class="a">var(--m-brilliant)</span>; }</pre>
+      <p style="margin-top:16px">IDs: <span class="mono" style="color:#e0b968">#mv-brilliant · #mv-great · #mv-good · #mv-inaccuracy · #mv-mistake · #mv-blunder · #mv-mate-win · #mv-mate-lose</span></p>
+    </div>
+  </section>
+
+</div>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#272320"/>
+    <circle cx="50" cy="50" r="30" fill="#1f9e8a"/>
+    <path d="M45,32 L50.5,45 L64,50 L50.5,55 L45,68 L39.5,55 L26,50 L39.5,45 Z" fill="#fbf6ec"/>
+  </svg>
+</template>
+
+</body>
+</html>

@@ -1,3 +1,4 @@
+import { MoveIcon } from "@/app/components/ui/MoveIcon";
 import { formatSwing, MOVE_CLASSES } from "@/app/lib/game/service";
 import type { VerdictState } from "../useMatchGame";
 
@@ -9,12 +10,11 @@ export function VerdictFlash({ verdict }: { verdict: VerdictState }) {
   const mv = MOVE_CLASSES[verdict.classKey];
   return (
     <div className="animate-verdict-pop pointer-events-none absolute left-1/2 top-[38%] z-[8] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
-      <div
-        className="grid h-[78px] w-[78px] place-items-center rounded-full font-mono text-[30px] font-bold text-white shadow-[0_12px_30px_rgba(39,35,32,0.3)]"
-        style={{ background: mv.color }}
-      >
-        {mv.glyph}
-      </div>
+      <MoveIcon
+        classKey={verdict.classKey}
+        size={78}
+        className="drop-shadow-[0_12px_30px_rgba(39,35,32,0.3)]"
+      />
       <div className="rounded-full bg-ink px-4 py-[5px] text-[20px] font-extrabold tracking-[-0.02em] text-king">
         {mv.label}
       </div>

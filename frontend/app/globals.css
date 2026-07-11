@@ -20,15 +20,18 @@
   --rosy-deep: #b8324c;
   --rosy-tint: #f3d9de;
 
+  /* rank-tier gold (badge/medal on the profile screen) */
+  --gold: #c99a33;
+
   /* move classification ramp (checkmates are the terminal bounds, SPEC §3) */
-  --m-checkmate-win: #b48a1e;
+  --m-checkmate-win: #4e8c46;
   --m-brilliant: #1f9e8a;
   --m-great: #3a7ca5;
   --m-good: #5f9a55;
   --m-inaccuracy: #c99a33;
   --m-mistake: #cf7a3c;
   --m-blunder: #b8324c;
-  --m-checkmate-loss: #5c1626;
+  --m-checkmate-loss: #a3283f;
 
   /* radii */
   --r-sm: 8px;
@@ -55,6 +58,8 @@
   --color-rosy: var(--rosy);
   --color-rosy-deep: var(--rosy-deep);
   --color-rosy-tint: var(--rosy-tint);
+
+  --color-gold: var(--gold);
 
   --color-m-checkmate-win: var(--m-checkmate-win);
   --color-m-brilliant: var(--m-brilliant);

@@ -83,6 +83,32 @@ export interface SoloGameRow {
   game_id: string;
   persona_id: string | null;
   rating_delta: number;
+  /** Disclosed-AI casual game (SPEC §2.3) — doesn't touch the rated ladder. */
+  is_practice: boolean;
+  base_seconds: number;
+  increment_seconds: number;
+}
+
+export type RatingKind = "elo" | "ranked" | "casual";
+
+/** One rating change (owner-readable). Peak ELO = max(rating_after) where kind='elo'. */
+export interface RatingHistoryRow {
+  id: number;
+  user_id: string;
+  kind: RatingKind;
+  rating_before: number;
+  rating_after: number;
+  delta: number;
+  source_kind: string | null;
+  source_id: string | null;
+  created_at: string;
+}
+
+/** Column slice of `moves` used by the profile's brilliants/highlight derivation. */
+export interface MoveEvalRow {
+  game_id: string;
+  eval_delta: number | null;
+  eval_after: number | null;
 }
 
 /** Lifecycle row for a queued analysis. Owner-readable; the notifications bell watches it. */
