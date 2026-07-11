@@ -164,7 +164,7 @@ export function AfterGameModal({
           </div>
           <div className="flex items-center justify-between px-[17px] py-3">
             <div className="flex items-center gap-2 text-[17px] font-extrabold">
-              <span aria-hidden>♟</span> rizz
+              <span aria-hidden>♟</span> elo
               <span className="font-mono text-[13px] font-bold" style={{ color: deltaColor }}>
                 {deltaSign}
                 {result.ratingDelta}

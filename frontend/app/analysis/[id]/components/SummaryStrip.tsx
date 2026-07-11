@@ -19,7 +19,7 @@ function Stat({ value, label, color }: { value: string; label: string; color?: s
   );
 }
 
-/** The four-up summary (accuracy · brilliant · blunder · rizz Δ) plus the live eval meter. */
+/** The four-up summary (accuracy · brilliant · blunder · elo Δ) plus the live eval meter. */
 export function SummaryStrip({ accuracy, brilliant, blunder, ratingDelta, youEval }: SummaryStripProps) {
   const you = Math.round(youEval);
   const delta =
@@ -31,7 +31,7 @@ export function SummaryStrip({ accuracy, brilliant, blunder, ratingDelta, youEva
         <Stat value={accuracy == null ? "—" : `${Math.round(accuracy)}%`} label="Accuracy" color="var(--rosy-deep)" />
         <Stat value={String(brilliant)} label="Brilliant" color="var(--m-brilliant)" />
         <Stat value={String(blunder)} label="Blunder" color="var(--m-blunder)" />
-        <Stat value={delta} label="Rizz Δ" />
+        <Stat value={delta} label="Elo Δ" />
       </div>
       <div className="px-4 pb-3 lg:px-7">
         <div className="flex h-2.5 overflow-hidden rounded-full bg-ink shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]">

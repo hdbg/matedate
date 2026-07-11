@@ -24,7 +24,7 @@ export interface ProfileRow {
 
 export interface PlayerRatingsRow {
   user_id: string;
-  rizz_rating: number;
+  elo_rating: number;
   ranked_elo: number;
   casual_rating: number;
   ranked_tier: string | null;
@@ -67,7 +67,7 @@ export interface GameRow {
   ended_at: string | null;
 }
 
-/** Solo-specific columns: the rizz delta and which persona was played. */
+/** Solo-specific columns: the elo delta and which persona was played. */
 export interface SoloGameRow {
   game_id: string;
   persona_id: string | null;

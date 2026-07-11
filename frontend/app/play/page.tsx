@@ -13,7 +13,7 @@ import { ModeBadge, ModeRow } from "./components/ModeRow";
 import { TabBar, TABS } from "./components/TabBar";
 import { TimeControlSheet } from "./components/TimeControlSheet";
 
-const FALLBACK_RIZZ = 1200;
+const FALLBACK_ELO = 1200;
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -25,7 +25,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export default function PlayPage() {
   const router = useRouter();
-  const [rizz, setRizz] = useState<number>(FALLBACK_RIZZ);
+  const [elo, setElo] = useState<number>(FALLBACK_ELO);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [chosenTC, setChosenTC] = useState<TimeControl>("bullet");
   const [toast, setToast] = useState<string | null>(null);
@@ -39,11 +39,11 @@ export default function PlayPage() {
       if (!userData.user) return;
       const { data } = await supabase
         .from("player_ratings")
-        .select("rizz_rating")
+        .select("elo_rating")
         .eq("user_id", userData.user.id)
         .maybeSingle();
-      const row = data as { rizz_rating: number } | null;
-      if (active && row) setRizz(row.rizz_rating);
+      const row = data as { elo_rating: number } | null;
+      if (active && row) setElo(row.elo_rating);
     })();
     return () => {
       active = false;
@@ -87,7 +87,7 @@ export default function PlayPage() {
           <NotificationsBell />
           <div className="flex items-center gap-2 rounded-full bg-ink py-[7px] pl-[11px] pr-[13px] text-king shadow-[0_3px_10px_rgba(39,35,32,0.2)]">
             <span className="text-[15px]">♟</span>
-            <span className="font-mono text-[16px] font-bold">{rizz}</span>
+            <span className="font-mono text-[16px] font-bold">{elo}</span>
           </div>
         </div>
       </header>

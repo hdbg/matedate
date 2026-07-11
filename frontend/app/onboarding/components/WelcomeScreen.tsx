@@ -44,7 +44,7 @@ export function WelcomeScreen({
           Chess-style classification + accuracy % on every move.
         </Feature>
         <Feature icon="♟" title="Climb the ladder">
-          Earn a rizz rating. Play solo, ranked, or review real chats.
+          Earn an elo rating. Play solo, ranked, or review real chats.
         </Feature>
         <Feature icon="🛡" title="Private by design">
           Screenshots are redacted &amp; never stored. It&apos;s for fun — be yourself.

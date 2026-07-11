@@ -28,7 +28,7 @@ export function AccountScreen({
     <OnboardingScreen>
       <BackButton onClick={onBack} />
       <Eyebrow>Almost there</Eyebrow>
-      <Title>Save your rizz rating</Title>
+      <Title>Save your elo rating</Title>
       <Sub>Create an account to keep your rating, history, and streaks.</Sub>
 
       <Button

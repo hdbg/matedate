@@ -47,7 +47,7 @@ PublicGameMode: TypeAlias = Literal["solo", "screenshot", "puzzle"]
 
 PublicGameStatus: TypeAlias = Literal["active", "completed", "abandoned"]
 
-PublicRatingKind: TypeAlias = Literal["rizz", "ranked", "casual"]
+PublicRatingKind: TypeAlias = Literal["elo", "ranked", "casual"]
 
 PublicDatingGoal: TypeAlias = Literal["serious", "casual", "confidence", "practice"]
 
@@ -110,31 +110,31 @@ class PublicProfilesUpdate(TypedDict):
 
 class PublicPlayerRatings(BaseModel):
     casual_rating: int = Field(alias="casual_rating")
+    elo_rating: int = Field(alias="elo_rating")
     ranked_elo: int = Field(alias="ranked_elo")
     ranked_losses: int = Field(alias="ranked_losses")
     ranked_tier: Optional[str] = Field(alias="ranked_tier")
     ranked_wins: int = Field(alias="ranked_wins")
-    rizz_rating: int = Field(alias="rizz_rating")
     updated_at: datetime.datetime = Field(alias="updated_at")
     user_id: uuid.UUID = Field(alias="user_id")
 
 class PublicPlayerRatingsInsert(TypedDict):
     casual_rating: NotRequired[Annotated[int, Field(alias="casual_rating")]]
+    elo_rating: NotRequired[Annotated[int, Field(alias="elo_rating")]]
     ranked_elo: NotRequired[Annotated[int, Field(alias="ranked_elo")]]
     ranked_losses: NotRequired[Annotated[int, Field(alias="ranked_losses")]]
     ranked_tier: NotRequired[Annotated[Optional[str], Field(alias="ranked_tier")]]
     ranked_wins: NotRequired[Annotated[int, Field(alias="ranked_wins")]]
-    rizz_rating: NotRequired[Annotated[int, Field(alias="rizz_rating")]]
     updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
     user_id: Annotated[uuid.UUID, Field(alias="user_id")]
 
 class PublicPlayerRatingsUpdate(TypedDict):
     casual_rating: NotRequired[Annotated[int, Field(alias="casual_rating")]]
+    elo_rating: NotRequired[Annotated[int, Field(alias="elo_rating")]]
     ranked_elo: NotRequired[Annotated[int, Field(alias="ranked_elo")]]
     ranked_losses: NotRequired[Annotated[int, Field(alias="ranked_losses")]]
     ranked_tier: NotRequired[Annotated[Optional[str], Field(alias="ranked_tier")]]
     ranked_wins: NotRequired[Annotated[int, Field(alias="ranked_wins")]]
-    rizz_rating: NotRequired[Annotated[int, Field(alias="rizz_rating")]]
     updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
     user_id: NotRequired[Annotated[uuid.UUID, Field(alias="user_id")]]
 

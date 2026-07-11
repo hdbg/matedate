@@ -46,7 +46,7 @@ create type public.game_mode as enum ('solo', 'screenshot', 'puzzle');
 create type public.game_status as enum ('active', 'completed', 'abandoned');
 
 -- Which ELO a rating change applies to.
-create type public.rating_kind as enum ('rizz', 'ranked', 'casual');
+create type public.rating_kind as enum ('elo', 'ranked', 'casual');
 
 -- Onboarding quiz answers (SPEC §8, funnel). dating_goal is single-select;
 -- texting_style is multi-select and stored as an array of these values.
@@ -163,14 +163,14 @@ create trigger on_auth_user_created
 -- but there is no update policy, so only the service_role can move a rating.
 create table public.player_ratings (
   user_id       uuid primary key references public.profiles (id) on delete cascade,
-  rizz_rating   integer not null default 1000, -- PvE / screenshot ladder
+  elo_rating    integer not null default 1000, -- PvE / screenshot ladder
   ranked_elo    integer not null default 1000, -- PvH global ladder
   casual_rating integer not null default 1000, -- disclosed-AI practice ladder
   ranked_tier   text,                          -- computed app-side from ranked_elo
   ranked_wins   integer not null default 0,
   ranked_losses integer not null default 0,
   updated_at    timestamptz not null default now(),
-  constraint rizz_rating_nonneg   check (rizz_rating   >= 0),
+  constraint elo_rating_nonneg   check (elo_rating   >= 0),
   constraint ranked_elo_nonneg    check (ranked_elo    >= 0),
   constraint casual_rating_nonneg check (casual_rating >= 0)
 );
@@ -503,12 +503,12 @@ alter table public.analysis_jobs
   foreign key (game_id) references public.games (id) on delete cascade;
 
 -- Solo PvE vs. an AI date. Practice (disclosed-AI, badged) is the same shape, flagged
--- here; it affects the casual rating instead of rizz and never touches ranked ELO.
+-- here; it affects the casual rating instead of elo and never touches ranked ELO.
 create table public.solo_games (
   game_id      uuid primary key references public.games (id) on delete cascade,
   persona_id   uuid references public.personas (id) on delete set null,
   is_practice  boolean not null default false, -- disclosed-AI practice opponent (SPEC §2.3)
-  rating_delta integer not null default 0,     -- rizz, or casual when is_practice
+  rating_delta integer not null default 0,     -- elo, or casual when is_practice
   -- Live-play clock (SPEC §2.6): a per-GAME Fischer clock. base_seconds is the player's
   -- starting time bank (snapshotted at game start); increment_seconds is added to the bank
   -- after each submitted move (rewards quick answers). turn_deadline is the absolute instant

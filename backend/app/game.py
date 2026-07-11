@@ -279,7 +279,7 @@ class SoloGameService:
         title = f"{accuracy:.0f}% accuracy vs {persona.name}"
         description = (
             f"{end_reason.capitalize()} after {len(deltas)} messages — "
-            f"rizz {'+' if rating_delta >= 0 else ''}{rating_delta}."
+            f"elo {'+' if rating_delta >= 0 else ''}{rating_delta}."
         )
         await self._write_finish(game, end_reason, accuracy, rating_delta, title, description)
         return FinishMsg(
@@ -437,17 +437,17 @@ class SoloGameService:
         )
         if not current or not current.data:
             return
-        before = PublicPlayerRatings.model_validate(current.data).rizz_rating
+        before = PublicPlayerRatings.model_validate(current.data).elo_rating
         after = max(0, before + rating_delta)
         if after == before:
             return
-        rating_update: PublicPlayerRatingsUpdate = {"rizz_rating": after}
+        rating_update: PublicPlayerRatingsUpdate = {"elo_rating": after}
         await self._db.table("player_ratings").update(_json_row(rating_update)).eq(
             "user_id", str(game.user_id)
         ).execute()
         history: PublicRatingHistoryInsert = {
             "user_id": game.user_id,
-            "kind": "rizz",
+            "kind": "elo",
             "rating_before": before,
             "rating_after": after,
             "delta": after - before,

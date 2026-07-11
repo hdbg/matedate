@@ -30,7 +30,7 @@ export function DoneScreen({
           Your profile&apos;s set. Time to make your first move.
         </Sub>
         <div className="mt-5 flex w-full justify-around rounded-2xl bg-cream p-[18px]">
-          <Stat value="1200" label="Starting rizz" />
+          <Stat value="1200" label="Starting elo" />
           <Stat value="3" label="Free / day" />
           <Stat value="!!" label="Best move locked" valueClassName="text-rosy" />
         </div>

@@ -98,7 +98,7 @@ active game per user, reconnect-safe. `main.py` → `app/ws.py`.
   so DB I/O never blocks the event loop — no `asyncio.to_thread`). Service role bypasses RLS.
   Writes: `games`(mode=solo, status, end_reason, accuracy), `solo_games`(clock/exchanges/
   rating_delta), `moves`, `engine_responses`, and a rating bump on finish (`player_ratings.
-  rizz_rating` + `rating_history`).
+  elo_rating` + `rating_history`).
 - **Typed schema (`app/database_types.py`):** generated from the live local DB by
   `task gen-types` (`supabase gen types --lang=python --local`) — **do not hand-edit**;
   regenerate after any schema change (edit the single migration → `supabase db reset` →
@@ -191,7 +191,7 @@ disables ("Review requested ✓") — no waiting, no redirect. The result surfac
 **`/analysis/[id]`** — the full **Game Review** screen (`app/analysis/[id]/`, ported from
 `mocks/MateDate Game Review.html`): a chess-style replay player (scrubber + transport + autoplay in
 `useReviewReplay`, `←`/`→`/space, `localStorage` step), a summary strip (accuracy · brilliant ·
-blunder · rizz Δ), a live eval meter, and a per-move analysis panel (overview at step 0, else the
+blunder · elo Δ), a live eval meter, and a per-move analysis panel (overview at step 0, else the
 derived rank + comment + best line). The best line is now a **real RLS gate**: it comes from
 `game_analysis_move_reveals`, which only returns rows for an unlocked game, so a non-top move with
 no reveal renders locked (the unlock button is a paid-reveal placeholder — no purchase flow yet).
