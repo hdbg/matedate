@@ -46,8 +46,12 @@ active game per user, reconnect-safe. `main.py` → `app/ws.py`.
 - **Protocol (typed in `app/protocol.py`):**
   - server→ `new_game`{persona,time} · `game_state` (reconnect: persona+moves+time+time_left) ·
     `response`{content,classification,swing,time_left} ·
-    `finish`{end_reason,accuracy,rating_delta,moves,title,description} · `error`{code,message}
+    `finish`{end_reason,accuracy,rating_delta,moves,title,description,**game_id**} · `error`{code,message}
   - client→ `move`{content}
+  - **The socket ends with the game:** once a turn resolves to a `finish`, `ws.py` stops reading
+    and the connection closes (both server- and client-side). A deep review is requested
+    **out-of-band** (Supabase RPC, below), never over this socket — that's why `finish` carries
+    `game_id`.
 - **Clock (SPEC §2.6):** a per-game **Fischer** clock, not a per-move budget. The player starts
   with `solo_games.base_seconds` (`SOLO_BASE_SECONDS`, default 30) and gains
   `solo_games.increment_seconds` (`SOLO_INCREMENT_SECONDS`, default 5) back after each submitted
@@ -78,9 +82,12 @@ active game per user, reconnect-safe. `main.py` → `app/ws.py`.
   message + the blunder verdict before the game ends. `FakeEngine` triggers this on
   creep/gross/block/unmatch keywords. `blocked` is a value in the `match_end_reason` enum.
 - **Grading (`app/grading.py`):** deterministic, server-side — eval delta → `swing` (= delta/10) →
-  classification (SPEC §3 thresholds). Never computed by the LLM or the client. Frontend
-  `MoveClassKey` vocab (brilliant/great/good/inaccuracy/mistake/blunder) maps to the DB
-  `move_kind` enum.
+  classification (SPEC §3 thresholds). Never computed by the LLM or the client. **Move quality is
+  stored as the numeric eval only** (`eval_before/eval_after/eval_delta`) in every move table
+  (`moves`, `match_moves`, `game_analysis_moves`); the Brilliant…Blunder rank is *derived on read*
+  by `classify()` and never persisted — there is no `move_kind` enum. The frontend `MoveClassKey`
+  vocab (brilliant/great/good/inaccuracy/mistake/blunder) is what the wire carries (derived by
+  `_move_out`), not a stored column.
 - **DB (`app/supabase_client.py`):** all reads/writes go through the **async** service-role
   Supabase client (`AsyncClient`, constructed synchronously but every `.execute()` is `await`ed,
   so DB I/O never blocks the event loop — no `asyncio.to_thread`). Service role bypasses RLS.
@@ -109,23 +116,42 @@ PvP rounds / screenshot uploads later), so there is no per-mode analysis table.
   `service_role` only) that the async client drives via `db.rpc()` — see `app/analysis/queue.py`.
 - **Jobs:** the existing `analysis_jobs` table is the lifecycle/idempotency view (`kind='game_analysis'`,
   `queue_msg_id`, `idempotency_key='game_analysis:<game_id>'`, `attempts`, `last_error`).
-- **Enqueue is explicit** (no auto-hook on finish yet): `enqueue_game_analysis(db, game_id, force=?)`
-  in `app/analysis/service.py`; dev helper `scripts/enqueue_analysis.py` / `task enqueue-analysis`.
+- **Enqueue + a pre-generated id.** Two enqueue paths, both idempotent per game and both minting
+  the `game_analyses.id` **up front** (stored on `analysis_jobs.analysis_id`, carried in the pgmq
+  message) so a caller can await exactly that row before it exists:
+  - **Client:** the after-game "Deep analysis" button calls the Postgres RPC
+    `public.request_game_analysis(game_id)` (security-definer, `grant`ed to `authenticated`;
+    authorizes via `auth.uid()` — your own `completed` game only). It inserts the job, `pgmq.send`s
+    the message, and **returns the pre-generated analysis id**.
+  - **Dev/service-role:** `enqueue_game_analysis(db, game_id, force=?)` in `app/analysis/service.py`
+    (`scripts/enqueue_analysis.py` / `task enqueue-analysis`) mirrors it in Python.
+  The worker inserts `game_analyses` with that id (`_persist_analysis(..., analysis_id)`).
+- **Fire-and-forget + notifications.** Requesting a review does not block the player: the RPC
+  queues it and returns. The main screen's notifications bell watches for the result over realtime.
+  Both `analysis_jobs` and `game_analyses` are in the `supabase_realtime` publication (owner RLS
+  gates delivery; `analysis_jobs` uses `replica identity full` so RLS evaluates on UPDATEs). The
+  bell keys off `analysis_jobs` reaching a **terminal** state — `completed` (→ review ready, links
+  to its `analysis_id`) or `failed`. The pre-generated-id + `game_analyses` realtime path is still
+  wired for awaiting one specific row (used by the currently-unused Loading screen).
 - **Engine (`app/analysis/engine.py`):** a PydanticAI agent returns `GameAnalysisVerdict`
-  {title, description, tags, per-**You**-move {classification, comment, best_line}}. It
-  **re-classifies** every move with a *stronger* model (`ANALYSIS_MODEL`, default an Opus-class
-  slug) — it does not trust the live grades (screenshot sources have none). `validate_verdict`
-  enforces that the annotated positions match the You-side moves and that non-`Best` moves carry a
-  best line (as a PydanticAI output validator → one in-run retry, and again before persist). A
-  deterministic `FakeAnalysisEngine` runs under `FAKE_ENGINE` / no key, same as `build_engine`.
+  {title, description, tags, per-**You**-move {`eval_after` 0-100, comment, best_line}}. It
+  **re-scores** every move with a *stronger* model (`ANALYSIS_MODEL`, default an Opus-class slug) —
+  a fresh numeric interest eval, not a category, and it does not trust the live grades (screenshot
+  sources have none). `grade_moves` chains those evals off `START_EVAL` (Match replies carry none)
+  into deltas and derives each rank via `app/grading.py`, exactly like live play. `validate_verdict`
+  enforces that the annotated positions match the You-side moves and that non-top (non-brilliant)
+  moves carry a best line (as a PydanticAI output validator → one in-run retry, and again before
+  persist). A deterministic `FakeAnalysisEngine` runs under `FAKE_ENGINE` / no key, same as
+  `build_engine`.
 - **Worker (`backend/worker.py` → `app/analysis/worker.py`, `task worker`, in `task dev`):** a
   standalone process polling `pgmq_read` with a visibility timeout. Failures record `last_error`
   and reset the job to `queued` (pgmq redelivers after the vt); `read_ct > ANALYSIS_MAX_ATTEMPTS`
   → job `failed` + archived (poison message parked in `pgmq.a_game_analysis`); success writes
   `game_analyses` + `game_analysis_moves` and archives.
 - **Tables:** `game_analyses` (title/description/tags/model/prompt_version/raw_response, nullable
-  `game_id`/`round_id` XOR source) + `game_analysis_moves` (per You move: classification/comment/
-  best_line + a `content` snapshot and nullable `move_id`). Owner-read RLS; service_role writes.
+  `game_id`/`round_id` XOR source) + `game_analysis_moves` (per You move:
+  `eval_before/eval_after/eval_delta` + comment/best_line + a `content` snapshot and nullable
+  `move_id`; the rank is derived from `eval_delta`, never stored). Owner-read RLS; service_role writes.
   Re-analysis is allowed (no `unique(game_id)`); the current analysis is the latest `created_at`.
 
 ### Security invariants (do not violate)
@@ -146,9 +172,20 @@ PvP rounds / screenshot uploads later), so there is no per-mode analysis table.
 (`NEXT_PUBLIC_BACKEND_WS_URL`, default `ws://127.0.0.1:8000/ws`). It resolves a Supabase access
 token (falling back to `signInAnonymously`) for the `?token=` handshake. Persona, grading, replies,
 and the per-move clock are all server-authoritative; `useMatchClock` is display-only and the game
-ends on the server's `finish`. Both `mode=ranked|bot` currently use the solo backend (ranked PvH is
-a later layer) — mode only affects UI labels. `app/lib/game/service.ts` remains as the shared type
-re-export; its client-side grading is no longer called.
+ends on the server's `finish` (at which point the hook **closes the socket**). On `finish` the hook
+stashes a `GameResult` (incl. `gameId`) that renders `components/AfterGameModal.tsx` (share card +
+result banner, ported from `mocks/MateDate After-Game.html`). Its "Deep analysis" button is
+**fire-and-forget**: it calls the `request_game_analysis` **Supabase RPC** (not the WS), then
+disables ("Review requested ✓") — no waiting, no redirect. The result surfaces on the main screen:
+`/play` mounts `components/ui/NotificationsBell.tsx` (driven by
+`lib/notifications/useAnalysisNotifications.ts`), which catch-up-queries + subscribes to realtime on
+`analysis_jobs` and shows a notification when a review finishes; a ready one links to
+**`/analysis/[id]`** — a functional **stub** view (title/description/tags + per-move
+eval/rank/comment/best-line) until a Game Review mock exists. `components/ui/LoadingScene.tsx`
+(ported from `mocks/MateDate Loading.html`) is kept but **currently unused** (no `/analyzing`
+route). Both `mode=ranked|bot` currently use the solo backend (ranked PvH is a later layer) — mode
+only affects UI labels. `app/lib/game/service.ts` remains as the shared type re-export; its
+client-side grading is no longer called.
 
 Onboarding (`/onboarding`) does real Supabase signup (or `signInAnonymously` on "Skip"), persisting
 quiz answers to `profiles`.

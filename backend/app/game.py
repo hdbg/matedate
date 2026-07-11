@@ -38,7 +38,6 @@ from .database_types import (
     PublicGamesInsert,
     PublicGamesUpdate,
     PublicMatchEndReason,
-    PublicMoveKind,
     PublicMoves,
     PublicMovesInsert,
     PublicPlayerRatings,
@@ -177,7 +176,6 @@ class SoloGameService:
             game.id,
             position,
             content,
-            grade.move_kind,
             eval_before,
             eval_after,
             eval_delta,
@@ -292,6 +290,7 @@ class SoloGameService:
             moves=[_move_out(m) for m in moves],
             title=title,
             description=description,
+            game_id=str(game.id),
         )
 
     # -- async DB helpers ---------------------------------------------------
@@ -368,19 +367,18 @@ class SoloGameService:
         game_id: uuid.UUID,
         position: int,
         content: str,
-        move_kind: PublicMoveKind,
         eval_before: float,
         eval_after: float,
         eval_delta: float,
         reply: str,
         raw_response: dict[str, Any],
     ) -> None:
+        # Store the numeric eval only; the Brilliant…Blunder rank is derived on read (grading.py).
         you_move: PublicMovesInsert = {
             "game_id": game_id,
             "position": position,
             "side": "You",
             "content": content,
-            "classification": move_kind,
             "eval_before": eval_before,
             "eval_after": eval_after,
             "eval_delta": eval_delta,

@@ -1,13 +1,15 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
+import { createClient } from "@/app/lib/supabase/client";
 import {
   TIME_CONTROL_LABEL,
   type TimeControl,
   type VersusMode,
 } from "@/app/lib/game/service";
+import { AfterGameModal, type AnalysisStatus } from "./components/AfterGameModal";
 import { Composer } from "./components/Composer";
 import { CompetitiveStrip } from "./components/CompetitiveStrip";
 import { EvalBar } from "./components/EvalBar";
@@ -31,6 +33,25 @@ function MatchScreen() {
   const timeControl = parseTimeControl(searchParams.get("tc"));
 
   const game = useMatchGame(mode);
+  const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
+
+  // The socket has already closed by now (game over). Requesting a deep review is fire-and-forget:
+  // the Supabase RPC queues the job and we're done here — no waiting, no redirect. The main
+  // screen's notifications bell tells the player when the review is ready (or failed).
+  const requestAnalysis = async () => {
+    if (!game.result) return;
+    setAnalysisStatus("pending");
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("request_game_analysis", {
+        p_game_id: game.result.gameId,
+      });
+      if (error || !data) throw error ?? new Error("no analysis id returned");
+      setAnalysisStatus("requested");
+    } catch {
+      setAnalysisStatus("error");
+    }
+  };
 
   const leave = () => {
     if (
@@ -109,6 +130,15 @@ function MatchScreen() {
           {game.verdict && <VerdictFlash key={game.verdict.id} verdict={game.verdict} />}
         </main>
       </div>
+      {game.result && (
+        <AfterGameModal
+          result={game.result}
+          analysisStatus={analysisStatus}
+          onRequestAnalysis={requestAnalysis}
+          onNewGame={() => router.push("/play")}
+          onClose={game.dismissResult}
+        />
+      )}
     </AppShell>
   );
 }

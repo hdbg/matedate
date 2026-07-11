@@ -2,15 +2,17 @@
 
 The LLM produces a hidden 0-100 interest score; classification is derived *server-side*
 from the resulting swing (SPEC §3: "classification maps eval delta → label"), so thresholds
-stay tunable and the label is never left to the model. The vocabulary mirrors the frontend's
-`MoveClassKey` in `frontend/app/lib/game/types.ts`.
+stay tunable and the label is never left to the model. Nothing persists the label — every move
+table stores the numeric eval only, and this ramp derives the rank on read. The vocabulary
+mirrors the frontend's `MoveClassKey` in `frontend/app/lib/game/types.ts`.
 """
 
 from typing import Literal, NamedTuple
 
-from .database_types import PublicMoveKind
-
 MoveClassKey = Literal["brilliant", "great", "good", "inaccuracy", "mistake", "blunder"]
+
+# The single top rank — the move is already the strongest option, so it needs no "best line".
+TOP_CLASS_KEY: MoveClassKey = "brilliant"
 
 # The eval is on a 0-100 interest scale; "swing" is expressed in chess-style pawns = delta / 10
 # (so a +24 interest jump reads as +2.4, matching the frontend's suggestion fixtures).
@@ -24,17 +26,16 @@ class Grade(NamedTuple):
     class_key: MoveClassKey
     glyph: str
     quality: int  # 0-100 weight used for running accuracy
-    move_kind: PublicMoveKind  # public.move_kind enum value stored in `moves.classification`
 
 
-# key -> (glyph, quality, move_kind). Quality mirrors frontend MOVE_CLASSES.
-_TABLE: dict[MoveClassKey, tuple[str, int, PublicMoveKind]] = {
-    "brilliant": ("!!", 100, "Best"),
-    "great": ("!", 88, "Excellent"),
-    "good": ("✓", 74, "Good"),
-    "inaccuracy": ("?!", 52, "Inaccuracy"),
-    "mistake": ("?", 35, "Mistake"),
-    "blunder": ("??", 12, "Blunder"),
+# key -> (glyph, quality). Quality mirrors frontend MOVE_CLASSES.
+_TABLE: dict[MoveClassKey, tuple[str, int]] = {
+    "brilliant": ("!!", 100),
+    "great": ("!", 88),
+    "good": ("✓", 74),
+    "inaccuracy": ("?!", 52),
+    "mistake": ("?", 35),
+    "blunder": ("??", 12),
 }
 
 
@@ -52,8 +53,8 @@ def classify(swing: float) -> Grade:
         key = "mistake"
     else:
         key = "blunder"
-    glyph, quality, move_kind = _TABLE[key]
-    return Grade(key, glyph, quality, move_kind)
+    glyph, quality = _TABLE[key]
+    return Grade(key, glyph, quality)
 
 
 def swing_from_delta(eval_delta: float) -> float:

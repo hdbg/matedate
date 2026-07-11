@@ -50,6 +50,7 @@ export type ServerMessage =
       moves: WireMove[];
       title: string;
       description: string;
+      game_id: string;
     }
   | { type: "error"; code: string; message: string };
 

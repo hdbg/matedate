@@ -28,19 +28,9 @@ create extension if not exists pgmq;     -- durable pull queue for PvP scoring j
 -- 1. Enums
 -- ---------------------------------------------------------------------------
 
--- Move classification. Spelling matches the engine's MoveKind serde output.
-create type public.move_kind as enum (
-  'Best',
-  'Excellent',
-  'Good',
-  'Inaccuracy',
-  'Miss',
-  'Mistake',
-  'Blunder',
-  'SuperRisky',
-  'Risky',
-  'Book'
-);
+-- Move quality is stored as a numeric eval score, never a category label: every move table
+-- keeps eval_before/eval_after/eval_delta and the human-facing rank (Brilliant…Blunder) is
+-- derived from the swing at read time (backend `app/grading.py`). So there is no move_kind enum.
 
 -- Which party sent a message, in the card's You/Match framing (SPEC §5.1, §9).
 -- The engine emits Side::They / Side::Us; the API maps They->Match, Us->You.
@@ -360,8 +350,8 @@ create table public.match_moves (
   responded_at   timestamptz,
   timed_out      boolean not null default false,
 
-  -- Engine response (written by the scoring service).
-  classification public.move_kind,
+  -- Engine response (written by the scoring service). Quality is the numeric eval only; the
+  -- Brilliant…Blunder rank is derived from the swing (eval_delta) at read time, never stored.
   eval_before    numeric(5,2), -- hidden 0..100 interest state before this move
   eval_after     numeric(5,2),
   eval_delta     numeric(6,2),
@@ -452,6 +442,9 @@ create table public.analysis_jobs (
   game_id         uuid,  -- FK added after games table
   queue_msg_id    bigint, -- pgmq message id, when enqueued on pvp_scoring
   idempotency_key text unique,
+  -- Pre-generated game_analyses.id: request_game_analysis() mints it up front and returns it to
+  -- the client so it can await exactly that row over realtime; the worker inserts with this id.
+  analysis_id     uuid,
   attempts        smallint not null default 0,
   last_error      text,
   created_at      timestamptz not null default now(),
@@ -577,8 +570,8 @@ create table public.moves (
   side           public.message_side not null,
   content        text not null,
 
-  -- Engine response.
-  classification public.move_kind not null default 'Book',
+  -- Engine response. Quality is the numeric eval only; the Brilliant…Blunder rank is derived
+  -- from the swing (eval_delta) at read time, never stored.
   eval_before    numeric(5,2),
   eval_after     numeric(5,2),
   eval_delta     numeric(6,2),
@@ -636,10 +629,13 @@ create table public.game_analyses (
 create index game_analyses_game_idx  on public.game_analyses (game_id, created_at desc);
 create index game_analyses_round_idx on public.game_analyses (round_id);
 
--- The re-classified per-USER-move verdicts ("You" side only): the comment and, unless the
--- move is top-graded, a "best line" (a better message the user could have sent). content is
--- snapshotted so a row is displayable without joining the source-specific move table
--- (moves for game sources, match_moves for future PvP), which is why move_id stays nullable.
+-- The re-scored per-USER-move verdicts ("You" side only): the analysis model's fresh eval and
+-- the comment, plus (unless the move is top-graded) a "best line" (a better message the user
+-- could have sent). Quality is the numeric eval only — the Brilliant…Blunder rank is derived
+-- from the swing (eval_delta) at read time, exactly like the live `moves` table; the analysis
+-- re-evaluates independently of the source's live eval. content is snapshotted so a row is
+-- displayable without joining the source-specific move table (moves for game sources,
+-- match_moves for future PvP), which is why move_id stays nullable.
 create table public.game_analysis_moves (
   id             uuid primary key default gen_random_uuid(),
   analysis_id    uuid not null references public.game_analyses (id) on delete cascade,
@@ -647,7 +643,9 @@ create table public.game_analysis_moves (
   side           public.message_side not null default 'You',
   move_id        uuid references public.moves (id) on delete set null,
   content        text not null,
-  classification public.move_kind not null,    -- re-graded here; independent of moves.classification
+  eval_before    numeric(5,2),                  -- hidden 0..100 interest state before this move
+  eval_after     numeric(5,2),
+  eval_delta     numeric(6,2),                  -- swing = eval_delta / 10 → derived rank
   comment        text not null,
   best_line      text,                          -- a better message; null when the move is top-graded
   created_at     timestamptz not null default now(),
@@ -910,6 +908,64 @@ $$;
 create policy game_analysis_moves_select on public.game_analysis_moves
   for select using (public.can_read_analysis(analysis_id));
 
+-- Client entrypoint to request a deep review (the after-game "Deep analysis" button). Runs as
+-- the definer (so it can touch analysis_jobs + the pgmq schema, both closed to authenticated),
+-- but authorizes against auth.uid(): you may only analyze your own, completed game. It mints the
+-- game_analyses.id up front and returns it so the client can await exactly that row via realtime;
+-- the worker later inserts game_analyses with this id. Idempotent per game via idempotency_key.
+create or replace function public.request_game_analysis(p_game_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user     uuid := auth.uid();
+  v_owner    uuid;
+  v_status   text;
+  v_key      text := 'game_analysis:' || p_game_id::text;
+  v_job_id   uuid;
+  v_analysis uuid;
+  v_msg_id   bigint;
+begin
+  if v_user is null then
+    raise exception 'not authenticated' using errcode = '28000';
+  end if;
+
+  select user_id, status::text into v_owner, v_status
+  from public.games where id = p_game_id;
+  if not found or v_owner is distinct from v_user then
+    raise exception 'game not found' using errcode = 'P0002';
+  end if;
+  if v_status <> 'completed' then
+    raise exception 'game % is %, not completed', p_game_id, v_status using errcode = 'P0001';
+  end if;
+
+  -- Idempotent: one job per game. Reuse the pre-generated analysis id if already requested.
+  select id, analysis_id into v_job_id, v_analysis
+  from public.analysis_jobs where idempotency_key = v_key;
+  if found then
+    return v_analysis;
+  end if;
+
+  v_analysis := gen_random_uuid();
+  insert into public.analysis_jobs (kind, status, user_id, game_id, idempotency_key, analysis_id)
+  values ('game_analysis', 'queued', v_user, p_game_id, v_key, v_analysis)
+  returning id into v_job_id;
+
+  select pgmq.send(
+    'game_analysis',
+    jsonb_build_object('job_id', v_job_id, 'game_id', p_game_id, 'analysis_id', v_analysis)
+  ) into v_msg_id;
+  update public.analysis_jobs set queue_msg_id = v_msg_id where id = v_job_id;
+
+  return v_analysis;
+end;
+$$;
+
+revoke execute on function public.request_game_analysis(uuid) from public, anon;
+grant execute on function public.request_game_analysis(uuid) to authenticated;
+
 -- Unlocks: you can see what you've unlocked; the service_role mints them on purchase.
 create policy game_reveal_unlocks_select_own on public.game_reveal_unlocks
   for select using (auth.uid() = user_id);
@@ -996,3 +1052,17 @@ grant select, insert on
 grant usage on schema public to service_role;
 grant all privileges on all tables in schema public to service_role;
 grant all privileges on all sequences in schema public to service_role;
+
+-- ===========================================================================
+-- REALTIME — clients watch their analysis work land asynchronously
+-- ===========================================================================
+-- After requesting a deep review the client does NOT block on it: the main screen's notifications
+-- bell subscribes to analysis_jobs and raises a notification when a game_analysis job reaches a
+-- terminal state (completed → review ready, failed → couldn't finish). analysis_jobs uses REPLICA
+-- IDENTITY FULL so realtime can evaluate the owner RLS (analysis_jobs_select_own) against UPDATEs
+-- reliably. game_analyses stays published too (owner-read RLS) for awaiting a specific row — used
+-- by the loading-screen flow. RLS still decides who receives each change, so a user only ever sees
+-- their own work.
+alter table public.analysis_jobs replica identity full;
+alter publication supabase_realtime add table public.analysis_jobs;
+alter publication supabase_realtime add table public.game_analyses;

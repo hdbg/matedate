@@ -1,10 +1,16 @@
 """The deep-analysis engine: one PydanticAI agent returns a full game review.
 
 Mirrors `app/engine.py`: a Protocol, a real OpenRouter-backed engine, a deterministic
-`FakeAnalysisEngine`, and a `build_analysis_engine()` factory gated by settings. The verdict is
-validated against the transcript (positions must line up; a non-top move must carry a best line)
-both as a PydanticAI output validator (one in-run self-correction) and as a plain check reused by
-the fake engine and the persistence path.
+`FakeAnalysisEngine`, and a `build_analysis_engine()` factory gated by settings.
+
+Move quality is a **numeric eval score**, never a category label the model picks: the model
+emits a fresh 0-100 interest score per You-move (exactly like the live engine's hidden eval), and
+the server derives the Brilliant…Blunder rank from the resulting swing via `app/grading.py`.
+Evals chain across the You-moves off `START_EVAL` (the Match replies carry none), so each move's
+delta is `eval_after - <previous You eval_after>`. The verdict is validated against the transcript
+(positions must line up; a non-top move must carry a best line) both as a PydanticAI output
+validator (one in-run self-correction) and as a plain check reused by the fake engine and the
+persistence path.
 """
 
 from __future__ import annotations
@@ -19,21 +25,22 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 
 from ..config import Settings
-from ..database_types import PublicMoveKind
+from ..grading import START_EVAL, TOP_CLASS_KEY, MoveClassKey, classify, swing_from_delta
 from .prompt import SYSTEM_PROMPT, build_user_prompt
 from .transcript import Transcript, TranscriptMove
-
-# The only rank that needs no "best line" — the move is already the strongest option.
-TOP_GRADE: PublicMoveKind = "Best"
 
 
 class MoveAnalysis(BaseModel):
     position: int = Field(ge=0, description="Exact transcript position of the You-side message")
-    classification: PublicMoveKind = Field(description="One rank from the move vocabulary")
+    eval_after: float = Field(
+        description="Fresh 0-100 interest score for the Match after this You message "
+        "(higher = more into it); the server derives the move's rank from the swing",
+    )
     comment: str = Field(min_length=1, description="1-2 sentence chess-annotator note")
     best_line: str | None = Field(
         default=None,
-        description="A better message the user could have sent; required unless classification is Best",
+        description="A better message the user could have sent; required unless this is the "
+        "strongest move (a big positive swing)",
     )
 
 
@@ -51,8 +58,55 @@ class AnalysisResult:
     latency_ms: int
 
 
+@dataclass(frozen=True)
+class GradedMove:
+    """A You-move re-scored by the analysis, with the rank derived server-side from the eval."""
+
+    position: int
+    eval_before: float
+    eval_after: float
+    eval_delta: float
+    class_key: MoveClassKey
+    comment: str
+    best_line: str | None  # the model's raw suggestion (nulled for top moves at persist time)
+
+
 class AnalysisValidationError(ValueError):
     """The verdict doesn't line up with the transcript it was produced for."""
+
+
+def _clamp_eval(value: float) -> float:
+    return max(0.0, min(100.0, value))
+
+
+def grade_moves(verdict: GameAnalysisVerdict, transcript: Transcript) -> list[GradedMove]:
+    """Chain the model's per-move evals into deltas and derive each move's rank.
+
+    The eval trajectory runs over the You-moves in order, starting from `START_EVAL` (Match
+    replies carry no eval), so `eval_delta = eval_after - <previous You eval_after>` — the same
+    reconstruction the live game uses. Assumes positions already match (validate first).
+    """
+    by_position = {m.position: m for m in verdict.moves}
+    graded: list[GradedMove] = []
+    prev_eval = START_EVAL
+    for you_move in transcript.you_moves:
+        move = by_position[you_move.position]
+        eval_after = _clamp_eval(move.eval_after)
+        eval_delta = round(eval_after - prev_eval, 2)
+        class_key = classify(swing_from_delta(eval_delta)).class_key
+        graded.append(
+            GradedMove(
+                position=you_move.position,
+                eval_before=round(prev_eval, 2),
+                eval_after=eval_after,
+                eval_delta=eval_delta,
+                class_key=class_key,
+                best_line=move.best_line,
+                comment=move.comment,
+            )
+        )
+        prev_eval = eval_after
+    return graded
 
 
 def validate_verdict(verdict: GameAnalysisVerdict, transcript: Transcript) -> None:
@@ -64,10 +118,10 @@ def validate_verdict(verdict: GameAnalysisVerdict, transcript: Transcript) -> No
         raise AnalysisValidationError(
             f"annotated positions {got} do not match the You-side positions {expected}"
         )
-    for move in verdict.moves:
-        if move.classification != TOP_GRADE and not (move.best_line and move.best_line.strip()):
+    for move in grade_moves(verdict, transcript):
+        if move.class_key != TOP_CLASS_KEY and not (move.best_line and move.best_line.strip()):
             raise AnalysisValidationError(
-                f"move at position {move.position} is {move.classification} but has no best_line"
+                f"move at position {move.position} graded {move.class_key} but has no best_line"
             )
 
 
@@ -109,28 +163,32 @@ class OpenRouterAnalysisEngine:
 class FakeAnalysisEngine:
     """Deterministic offline engine so the full analysis flow runs without a live LLM key.
 
-    Classification is derived purely from each You-move's content (mirroring FakeEngine's
-    heuristics) so tests are stable.
+    The eval score is derived purely from each You-move's content (mirroring FakeEngine's
+    heuristics) so tests are stable. Scores are chosen well above/below `START_EVAL` so the
+    derived rank spans brilliant…blunder.
     """
 
     @staticmethod
-    def _classify(content: str) -> PublicMoveKind:
+    def _eval_after(content: str) -> float:
         text = content.strip()
         lowered = text.lower()
         if any(word in lowered for word in ("creep", "gross", "block", "unmatch")):
-            return "Blunder"
+            return 15.0  # big negative swing → blunder
         if len(text) < 6 or lowered.split(" ", 1)[0] in {"idk", "lol", "k", "hey", "hi", "sup", "yo"}:
-            return "Mistake"
+            return 40.0  # negative swing → mistake/inaccuracy
         if text.endswith("?") or len(text) > 40 or any(c in text for c in "😂😏🔥⚖️👀"):
-            return "Best"
-        return "Good"
+            return 80.0  # big positive swing → brilliant
+        return 58.0  # mild positive → good
 
     def _move(self, tm: TranscriptMove) -> MoveAnalysis:
-        kind = self._classify(tm.content)
-        comment = f"Fake review: this line reads as a {kind}."
-        best_line = None if kind == TOP_GRADE else f"Try more spark than: {tm.content[:40]}"
+        eval_after = self._eval_after(tm.content)
+        # Always supply a best_line; the persist path nulls it for top moves. This keeps the fake
+        # verdict valid regardless of where each move lands on the eval chain.
         return MoveAnalysis(
-            position=tm.position, classification=kind, comment=comment, best_line=best_line
+            position=tm.position,
+            eval_after=eval_after,
+            comment=f"Fake review: this line scores {eval_after:.0f}/100 interest.",
+            best_line=f"Try more spark than: {tm.content[:40]}",
         )
 
     async def analyze(self, transcript: Transcript) -> AnalysisResult:

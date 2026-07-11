@@ -52,6 +52,51 @@ type ProfileUpdate = Partial<
   >
 >;
 
+/** Lifecycle row for a queued analysis. Owner-readable; the notifications bell watches it. */
+export interface AnalysisJobRow {
+  id: string;
+  kind: string;
+  status: "queued" | "processing" | "completed" | "failed" | "cancelled";
+  user_id: string | null;
+  game_id: string | null;
+  analysis_id: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+  finished_at: string | null;
+}
+
+/** A finished game's deep-review header. Written by the analysis worker; owner-readable. */
+export interface GameAnalysisRow {
+  id: string;
+  job_id: string | null;
+  game_id: string | null;
+  round_id: string | null;
+  title: string;
+  description: string;
+  tags: string[];
+  model: string;
+  prompt_version: string;
+  latency_ms: number | null;
+  created_at: string;
+}
+
+/** A re-scored "You" move within an analysis. Quality is the numeric eval; rank derives from it. */
+export interface GameAnalysisMoveRow {
+  id: string;
+  analysis_id: string;
+  position: number;
+  side: "You" | "Match";
+  move_id: string | null;
+  content: string;
+  eval_before: number | null;
+  eval_after: number | null;
+  eval_delta: number | null;
+  comment: string;
+  best_line: string | null;
+  created_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MateDate · Game Over</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --cream:#f1e8d9; --cream-2:#e7dcc8; --paper:#f7f0e3;
+    --ink:#272320; --ink-soft:#4a443c; --ink-mute:#8a8175;
+    --king:#fbf6ec; --rosy:#d6536a; --rosy-deep:#b8324c; --rosy-tint:#f3d9de;
+    --m-brilliant:#1f9e8a; --m-great:#3a7ca5; --m-good:#5f9a55;
+    --m-inaccuracy:#c99a33; --m-mistake:#cf7a3c; --m-blunder:#b8324c;
+    --sh-1:0 2px 6px rgba(39,35,32,.08);
+    --sh-2:0 8px 22px rgba(39,35,32,.12);
+    --sh-3:0 18px 40px rgba(39,35,32,.16);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; }
+  a{ color:var(--rosy-deep); } a:hover{ color:var(--rosy); }
+  .mono{ font-family:'Space Mono', monospace; }
+
+  /* dim backdrop (the finished match sits behind, blurred) */
+  body{
+    font-family:'Bricolage Grotesque', system-ui, sans-serif; color:var(--ink);
+    min-height:100vh; display:flex; align-items:flex-start; justify-content:center;
+    padding:24px; overflow-y:auto;
+    background:#2b2622;
+    background-image:
+      radial-gradient(circle at 50% 0%, rgba(214,83,106,.28), transparent 55%),
+      radial-gradient(circle at 30% 20%, #3a332e, #1f1b18);
+  }
+
+  /* ============================================================
+     ADAPTIVE MODAL
+     Intrinsically responsive: a centered sheet, max-width capped.
+     Mobile: full-width sheet, buttons stack.
+     Desktop (≥720px): a touch wider, buttons sit inline.
+     ============================================================ */
+  .modal{
+    width:100%; max-width:392px; margin:auto;
+    background:var(--paper); border-radius:30px;
+    box-shadow:0 40px 90px rgba(0,0,0,.5), 0 2px 0 rgba(255,255,255,.4) inset;
+    padding:26px 22px 22px; position:relative;
+    animation:pop .42s cubic-bezier(.3,1.3,.4,1);
+  }
+  @keyframes pop{ from{ opacity:0; transform:translateY(18px) scale(.94); } }
+
+  /* result banner */
+  .result{ text-align:center; margin-bottom:18px; }
+  .result .glyphs{ display:flex; align-items:flex-end; justify-content:center; gap:6px; position:relative; height:66px; margin-bottom:6px; }
+  .result .glyphs .q{ height:52px; filter:drop-shadow(1px 0 0 rgba(39,35,32,.25)) drop-shadow(-1px 0 0 rgba(39,35,32,.25)) drop-shadow(0 1px 0 rgba(39,35,32,.25)) drop-shadow(0 -1px 0 rgba(39,35,32,.25)); }
+  .result .glyphs .k{ height:64px; transform:rotate(12deg); transform-origin:bottom center; }
+  .result .glyphs .bang{ position:absolute; left:58%; top:-4px; color:var(--rosy); font-weight:800; font-size:26px; letter-spacing:-.04em; text-shadow:0 0 18px rgba(214,83,106,.5); }
+  .result .verdict{ font-family:'Space Mono',monospace; font-weight:700; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--rosy-deep); }
+  .result h1{ font-weight:800; letter-spacing:-.035em; font-size:30px; line-height:1; margin:5px 0 4px; }
+  .result .sub{ font-size:14px; color:var(--ink-soft); margin:0; }
+
+  /* -------- share card (from design system) -------- */
+  .sharecard{ border-radius:22px; overflow:hidden; box-shadow:var(--sh-3); background:var(--ink); color:var(--king); }
+  .sc-head{ padding:15px 17px 11px; display:flex; align-items:center; justify-content:space-between; }
+  .sc-brand{ font-weight:800; letter-spacing:-.03em; font-size:18px; }
+  .sc-brand .b{ color:var(--rosy); }
+  .sc-acc{ text-align:right; }
+  .sc-acc .n{ font-weight:800; font-size:24px; letter-spacing:-.03em; line-height:1; }
+  .sc-acc .l{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.14em; color:var(--ink-mute); text-transform:uppercase; }
+  .sc-evalbar{ height:8px; margin:0 17px; display:flex; background:#100e0c; box-shadow:inset 0 1px 2px rgba(0,0,0,.5); }
+  .sc-evalbar .you{ background:var(--rosy); height:100%; }
+  .sc-body{ background:#332e2a; padding:15px 17px; display:flex; flex-direction:column; gap:8px; }
+  .bubble{ max-width:80%; padding:9px 12px; border-radius:16px; font-size:13px; line-height:1.35; position:relative; }
+  .bubble.match{ align-self:flex-start; background:#4a443c; color:var(--king); border-bottom-left-radius:5px; }
+  .bubble.you{ align-self:flex-end; background:var(--rosy); color:#fff; border-bottom-right-radius:5px; }
+  .bubble .mvtag{ position:absolute; top:-8px; font-size:10px; font-family:'Space Mono',monospace; font-weight:700; padding:2px 7px; border-radius:999px; color:#fff; }
+  .bubble.you .mvtag{ right:6px; }
+  .bubble.match .mvtag{ left:6px; }
+  .sc-locked{ background:rgba(214,83,106,.14); border:1.5px dashed var(--rosy); border-radius:12px; padding:10px 12px; text-align:center; margin-top:2px; }
+  .sc-locked .l1{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--rosy); font-weight:700; }
+  .sc-locked .l2{ filter:blur(5px); font-weight:700; margin-top:3px; font-size:13px; user-select:none; }
+  .sc-foot{ padding:12px 17px; display:flex; align-items:center; justify-content:space-between; }
+  .sc-rating{ display:flex; align-items:center; gap:8px; font-weight:800; font-size:17px; }
+  .sc-delta{ color:var(--m-good); font-family:'Space Mono',monospace; font-size:13px; font-weight:700; }
+  .sc-badge{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.1em; color:var(--ink-mute); text-transform:uppercase; display:flex; align-items:center; gap:5px; }
+
+  /* tiny share affordance under the card */
+  .sharelink{ text-align:center; margin:12px 0 0; }
+  .sharelink button{ background:none; border:none; cursor:pointer; font-family:'Space Mono',monospace; font-weight:700; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-mute); display:inline-flex; align-items:center; gap:6px; padding:6px; }
+  .sharelink button:hover{ color:var(--rosy-deep); }
+
+  /* -------- action buttons -------- */
+  .actions{ display:flex; flex-direction:column; gap:11px; margin-top:16px; }
+  .btn{
+    font-family:'Bricolage Grotesque', sans-serif; font-weight:700; border:none; cursor:pointer;
+    border-radius:999px; padding:15px 22px; font-size:16px; letter-spacing:-.01em;
+    display:inline-flex; align-items:center; justify-content:center; gap:9px;
+    transition:transform .1s ease, box-shadow .12s ease, background .15s ease; text-decoration:none;
+  }
+  .btn .k{ font-family:'Space Mono',monospace; font-size:13px; }
+  .btn-primary{ background:var(--rosy); color:#fff; box-shadow:0 6px 0 var(--rosy-deep); }
+  .btn-primary:hover{ background:var(--rosy-deep); }
+  .btn-primary:active{ box-shadow:0 3px 0 var(--rosy-deep); transform:translateY(3px); }
+  .btn-ink{ background:var(--ink); color:var(--king); box-shadow:var(--sh-1); }
+  .btn-ink:hover{ background:#000; }
+  .btn-ink:active{ transform:translateY(1px); }
+  .btn .cap{ display:flex; flex-direction:column; align-items:flex-start; line-height:1.05; }
+  .btn .cap small{ font-family:'Space Mono',monospace; font-weight:700; font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; opacity:.7; }
+
+  .closex{ position:absolute; top:16px; right:16px; width:34px; height:34px; border-radius:50%; border:none; background:rgba(39,35,32,.08); color:var(--ink); font-size:16px; cursor:pointer; display:grid; place-items:center; }
+  .closex:hover{ background:rgba(39,35,32,.16); }
+
+  @media (min-width:720px){
+    .modal{ max-width:440px; padding:30px 28px 26px; }
+    .result h1{ font-size:34px; }
+    /* buttons sit inline on wider screens; Deep analysis leads */
+    .actions{ flex-direction:row-reverse; }
+    .btn{ flex:1; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="modal" role="dialog" aria-label="Game over" data-screen-label="After-Game">
+    <button class="closex" title="Close">✕</button>
+
+    <!-- result banner -->
+    <div class="result">
+      <div class="glyphs">
+        <img class="q" src="assets/black-queen.svg" alt="" />
+        <span style="position:relative;display:inline-block;">
+          <span class="bang">!!</span>
+          <img class="k" src="assets/white-king.svg" alt="" />
+        </span>
+      </div>
+      <div class="verdict">Checkmate · you won the game</div>
+      <h1>The Breakfast Gambit</h1>
+      <p class="sub">You closed with a date on the board. Interest secured, 71–29.</p>
+    </div>
+
+    <!-- share card -->
+    <div class="sharecard">
+      <div class="sc-head">
+        <div class="sc-brand">Mate<span class="b">Date</span></div>
+        <div class="sc-acc"><div class="n">84%</div><div class="l">Accuracy</div></div>
+      </div>
+      <div class="sc-evalbar"><div class="you" style="width:71%"></div></div>
+      <div class="sc-body">
+        <div class="bubble match">you'll "die on a hill about breakfast foods" — defend that 🍳</div>
+        <div class="bubble you">cereal is a soup and I'll take that to court ⚖️<span class="mvtag" style="background:var(--m-brilliant)">!! +2.4</span></div>
+        <div class="bubble you">idk lol<span class="mvtag" style="background:var(--m-blunder)">?? −3.2</span></div>
+        <div class="sc-locked">
+          <div class="l1">🔒 Best move · unlock</div>
+          <div class="l2">audition me sunday — I'm cooking shakshuka</div>
+        </div>
+      </div>
+      <div class="sc-foot">
+        <div class="sc-rating">♟ 1487 <span class="sc-delta">+18</span></div>
+        <div class="sc-badge">🛡 Anonymized</div>
+      </div>
+    </div>
+
+    <div class="sharelink"><button>↗ Share this card</button></div>
+
+    <!-- actions -->
+    <div class="actions">
+      <a class="btn btn-primary" href="MateDate Game Review.html">
+        <span class="k">🔍</span>
+        <span class="cap">Deep analysis<small>Replay every move</small></span>
+      </a>
+      <button class="btn btn-ink" onclick="newGame()">
+        <span class="k">♟</span>
+        <span class="cap">New game<small>Next match</small></span>
+      </button>
+    </div>
+  </div>
+
+<script>
+  function newGame(){
+    // in-app this routes to the mode selector / matchmaking
+    window.location.href = 'MateDate Mode Selector.html';
+  }
+  document.querySelector('.closex').onclick = ()=>{
+    document.querySelector('.modal').style.transition='opacity .2s, transform .2s';
+    document.querySelector('.modal').style.opacity=0;
+    document.querySelector('.modal').style.transform='scale(.96)';
+  };
+</script>
+
+<style id="__om-edit-overrides"></style>
+</body>
+</html>

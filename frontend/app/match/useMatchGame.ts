@@ -35,18 +35,23 @@ export interface VerdictState {
   swing: number;
 }
 
+/** The finished-game payload that drives the after-game popup. */
+export interface GameResult {
+  gameId: string;
+  endReason: string;
+  title: string;
+  description: string;
+  accuracy: number;
+  ratingDelta: number;
+  interest: number;
+  moves: WireMove[];
+}
+
 const BASE_INTEREST = 58;
 const clamp = (v: number) => Math.max(2, Math.min(98, v));
 
 function toPersona(p: WirePersona): Persona {
   return { slug: p.slug, name: p.name, hint: p.hint, openingLine: p.opening_line };
-}
-
-function endReasonLabel(reason: string): string {
-  if (reason === "timeout") return "Flagged on time ⏱";
-  if (reason === "resignation") return "You left the date";
-  if (reason === "blocked") return "You got blocked 🚫";
-  return "Date wrapped";
 }
 
 /**
@@ -67,6 +72,7 @@ export function useMatchGame(mode: VersusMode) {
   const [flagged, setFlagged] = useState(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<GameResult | null>(null);
 
   const idRef = useRef(0);
   const nextId = useCallback(() => ++idRef.current, []);
@@ -76,6 +82,7 @@ export function useMatchGame(mode: VersusMode) {
   const oppCountRef = useRef(0);
   const pendingYouRef = useRef<number | null>(null);
   const overRef = useRef(false); // game finished/flagged — silences reconnect noise
+  const interestRef = useRef(BASE_INTEREST); // latest interest, for the finish snapshot
 
   const appendMessage = useCallback(
     (msg: Omit<Message, "id">) => {
@@ -100,6 +107,10 @@ export function useMatchGame(mode: VersusMode) {
 
   const clock = useMatchClock(handleFlag);
   const { start: startClock, stop: stopClock } = clock;
+
+  useEffect(() => {
+    interestRef.current = interest;
+  }, [interest]);
 
   const scoreAccuracy = useCallback(
     (classKey: MoveClassKey) => {
@@ -199,11 +210,19 @@ export function useMatchGame(mode: VersusMode) {
           setTyping(false);
           setFlagged(true);
           setYourAcc(msg.accuracy);
-          const sign = msg.rating_delta >= 0 ? "+" : "";
-          appendMessage({
-            side: "system",
-            text: `${endReasonLabel(msg.end_reason)} — ${msg.accuracy.toFixed(0)}% accuracy · rizz ${sign}${msg.rating_delta}`,
+          setResult({
+            gameId: msg.game_id,
+            endReason: msg.end_reason,
+            title: msg.title,
+            description: msg.description,
+            accuracy: msg.accuracy,
+            ratingDelta: msg.rating_delta,
+            interest: interestRef.current,
+            moves: msg.moves,
           });
+          // The game is over — the socket has no further purpose (a deep review is requested
+          // out-of-band via a Supabase RPC, not over this socket), so close it.
+          socketRef.current?.close(1000, "game over");
           break;
         }
         case "error": {
@@ -282,6 +301,8 @@ export function useMatchGame(mode: VersusMode) {
 
   const sendSuggestion = useCallback((suggestion: Suggestion) => send(suggestion.text), [send]);
 
+  const dismissResult = useCallback(() => setResult(null), []);
+
   const warn = clock.running && clock.remaining <= 10;
   const inputDisabled = flagged || typing || !ready;
 
@@ -297,10 +318,12 @@ export function useMatchGame(mode: VersusMode) {
     flagged,
     ready,
     error,
+    result,
     inputDisabled,
     clock: { remaining: clock.remaining, running: clock.running, warn },
     send,
     sendSuggestion,
+    dismissResult,
   };
 }
 

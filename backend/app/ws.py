@@ -11,7 +11,7 @@ from .auth import AuthError, verify_token
 from .config import get_settings
 from .engine import Engine, build_engine
 from .game import SoloGameService
-from .protocol import ClientMove, ErrorMsg
+from .protocol import ClientMove, ErrorMsg, FinishMsg
 from .supabase_client import get_supabase
 
 # WebSocket close codes (application range 4000-4999).
@@ -83,8 +83,13 @@ async def solo_ws(websocket: WebSocket) -> None:
 
     service = SoloGameService(supabase, get_settings(), _engine(), send=send)
     try:
-        for message in await service.start_or_resume(user_id):
+        opening = await service.start_or_resume(user_id)
+        for message in opening:
             await send(message)
+        # The game ends over this socket (deep review is requested out-of-band via RPC, not here),
+        # so once a turn resolves to a `finish` we stop reading and let the connection close.
+        if _ends_game(opening):
+            return
 
         while True:
             try:
@@ -94,10 +99,19 @@ async def solo_ws(websocket: WebSocket) -> None:
             except Exception:
                 await send(ErrorMsg(code="bad_message", message="invalid JSON"))
                 continue
-            for message in await _handle(service, user_id, data):
+            results = await _handle(service, user_id, data)
+            for message in results:
                 await send(message)
+            if _ends_game(results):
+                break
     except WebSocketDisconnect:
         pass
     finally:
         await service.aclose()
         manager.unregister(user_id, websocket)
+
+
+def _ends_game(messages: list[BaseModel]) -> bool:
+    """A batch ends the game when its final message is a `finish` (a reconnect that times out an
+    old game returns [finish, new_game] — last is the new game, so we keep the socket open)."""
+    return bool(messages) and isinstance(messages[-1], FinishMsg)

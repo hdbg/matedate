@@ -74,6 +74,7 @@ class FinishMsg(BaseModel):
     moves: list[MoveOut]
     title: str
     description: str
+    game_id: str  # the finished game, so the client can request a deep review via RPC
 
 
 class ErrorMsg(BaseModel):

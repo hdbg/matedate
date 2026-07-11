@@ -144,6 +144,127 @@ body {
   animation: clock-pulse 0.6s ease-in-out infinite;
 }
 
+/* ---------------------------------------------------------------------------
+   Loading scene — ported from mocks/MateDate Loading.html (the queen looming over
+   a shaking king, "!!" bursting out) for the "Analyzing your moves" screen.
+--------------------------------------------------------------------------- */
+@keyframes queen-loom {
+  0%,
+  100% {
+    transform: translateX(0) scale(1);
+  }
+  45% {
+    transform: translateX(6%) scale(1.05);
+  }
+  55% {
+    transform: translateX(6%) scale(1.05);
+  }
+}
+.animate-queen-loom {
+  animation: queen-loom 2.4s ease-in-out infinite;
+}
+
+@keyframes king-bob {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  45%,
+  55% {
+    transform: translateX(4%);
+  }
+}
+.animate-king-bob {
+  animation: king-bob 2.4s ease-in-out infinite;
+}
+
+@keyframes king-shake {
+  0%,
+  100% {
+    transform: rotate(9deg);
+  }
+  25% {
+    transform: rotate(16deg);
+  }
+  50% {
+    transform: rotate(11deg);
+  }
+  75% {
+    transform: rotate(15deg);
+  }
+}
+.animate-king-shake {
+  animation: king-shake 0.5s ease-in-out infinite;
+}
+
+@keyframes bang-burst {
+  0% {
+    transform: rotate(13deg) scale(0);
+    opacity: 0;
+  }
+  14% {
+    transform: rotate(13deg) scale(1.28);
+    opacity: 1;
+  }
+  26% {
+    transform: rotate(13deg) scale(0.94);
+  }
+  34% {
+    transform: rotate(13deg) scale(1);
+  }
+  82% {
+    transform: rotate(13deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(13deg) scale(0);
+    opacity: 0;
+  }
+}
+.animate-bang-burst {
+  animation: bang-burst 1.6s cubic-bezier(0.2, 0.9, 0.25, 1) infinite;
+}
+
+@keyframes floor-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: translateX(-50%) scaleX(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) scaleX(1.1);
+  }
+}
+.animate-floor-pulse {
+  animation: floor-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes loading-dot {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-0.28em);
+  }
+}
+.animate-loading-dot {
+  animation: loading-dot 1.2s ease-in-out infinite;
+}
+
+@keyframes after-game-pop {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+  }
+}
+.animate-after-game-pop {
+  animation: after-game-pop 0.42s cubic-bezier(0.3, 1.3, 0.4, 1);
+}
+
 @keyframes verdict-pop {
   0% {
     opacity: 0;

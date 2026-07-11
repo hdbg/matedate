@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
+import { NotificationsBell } from "@/app/components/ui/NotificationsBell";
 import { Wordmark } from "@/app/components/ui/Wordmark";
 import { createClient } from "@/app/lib/supabase/client";
 import type { TimeControl } from "@/app/lib/game/service";
@@ -82,9 +83,12 @@ export default function PlayPage() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2 rounded-full bg-ink py-[7px] pl-[11px] pr-[13px] text-king shadow-[0_3px_10px_rgba(39,35,32,0.2)]">
-          <span className="text-[15px]">♟</span>
-          <span className="font-mono text-[16px] font-bold">{rizz}</span>
+        <div className="flex items-center gap-2.5">
+          <NotificationsBell />
+          <div className="flex items-center gap-2 rounded-full bg-ink py-[7px] pl-[11px] pr-[13px] text-king shadow-[0_3px_10px_rgba(39,35,32,0.2)]">
+            <span className="text-[15px]">♟</span>
+            <span className="font-mono text-[16px] font-bold">{rizz}</span>
+          </div>
         </div>
       </header>
 

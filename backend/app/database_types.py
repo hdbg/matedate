@@ -41,8 +41,6 @@ AuthOauthResponseType: TypeAlias = Literal["code"]
 
 AuthOauthClientType: TypeAlias = Literal["public", "confidential"]
 
-PublicMoveKind: TypeAlias = Literal["Best", "Excellent", "Good", "Inaccuracy", "Miss", "Mistake", "Blunder", "SuperRisky", "Risky", "Book"]
-
 PublicMessageSide: TypeAlias = Literal["Match", "You"]
 
 PublicGameMode: TypeAlias = Literal["solo", "screenshot", "puzzle"]
@@ -399,7 +397,6 @@ class PublicMatchRoundsUpdate(TypedDict):
     winner_side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="winner_side")]]
 
 class PublicMatchMoves(BaseModel):
-    classification: Optional[PublicMoveKind] = Field(alias="classification")
     content: Optional[str] = Field(alias="content")
     created_at: datetime.datetime = Field(alias="created_at")
     deadline: Optional[datetime.datetime] = Field(alias="deadline")
@@ -414,7 +411,6 @@ class PublicMatchMoves(BaseModel):
     timed_out: bool = Field(alias="timed_out")
 
 class PublicMatchMovesInsert(TypedDict):
-    classification: NotRequired[Annotated[Optional[PublicMoveKind], Field(alias="classification")]]
     content: NotRequired[Annotated[Optional[str], Field(alias="content")]]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
     deadline: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="deadline")]]
@@ -429,7 +425,6 @@ class PublicMatchMovesInsert(TypedDict):
     timed_out: NotRequired[Annotated[bool, Field(alias="timed_out")]]
 
 class PublicMatchMovesUpdate(TypedDict):
-    classification: NotRequired[Annotated[Optional[PublicMoveKind], Field(alias="classification")]]
     content: NotRequired[Annotated[Optional[str], Field(alias="content")]]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
     deadline: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="deadline")]]
@@ -444,6 +439,7 @@ class PublicMatchMovesUpdate(TypedDict):
     timed_out: NotRequired[Annotated[bool, Field(alias="timed_out")]]
 
 class PublicAnalysisJobs(BaseModel):
+    analysis_id: Optional[uuid.UUID] = Field(alias="analysis_id")
     attempts: int = Field(alias="attempts")
     created_at: datetime.datetime = Field(alias="created_at")
     finished_at: Optional[datetime.datetime] = Field(alias="finished_at")
@@ -460,6 +456,7 @@ class PublicAnalysisJobs(BaseModel):
     user_id: Optional[uuid.UUID] = Field(alias="user_id")
 
 class PublicAnalysisJobsInsert(TypedDict):
+    analysis_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="analysis_id")]]
     attempts: NotRequired[Annotated[int, Field(alias="attempts")]]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
     finished_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="finished_at")]]
@@ -476,6 +473,7 @@ class PublicAnalysisJobsInsert(TypedDict):
     user_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="user_id")]]
 
 class PublicAnalysisJobsUpdate(TypedDict):
+    analysis_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="analysis_id")]]
     attempts: NotRequired[Annotated[int, Field(alias="attempts")]]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
     finished_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="finished_at")]]
@@ -642,7 +640,6 @@ class PublicPuzzleAttemptsUpdate(TypedDict):
     solved: NotRequired[Annotated[bool, Field(alias="solved")]]
 
 class PublicMoves(BaseModel):
-    classification: PublicMoveKind = Field(alias="classification")
     content: str = Field(alias="content")
     created_at: datetime.datetime = Field(alias="created_at")
     eval_after: Optional[float] = Field(alias="eval_after")
@@ -654,7 +651,6 @@ class PublicMoves(BaseModel):
     side: PublicMessageSide = Field(alias="side")
 
 class PublicMovesInsert(TypedDict):
-    classification: NotRequired[Annotated[PublicMoveKind, Field(alias="classification")]]
     content: Annotated[str, Field(alias="content")]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
     eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
@@ -666,7 +662,6 @@ class PublicMovesInsert(TypedDict):
     side: Annotated[PublicMessageSide, Field(alias="side")]
 
 class PublicMovesUpdate(TypedDict):
-    classification: NotRequired[Annotated[PublicMoveKind, Field(alias="classification")]]
     content: NotRequired[Annotated[str, Field(alias="content")]]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
     eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
@@ -752,10 +747,12 @@ class PublicGameAnalysesUpdate(TypedDict):
 class PublicGameAnalysisMoves(BaseModel):
     analysis_id: uuid.UUID = Field(alias="analysis_id")
     best_line: Optional[str] = Field(alias="best_line")
-    classification: PublicMoveKind = Field(alias="classification")
     comment: str = Field(alias="comment")
     content: str = Field(alias="content")
     created_at: datetime.datetime = Field(alias="created_at")
+    eval_after: Optional[float] = Field(alias="eval_after")
+    eval_before: Optional[float] = Field(alias="eval_before")
+    eval_delta: Optional[float] = Field(alias="eval_delta")
     id: uuid.UUID = Field(alias="id")
     move_id: Optional[uuid.UUID] = Field(alias="move_id")
     position: int = Field(alias="position")
@@ -764,10 +761,12 @@ class PublicGameAnalysisMoves(BaseModel):
 class PublicGameAnalysisMovesInsert(TypedDict):
     analysis_id: Annotated[uuid.UUID, Field(alias="analysis_id")]
     best_line: NotRequired[Annotated[Optional[str], Field(alias="best_line")]]
-    classification: Annotated[PublicMoveKind, Field(alias="classification")]
     comment: Annotated[str, Field(alias="comment")]
     content: Annotated[str, Field(alias="content")]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
+    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
+    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
     id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
     move_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="move_id")]]
     position: Annotated[int, Field(alias="position")]
@@ -776,10 +775,12 @@ class PublicGameAnalysisMovesInsert(TypedDict):
 class PublicGameAnalysisMovesUpdate(TypedDict):
     analysis_id: NotRequired[Annotated[uuid.UUID, Field(alias="analysis_id")]]
     best_line: NotRequired[Annotated[Optional[str], Field(alias="best_line")]]
-    classification: NotRequired[Annotated[PublicMoveKind, Field(alias="classification")]]
     comment: NotRequired[Annotated[str, Field(alias="comment")]]
     content: NotRequired[Annotated[str, Field(alias="content")]]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
+    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
+    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
     id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
     move_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="move_id")]]
     position: NotRequired[Annotated[int, Field(alias="position")]]
