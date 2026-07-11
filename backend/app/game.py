@@ -36,6 +36,7 @@ from .db import json_row as _json_row
 from .database_types import (
     PublicEngineResponsesInsert,
     PublicGamesInsert,
+    PublicGender,
     PublicGamesUpdate,
     PublicMatchEndReason,
     PublicMoves,
@@ -166,10 +167,18 @@ class SoloGameService:
         turn = await self._engine.run_turn(
             persona.system_prompt, transcript, content, eval_before
         )
-        eval_after = max(0.0, min(100.0, turn.verdict.eval_after))
+        # The eval bounds are mating squares (SPEC §3): only the verdict flags may put a move
+        # on 0/100, so a merely-enthusiastic score can't accidentally end the game. The label
+        # below still derives from the number, never from the flags directly.
+        if turn.verdict.is_blocked:
+            eval_after = 0.0
+        elif turn.verdict.is_date_landed:
+            eval_after = 100.0
+        else:
+            eval_after = max(1.0, min(99.0, turn.verdict.eval_after))
         eval_delta = round(eval_after - eval_before, 2)
         swing = swing_from_delta(eval_delta)
-        grade = classify(swing)
+        grade = classify(swing, eval_after)
         position = len(moves)
 
         await self._write_turn(
@@ -194,12 +203,13 @@ class SoloGameService:
             time_left=new_bank_ms,
         )
 
-        # The persona blocked the human — end the game early, but still deliver the parting
-        # reply + verdict so the player sees why the date is over.
-        if turn.verdict.is_blocked:
+        # A checkmate — the eval hit a mating square. End the game early either way, but still
+        # deliver the reply + verdict first, so the player sees the parting block message or
+        # the persona's "yes" before the finish.
+        if eval_after <= 0.0 or eval_after >= 100.0:
             await self._update_solo(game.id, {"exchanges": exchanges, "turn_deadline": None})
             game.solo.exchanges = exchanges
-            finish = await self._finish(game, "blocked")
+            finish = await self._finish(game, "blocked" if eval_after <= 0.0 else "date_landed")
             self._arm(user_id, None)
             return [response, finish]
 
@@ -249,7 +259,16 @@ class SoloGameService:
     # -- game lifecycle -----------------------------------------------------
 
     async def _create_game(self, user_id: str) -> NewGameMsg:
-        persona = await pick_persona(self._db)
+        # VS-AI serves a date of the player's sought gender (SPEC §2). Fall back to any active
+        # persona if the player hasn't set a preference yet, or there's no persona of that gender
+        # seeded — solo play must always be instant.
+        seeking = await self._load_seeking(user_id)
+        try:
+            persona = await pick_persona(self._db, gender=seeking)
+        except LookupError:
+            if seeking is None:
+                raise
+            persona = await pick_persona(self._db)
         base_seconds = self._settings.solo_base_seconds
         increment_seconds = self._settings.solo_increment_seconds
         deadline = _now() + timedelta(seconds=base_seconds)
@@ -272,13 +291,20 @@ class SoloGameService:
     async def _finish(self, game: _ActiveGame, end_reason: PublicMatchEndReason) -> FinishMsg:
         persona = await get_persona_by_id(self._db, str(game.solo.persona_id))
         moves = await self._load_moves(game.id)
-        deltas = [m.eval_delta or 0.0 for m in moves if m.side == "You"]
-        qualities = [classify(swing_from_delta(d)).quality for d in deltas]
+        you_moves = [m for m in moves if m.side == "You"]
+        qualities = [
+            classify(swing_from_delta(m.eval_delta or 0.0), m.eval_after).quality for m in you_moves
+        ]
         accuracy = round(sum(qualities) / len(qualities), 2) if qualities else 0.0
-        rating_delta = max(-25, min(25, round((accuracy - 50) / 2)))
+        # Landing the date is the best possible result — it always pays the full cap (SPEC §3).
+        if end_reason == "date_landed":
+            rating_delta = 25
+        else:
+            rating_delta = max(-25, min(25, round((accuracy - 50) / 2)))
         title = f"{accuracy:.0f}% accuracy vs {persona.name}"
+        label = _END_REASON_LABELS.get(end_reason, end_reason.capitalize())
         description = (
-            f"{end_reason.capitalize()} after {len(deltas)} messages — "
+            f"{label} after {len(you_moves)} messages — "
             f"elo {'+' if rating_delta >= 0 else ''}{rating_delta}."
         )
         await self._write_finish(game, end_reason, accuracy, rating_delta, title, description)
@@ -293,6 +319,18 @@ class SoloGameService:
         )
 
     # -- async DB helpers ---------------------------------------------------
+
+    async def _load_seeking(self, user_id: str) -> PublicGender | None:
+        """The gender this player wants to date (profiles.seeking), or None if unset."""
+        res = await (
+            self._db.table("profiles")
+            .select("seeking")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        data = cast("dict[str, Any] | None", res.data if res else None)
+        return cast("PublicGender | None", data.get("seeking")) if data else None
 
     async def _load_active(self, user_id: str) -> _ActiveGame | None:
         res = await (
@@ -459,6 +497,9 @@ class SoloGameService:
 
 # -- pure mappers -----------------------------------------------------------
 
+# End reasons whose enum value doesn't read well through a bare .capitalize().
+_END_REASON_LABELS: dict[str, str] = {"date_landed": "Date landed"}
+
 
 def _persona_out(persona: Persona) -> PersonaOut:
     return PersonaOut(
@@ -477,7 +518,7 @@ def _move_out(move: PublicMoves) -> MoveOut:
             position=move.position,
             side="You",
             content=move.content,
-            classification=classify(swing).class_key,
+            classification=classify(swing, move.eval_after).class_key,
             swing=swing,
         )
     return MoveOut(position=move.position, side="Match", content=move.content)

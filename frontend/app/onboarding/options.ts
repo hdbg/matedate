@@ -1,4 +1,4 @@
-import type { DatingGoal, TextingStyle } from "@/app/lib/supabase/types";
+import type { DatingGoal, Gender, TextingStyle } from "@/app/lib/supabase/types";
 
 export interface OptionItem<T extends string> {
   value: T;
@@ -6,6 +6,18 @@ export interface OptionItem<T extends string> {
   title: string;
   description: string;
 }
+
+/** The player's own gender identity. */
+export const GENDERS: OptionItem<Gender>[] = [
+  { value: "man", icon: "♂", title: "Man", description: "" },
+  { value: "woman", icon: "♀", title: "Woman", description: "" },
+];
+
+/** Who the player wants to date — drives which AI dates, puzzles, and PvP opponents they get. */
+export const SEEKING: OptionItem<Gender>[] = [
+  { value: "man", icon: "♂", title: "Men", description: "Your dates and puzzles will be men" },
+  { value: "woman", icon: "♀", title: "Women", description: "Your dates and puzzles will be women" },
+];
 
 export const DATING_GOALS: OptionItem<DatingGoal>[] = [
   { value: "serious", icon: "💍", title: "Something serious", description: "Real connection, long game" },

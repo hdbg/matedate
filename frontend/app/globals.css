@@ -20,13 +20,15 @@
   --rosy-deep: #b8324c;
   --rosy-tint: #f3d9de;
 
-  /* move classification ramp */
+  /* move classification ramp (checkmates are the terminal bounds, SPEC §3) */
+  --m-checkmate-win: #b48a1e;
   --m-brilliant: #1f9e8a;
   --m-great: #3a7ca5;
   --m-good: #5f9a55;
   --m-inaccuracy: #c99a33;
   --m-mistake: #cf7a3c;
   --m-blunder: #b8324c;
+  --m-checkmate-loss: #5c1626;
 
   /* radii */
   --r-sm: 8px;
@@ -54,12 +56,14 @@
   --color-rosy-deep: var(--rosy-deep);
   --color-rosy-tint: var(--rosy-tint);
 
+  --color-m-checkmate-win: var(--m-checkmate-win);
   --color-m-brilliant: var(--m-brilliant);
   --color-m-great: var(--m-great);
   --color-m-good: var(--m-good);
   --color-m-inaccuracy: var(--m-inaccuracy);
   --color-m-mistake: var(--m-mistake);
   --color-m-blunder: var(--m-blunder);
+  --color-m-checkmate-loss: var(--m-checkmate-loss);
 
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);

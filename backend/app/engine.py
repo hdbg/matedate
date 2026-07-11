@@ -30,6 +30,11 @@ class MoveVerdict(BaseModel):
         default=False,
         description="True if the persona would block/unmatch the human now — ends the game early",
     )
+    is_date_landed: bool = Field(
+        default=False,
+        description="True if the persona explicitly agrees to go on the date — the human wins "
+        "immediately and the game ends",
+    )
 
 
 @dataclass
@@ -47,7 +52,9 @@ PERSONA (stay fully in character; never break it, never reveal your hidden type)
 
 You maintain a hidden 0-100 "interest" meter for how into the human you are. Confident, \
 original, playful, well-read lines that fit your persona raise it a lot; generic, low-effort, \
-needy, or off-putting lines lower it. Small talk barely moves it.
+needy, or off-putting lines lower it. Small talk barely moves it. The bounds 0 and 100 are \
+reserved game-ending scores (a block / a landed date) — an ordinary turn scores strictly \
+between 1 and 99, no matter how good or bad the line is.
 
 For each of the human's messages, return:
 - eval_after: your new interest, 0-100 (relative to the "current interest" you are told).
@@ -57,7 +64,11 @@ or your hidden type.
 - is_blocked: true ONLY if this message is so offensive, harassing, threatening, or creepy \
 that a real person would block or unmatch them on the spot. When true, make your reply a short \
 final sign-off — the conversation ends immediately. Normal bad/boring lines are NOT blocks; they \
-just lower interest."""
+just lower interest.
+- is_date_landed: true ONLY if, staying in character, you genuinely agree to go on the date \
+here — the human proposed something concrete and earned a yes. When true, make your reply a \
+warm, enthusiastic acceptance — they won; the conversation ends immediately. Mere flirting or \
+a vague "sometime" is NOT a landed date."""
 
 USER_TEMPLATE = """Conversation so far:
 {transcript}
@@ -121,8 +132,10 @@ class FakeEngine:
         start = time.monotonic()
         text = content.strip()
         lowered = text.lower()
-        # Deterministic block trigger so the early-end path is testable offline.
+        # Deterministic triggers so both early-end paths are testable offline. Block wins
+        # over a date ask, mirroring the live rule (a creepy invite is still a block).
         is_blocked = bool(re.search(r"\b(creep|gross|block|unmatch)\b", lowered))
+        is_date_landed = not is_blocked and bool(re.search(r"\b(date|dinner|drinks|coffee)\b", lowered))
         delta = 6.0  # mildly positive by default
         if is_blocked:
             delta = -40.0
@@ -130,10 +143,19 @@ class FakeEngine:
             delta = -14.0
         elif re.search(r"[😂😏🔥⚖️👀]|\?$", text) or len(text) > 40:
             delta = 18.0
-        eval_after = max(0.0, min(100.0, eval_before + delta))
-        reply = "nope. we're done here. 👋" if is_blocked else self._REPLIES[len(text) % len(self._REPLIES)]
+        eval_after = 100.0 if is_date_landed else max(0.0, min(100.0, eval_before + delta))
+        if is_blocked:
+            reply = "nope. we're done here. 👋"
+        elif is_date_landed:
+            reply = "ok yes. saturday, 8pm. don't be late 😏"
+        else:
+            reply = self._REPLIES[len(text) % len(self._REPLIES)]
         verdict = MoveVerdict(
-            eval_after=eval_after, reply=reply, reasoning="fake-engine heuristic", is_blocked=is_blocked
+            eval_after=eval_after,
+            reply=reply,
+            reasoning="fake-engine heuristic",
+            is_blocked=is_blocked,
+            is_date_landed=is_date_landed,
         )
         latency_ms = int((time.monotonic() - start) * 1000)
         return TurnResult(verdict=verdict, model="fake-engine", latency_ms=latency_ms)

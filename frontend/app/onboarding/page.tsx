@@ -9,6 +9,7 @@ import { AgeGateScreen } from "./components/AgeGateScreen";
 import { BrandPanel } from "./components/BrandPanel";
 import { DoneScreen } from "./components/DoneScreen";
 import { GoalQuizScreen } from "./components/GoalQuizScreen";
+import { IdentityScreen } from "./components/IdentityScreen";
 import { StyleQuizScreen } from "./components/StyleQuizScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { isDarkStep, progressValue, useOnboarding } from "./useOnboarding";
@@ -54,15 +55,25 @@ export default function OnboardingPage() {
                 confirmed={flow.ageConfirmed}
                 onToggle={() => flow.setAgeConfirmed(!flow.ageConfirmed)}
                 onBack={() => goTo("welcome")}
-                onContinue={() => goTo("goal")}
+                onContinue={() => goTo("identity")}
                 onUnderage={() => window.alert("You must be 18+ to use MateDate.")}
+              />
+            )}
+            {step === "identity" && (
+              <IdentityScreen
+                gender={flow.gender}
+                seeking={flow.seeking}
+                onSelectGender={flow.setGender}
+                onSelectSeeking={flow.setSeeking}
+                onBack={() => goTo("age")}
+                onContinue={() => goTo("goal")}
               />
             )}
             {step === "goal" && (
               <GoalQuizScreen
                 selected={flow.goal}
                 onSelect={flow.setGoal}
-                onBack={() => goTo("age")}
+                onBack={() => goTo("identity")}
                 onContinue={() => goTo("style")}
               />
             )}

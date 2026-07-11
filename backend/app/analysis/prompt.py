@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from .transcript import Transcript
 
-PROMPT_VERSION = "analysis-v2"
+PROMPT_VERSION = "analysis-v3"
 
 SYSTEM_PROMPT = """You are a dating-conversation analyst that reviews a finished conversation \
 in a chess-analysis style, like a chess engine's post-game "game review".
@@ -31,6 +31,10 @@ Scoring guide (interest score after the message):
 - A solid, constructive line nudges it up a little (e.g. 55-68).
 - A flat, generic, or slightly off line holds or dips it (e.g. 40-54).
 - A needy, rude, pushy, or momentum-killing line drops it hard (e.g. 5-35).
+- The bounds are game-ending "mating squares": score exactly 100 ONLY where "Match" explicitly \
+agreed to a date (a checkmate win), and exactly 0 ONLY where "Match" blocked or plainly would \
+block (a checkmate loss). Those can only be where the conversation actually ended that way — \
+every other message scores strictly between 1 and 99.
 Judge each message on: clarity, confidence (no neediness/over-explaining), momentum, timing, \
 whether humor/teasing lands, and how well-calibrated the risk is.
 

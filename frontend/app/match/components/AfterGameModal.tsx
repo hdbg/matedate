@@ -21,9 +21,11 @@ interface AfterGameModalProps {
 function verdictLine(reason: string): string {
   switch (reason) {
     case "scored":
-      return "Checkmate · you closed the game";
+      return "Wrapped · played to the final move";
+    case "date_landed":
+      return "Checkmate · you landed the date";
     case "blocked":
-      return "Resigned · they unmatched you";
+      return "Checkmate · they unmatched you";
     case "timeout":
       return "Flagged · you ran out of time";
     case "resignation":

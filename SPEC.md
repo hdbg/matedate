@@ -5,7 +5,7 @@
 ---
 
 ## 0. One-paragraph summary
-MateDate grades flirting like a chess engine. Every message in a dating conversation gets a chess-style classification (Brilliant `!!`, Great, Good, Inaccuracy, Mistake, Blunder `??`), an eval swing, an overall accuracy %, and a persistent rizz rating (ELO). Users play three ways — solo against an AI date, ranked against other humans, or by submitting a real conversation screenshot for a "game review" — and every mode outputs the same branded, shareable, anonymized card that drives organic growth. Monetization is freemium → 3-day trial → weekly subscription, with the "best move" reveal as the core paywall lever and one-time credits for non-subscribers. The format is already validated by r/TextingTheory, a community that does this by hand and goes viral doing it.
+MateDate grades flirting like a chess engine. Every message in a dating conversation gets a chess-style classification (Brilliant `!!`, Great, Good, Inaccuracy, Mistake, Blunder `??` — plus the game-ending Checkmate `#`, won by landing the date or lost by getting blocked), an eval swing, an overall accuracy %, and a persistent rizz rating (ELO). Users play three ways — solo against an AI date, ranked against other humans, or by submitting a real conversation screenshot for a "game review" — and every mode outputs the same branded, shareable, anonymized card that drives organic growth. Monetization is freemium → 3-day trial → weekly subscription, with the "best move" reveal as the core paywall lever and one-time credits for non-subscribers. The format is already validated by r/TextingTheory, a community that does this by hand and goes viral doing it.
 
 ---
 
@@ -55,12 +55,37 @@ When it becomes a player's turn, their move clock starts. Submitting before the 
 
 **The clock only runs during a player's own decision time — never during system or opponent time.** As in chess, at most one player's clock runs at a time, and it counts down only while that player is on the clock deciding their move. The clock **stops the instant the player submits**, and stays stopped through everything outside their control: LLM grading of the submitted move, persona-reply generation, and the opponent's turn. It **resumes (or the opponent's starts) only when it is again that player's turn to act**. So neither engine latency nor the other player's thinking can burn a player's time — a player can only ever flag on their *own* deliberation. The server is authoritative on all clock start/stop/resume transitions (clients never self-report elapsed time); the UI reflects this by showing the clock as paused/idle whenever it isn't the local player's turn.
 
+### 2.7 Gender & preference matching
+At onboarding every player sets **their own gender** and the **gender they're looking for** (both single-select — men or women — in the 18+ dating context of §8.3). Personas and puzzles each carry the gender they portray. Matching then follows one rule per mode:
+- **Solo / VS-AI (§2.1, §2.3):** the player is served an AI date whose gender is the one they're **looking for**. If no persona of that gender is available yet, solo still starts instantly on any active persona — liquidity beats strictness (§2.4).
+- **Puzzles (§2.1):** identical to VS-AI — only puzzles whose sender gender matches the player's preference are served.
+- **Ranked PvP (§2.2):** two players are paired only when they **share the same gender *and* are looking for the same gender**; the persona they both play is of that sought gender. This preserves the "same persona, same scenario" fairness (both are dating the same kind of date) and pools the ladder by identity + preference. Ghost/replay duels inherit the recorded attempt's persona, which is already the right gender.
+
+Preference is **server-authoritative** for pairing, like the clock and grading: the matchmaking snapshot pins each player's gender/seeking to their real profile, so a client can't self-select an easier or different pool.
+
 ---
 
 ## 3. The Scoring Engine
 
-- **The "eval"** is a hidden 0–100 interest/attraction state the persona holds; each message moves it. Rendered as an eval bar + per-turn swing.
-- **Move classification** maps eval delta → label. Starting thresholds (tune on data): Brilliant `!!` ≥ +2.0 and non-obvious; Great +1.0–+2.0; Good +0.2–+1.0; Inaccuracy −0.2 to −1.0; Mistake −1.0 to −2.5; Blunder `??` ≤ −2.5.
+- **The "eval"** is a hidden 0–100 interest/attraction state the persona holds; each message moves it. Rendered as an eval bar + per-turn swing. **The bounds are mating squares:** 100 = the persona is won over (date secured), 0 = the persona is done (block/unmatch) — reaching either bound ends the game immediately (see Checkmate below).
+- **Move classification** maps eval delta → label, except **Checkmate**, which is terminal and outranks any delta label. Starting thresholds (tune on data), swing in pawn scale (eval delta ÷ 10):
+
+  | Class | Trigger (swing) | Quality weight |
+  |---|---|---|
+  | Checkmate `#` (win) | eval reaches **100** — date landed; game ends won | 100 |
+  | Brilliant `!!` | ≥ +2.5 and non-obvious | 96 |
+  | Great `!` | +1.2 to +2.5 | 85 |
+  | Good `✓` | +0.2 to +1.2 | 70 |
+  | Inaccuracy `?!` | −0.8 to +0.2 | 50 |
+  | Mistake `?` | −2.0 to −0.8 | 30 |
+  | Blunder `??` | ≤ −2.0 | 10 |
+  | Checkmate `#` (loss) | eval reaches **0** — blocked; game ends lost | 0 |
+
+  Rebalanced from the pre-checkmate ramp: Brilliant moves up (+2.0 → +2.5) because the true crown is now delivering mate, and Blunder widens (−2.5 → −2.0) because the catastrophic case (getting blocked) now has its own class — a Blunder is serious but survivable, exactly like chess.
+- **Checkmate** is the one **bidirectional, game-ending** class — the same glyph `#`, opposite signs (the §3.1 apex tier shares the name deliberately):
+  - **Checkmate for (win):** the player lands the date — the persona explicitly agrees to go out. The engine verdict flags it (the positive twin of `is_blocked`) and the eval clamps to 100, so the label still derives from the number, never from the model. Ends the game pre-emptively as a **win** (`end_reason = date_landed`, working name) before the exchange cap; counts as quality 100 and should carry the largest positive rating delta — it's the best possible result.
+  - **Checkmate against (loss):** the persona blocks/unmatches (the existing `is_blocked` path). Eval clamps to 0; the move is classified Checkmate (loss), not Blunder, and the game ends as today (`end_reason = blocked`) — parting response first, then the finish.
+  - **In ranked PvH:** a checkmate ends that player's line instantly — mate-for wins the round outright, mate-against loses it outright, regardless of the opponent's accuracy.
 - **Accuracy %** = how close the player's moves were to the engine's best-move line across the conversation.
 - **Best move** = the engine's top suggested line at each turn (the paid reveal — see §7.2).
 - **ELO:** standard Elo. PvH — both players score vs. the same persona; higher round-accuracy wins the round; rounds decide the match; match result updates Elo (K≈32 early, decaying). Screenshot mode — award a provisional rating from accuracy so solo users get a number to chase/share.
@@ -68,6 +93,45 @@ When it becomes a player's turn, their move clock starts. Submitting before the 
 - **Anti-abuse:** rate-limit; detect copy-pasted/AI-generated inputs for ranked; cap Elo swings.
 
 **Implementation note:** the engine is fundamentally an LLM orchestration workload (classify, eval, best-move) — I/O-bound, tuned constantly. It lives in Python (see §4), not Rust, because iteration speed on prompt/threshold/heuristic tuning is the product.
+
+### 3.1 Rating tiers — the ladder vocabulary
+
+Ratings render as **chess-piece tiers** climbing to a **Checkmate** apex — pieces read instantly
+as a ladder, they're generic chess terms (free to use per §9 IP guidance), and the top rank lands
+the brand's mate pun exactly where the prestige is. Each tier splits into divisions **III → II → I**
+(ascending); each tier also carries a dating-flavor subtitle used on badges/share cards — the rank
+*string* stays clean ("Bishop II"), the flavor lives in the art.
+
+| Tier | ELO band | Divisions | Flavor subtitle |
+|---|---|---|---|
+| Pawn | 0–599 | III · II · I | "Left on Read" |
+| Knight | 600–799 | III · II · I | "The Wingman" |
+| Bishop | 800–999 | III · II · I | "Smooth Operator" |
+| Rook | 1000–1199 | III · II · I | "Solid Foundations" |
+| Queen | 1200–1399 | III · II · I | "Main Character" |
+| King | 1400–1599 | III · II · I | "The Catch" |
+| **Checkmate** | 1600+ | none — apex | "Found Their Mate" |
+
+- **Band math:** 200-point tiers, ~66-point divisions (III = first ~67, II = middle ~67, I = rest).
+  New accounts (1000) start at **Rook III** — the *bottom* of a tier, so early wins promote within
+  Rook instead of immediately threatening demotion. At the solo ±25/game cap a division is ~3 good
+  games — snappy early progression.
+- **Apex is undivided.** Checkmate has no divisions (the Radiant/Challenger pattern — apex tiers
+  feel better undivided); display the raw rating number there instead, chess-style.
+- **Derived, never stored.** Tier = pure function of the rating, computed on read — same principle
+  as move classification (eval delta → label). No enum column, no sync problem, and re-banding
+  later is a constant change, not a migration.
+- **One scheme, three ladders.** The same bands apply to all three ratings (PvE `elo_rating`,
+  ranked PvH `ranked_elo`, practice `casual_rating`); only the **ranked** badge is displayed
+  prominently, keeping the competitive ladder the legitimate one (§2.4).
+- **Provisional rank:** below ~5 rated games show **"Unrated"** (chess-authentic) instead of a
+  tier — nobody's first share card should say Pawn III.
+- **Demotion hysteresis:** a small buffer (~10 ELO) below a tier floor before demoting, so one bad
+  game doesn't ping-pong a player across a tier boundary.
+- **Prestige titles (later):** FIDE-parody titles layered on top at the high end — **Candidate
+  Mate (CM)** at Queen, **First-Date Master (FM)** at King, **Grand Mate (GM)** at Checkmate —
+  displayed before the name like chess titles ("GM PvpSandora"). Titles are cosmetic and derived
+  like tiers; they're the screenshot-bait layer, not the ladder itself.
 
 ---
 
@@ -216,7 +280,9 @@ High chargeback rates (Visa/Mastercard ceiling ≈ **1%** of transactions) escal
 - **Use freely:** the *concept* (grade moves vs. best line into named tiers) — ideas/systems aren't copyrightable — and generic chess terms ("Brilliant," "Blunder," "Checkmate").
 - **Avoid:** copying or closely imitating chess.com's specific badge *artwork* (their exact colors/glyphs/shapes are protected). Draw your own icons and color system (the CDS-style palette already does this).
 - **Trademark:** don't use the chess.com name/logo or imply affiliation; the "Brilliant" badge in particular has become brand-associated.
-- **Recommended:** invent your own tier vocabulary ("Rizz God / Smooth / Mid / Dry / Ick / Left on Read") — funnier for the niche and sidesteps even the theoretical trademark question while keeping the chess *framing* as the pitch.
+- **Recommended:** own tier vocabulary rather than chess.com's. The ladder (§3.1) uses generic
+  chess pieces + an original "Checkmate" apex + original dating-flavor subtitles — chess framing
+  with no chess.com-specific vocabulary.
 - Have an IP attorney glance at final badges + tier names before launch (chess.com is known to enforce).
 
 ---

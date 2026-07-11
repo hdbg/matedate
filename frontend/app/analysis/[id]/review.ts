@@ -86,8 +86,8 @@ export async function loadReview(analysisId: string): Promise<ReviewData | null>
   // Per-position re-scored verdict (before we know each move's place in the rendered thread).
   const verdictByPosition = new Map<number, Omit<ReviewMove, "threadIndex">>();
   for (const m of analysisMoves) {
-    const classKey = classifyEvalDelta(m.eval_delta);
-    const isTop = classKey === "brilliant";
+    const classKey = classifyEvalDelta(m.eval_delta, m.eval_after);
+    const isTop = classKey === "brilliant" || classKey === "checkmate_win";
     const bestLine = bestLineByMoveId.get(m.id) ?? null;
     verdictByPosition.set(m.position, {
       position: m.position,

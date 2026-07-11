@@ -53,6 +53,8 @@ PublicDatingGoal: TypeAlias = Literal["serious", "casual", "confidence", "practi
 
 PublicTextingStyle: TypeAlias = Literal["drywit", "playful", "dark", "earnest"]
 
+PublicGender: TypeAlias = Literal["man", "woman"]
+
 PublicMatchStatus: TypeAlias = Literal["queued", "active", "scoring", "completed", "abandoned"]
 
 PublicMatchMode: TypeAlias = Literal["pvp", "ai", "ghost"]
@@ -61,7 +63,7 @@ PublicMatchSide: TypeAlias = Literal["a", "b"]
 
 PublicTimeControl: TypeAlias = Literal["bullet", "rapid", "classical"]
 
-PublicMatchEndReason: TypeAlias = Literal["scored", "timeout", "resignation", "abandoned", "blocked"]
+PublicMatchEndReason: TypeAlias = Literal["scored", "timeout", "resignation", "abandoned", "blocked", "date_landed"]
 
 PublicJobStatus: TypeAlias = Literal["queued", "processing", "completed", "failed", "cancelled"]
 
@@ -75,9 +77,11 @@ class PublicProfiles(BaseModel):
     date_of_birth: Optional[datetime.date] = Field(alias="date_of_birth")
     dating_goal: Optional[PublicDatingGoal] = Field(alias="dating_goal")
     display_name: Optional[str] = Field(alias="display_name")
+    gender: Optional[PublicGender] = Field(alias="gender")
     id: uuid.UUID = Field(alias="id")
     referral_code: Optional[str] = Field(alias="referral_code")
     referred_by: Optional[uuid.UUID] = Field(alias="referred_by")
+    seeking: Optional[PublicGender] = Field(alias="seeking")
     texting_style: List[PublicTextingStyle] = Field(alias="texting_style")
     updated_at: datetime.datetime = Field(alias="updated_at")
     username: Optional[str] = Field(alias="username")
@@ -88,9 +92,11 @@ class PublicProfilesInsert(TypedDict):
     date_of_birth: NotRequired[Annotated[Optional[datetime.date], Field(alias="date_of_birth")]]
     dating_goal: NotRequired[Annotated[Optional[PublicDatingGoal], Field(alias="dating_goal")]]
     display_name: NotRequired[Annotated[Optional[str], Field(alias="display_name")]]
+    gender: NotRequired[Annotated[Optional[PublicGender], Field(alias="gender")]]
     id: Annotated[uuid.UUID, Field(alias="id")]
     referral_code: NotRequired[Annotated[Optional[str], Field(alias="referral_code")]]
     referred_by: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="referred_by")]]
+    seeking: NotRequired[Annotated[Optional[PublicGender], Field(alias="seeking")]]
     texting_style: NotRequired[Annotated[List[PublicTextingStyle], Field(alias="texting_style")]]
     updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
     username: NotRequired[Annotated[Optional[str], Field(alias="username")]]
@@ -101,9 +107,11 @@ class PublicProfilesUpdate(TypedDict):
     date_of_birth: NotRequired[Annotated[Optional[datetime.date], Field(alias="date_of_birth")]]
     dating_goal: NotRequired[Annotated[Optional[PublicDatingGoal], Field(alias="dating_goal")]]
     display_name: NotRequired[Annotated[Optional[str], Field(alias="display_name")]]
+    gender: NotRequired[Annotated[Optional[PublicGender], Field(alias="gender")]]
     id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
     referral_code: NotRequired[Annotated[Optional[str], Field(alias="referral_code")]]
     referred_by: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="referred_by")]]
+    seeking: NotRequired[Annotated[Optional[PublicGender], Field(alias="seeking")]]
     texting_style: NotRequired[Annotated[List[PublicTextingStyle], Field(alias="texting_style")]]
     updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
     username: NotRequired[Annotated[Optional[str], Field(alias="username")]]
@@ -175,6 +183,7 @@ class PublicPersonas(BaseModel):
     created_at: datetime.datetime = Field(alias="created_at")
     description: Optional[str] = Field(alias="description")
     difficulty: int = Field(alias="difficulty")
+    gender: PublicGender = Field(alias="gender")
     id: uuid.UUID = Field(alias="id")
     is_active: bool = Field(alias="is_active")
     is_boss: bool = Field(alias="is_boss")
@@ -187,6 +196,7 @@ class PublicPersonasInsert(TypedDict):
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
     description: NotRequired[Annotated[Optional[str], Field(alias="description")]]
     difficulty: NotRequired[Annotated[int, Field(alias="difficulty")]]
+    gender: Annotated[PublicGender, Field(alias="gender")]
     id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
     is_active: NotRequired[Annotated[bool, Field(alias="is_active")]]
     is_boss: NotRequired[Annotated[bool, Field(alias="is_boss")]]
@@ -199,6 +209,7 @@ class PublicPersonasUpdate(TypedDict):
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
     description: NotRequired[Annotated[Optional[str], Field(alias="description")]]
     difficulty: NotRequired[Annotated[int, Field(alias="difficulty")]]
+    gender: NotRequired[Annotated[PublicGender, Field(alias="gender")]]
     id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
     is_active: NotRequired[Annotated[bool, Field(alias="is_active")]]
     is_boss: NotRequired[Annotated[bool, Field(alias="is_boss")]]
@@ -224,30 +235,36 @@ class PublicPersonaSecretsUpdate(TypedDict):
 
 class PublicMatchmakingQueue(BaseModel):
     enqueued_at: datetime.datetime = Field(alias="enqueued_at")
+    gender: PublicGender = Field(alias="gender")
     id: uuid.UUID = Field(alias="id")
     match_id: Optional[uuid.UUID] = Field(alias="match_id")
     matched_at: Optional[datetime.datetime] = Field(alias="matched_at")
     ranked_elo: int = Field(alias="ranked_elo")
+    seeking: PublicGender = Field(alias="seeking")
     status: PublicJobStatus = Field(alias="status")
     time_control: PublicTimeControl = Field(alias="time_control")
     user_id: uuid.UUID = Field(alias="user_id")
 
 class PublicMatchmakingQueueInsert(TypedDict):
     enqueued_at: NotRequired[Annotated[datetime.datetime, Field(alias="enqueued_at")]]
+    gender: Annotated[PublicGender, Field(alias="gender")]
     id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
     match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
     matched_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="matched_at")]]
     ranked_elo: Annotated[int, Field(alias="ranked_elo")]
+    seeking: Annotated[PublicGender, Field(alias="seeking")]
     status: NotRequired[Annotated[PublicJobStatus, Field(alias="status")]]
     time_control: NotRequired[Annotated[PublicTimeControl, Field(alias="time_control")]]
     user_id: Annotated[uuid.UUID, Field(alias="user_id")]
 
 class PublicMatchmakingQueueUpdate(TypedDict):
     enqueued_at: NotRequired[Annotated[datetime.datetime, Field(alias="enqueued_at")]]
+    gender: NotRequired[Annotated[PublicGender, Field(alias="gender")]]
     id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
     match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
     matched_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="matched_at")]]
     ranked_elo: NotRequired[Annotated[int, Field(alias="ranked_elo")]]
+    seeking: NotRequired[Annotated[PublicGender, Field(alias="seeking")]]
     status: NotRequired[Annotated[PublicJobStatus, Field(alias="status")]]
     time_control: NotRequired[Annotated[PublicTimeControl, Field(alias="time_control")]]
     user_id: NotRequired[Annotated[uuid.UUID, Field(alias="user_id")]]
@@ -582,6 +599,7 @@ class PublicScreenshotGamesUpdate(TypedDict):
 class PublicPuzzles(BaseModel):
     created_at: datetime.datetime = Field(alias="created_at")
     difficulty: int = Field(alias="difficulty")
+    gender: PublicGender = Field(alias="gender")
     id: uuid.UUID = Field(alias="id")
     is_active: bool = Field(alias="is_active")
     persona_id: Optional[uuid.UUID] = Field(alias="persona_id")
@@ -591,6 +609,7 @@ class PublicPuzzles(BaseModel):
 class PublicPuzzlesInsert(TypedDict):
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
     difficulty: NotRequired[Annotated[int, Field(alias="difficulty")]]
+    gender: Annotated[PublicGender, Field(alias="gender")]
     id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
     is_active: NotRequired[Annotated[bool, Field(alias="is_active")]]
     persona_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="persona_id")]]
@@ -600,6 +619,7 @@ class PublicPuzzlesInsert(TypedDict):
 class PublicPuzzlesUpdate(TypedDict):
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
     difficulty: NotRequired[Annotated[int, Field(alias="difficulty")]]
+    gender: NotRequired[Annotated[PublicGender, Field(alias="gender")]]
     id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
     is_active: NotRequired[Annotated[bool, Field(alias="is_active")]]
     persona_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="persona_id")]]

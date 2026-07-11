@@ -9,7 +9,7 @@ import type { GradedMove, Suggestion } from "./types";
  */
 
 export const SUGGESTIONS: Suggestion[] = [
-  { text: "honestly? cereal is a soup and I'll take that to court ⚖️", classKey: "brilliant", swing: 2.4 },
+  { text: "honestly? cereal is a soup and I'll take that to court ⚖️", classKey: "brilliant", swing: 2.7 },
   { text: "pancakes obviously. what's your hill?", classKey: "good", swing: 0.6 },
   { text: "idk lol breakfast is breakfast", classKey: "blunder", swing: -3.2 },
 ];

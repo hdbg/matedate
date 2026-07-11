@@ -69,7 +69,7 @@ class ResponseMsg(BaseModel):
 
 class FinishMsg(BaseModel):
     type: Literal["finish"] = "finish"
-    end_reason: str  # 'scored' | 'timeout' | ...
+    end_reason: str  # 'scored' | 'timeout' | 'blocked' | 'date_landed' | ...
     accuracy: float
     rating_delta: int
     moves: list[MoveOut]

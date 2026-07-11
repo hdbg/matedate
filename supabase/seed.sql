@@ -1,11 +1,12 @@
 -- Seed personas so both the mock and the Supabase read path have AI dates.
 -- Opening lines mirror the mocks (Maya is the one shown in MateDate Match.html).
 
-insert into public.personas (slug, name, difficulty, is_boss, is_active, description, opening_line, suggested_messages)
+insert into public.personas (slug, name, gender, difficulty, is_boss, is_active, description, opening_line, suggested_messages)
 values
   (
     'maya',
     'Maya, 26',
+    'woman',
     2,
     false,
     true,
@@ -20,6 +21,7 @@ values
   (
     'devon',
     'Devon, 28',
+    'man',
     1,
     false,
     true,
@@ -34,6 +36,7 @@ values
   (
     'sasha',
     'Sasha, 25',
+    'woman',
     3,
     true,
     true,

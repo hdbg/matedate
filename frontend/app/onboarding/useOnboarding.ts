@@ -2,18 +2,26 @@
 
 import { useCallback, useState } from "react";
 import { createClient } from "@/app/lib/supabase/client";
-import type { DatingGoal, TextingStyle } from "@/app/lib/supabase/types";
+import type { DatingGoal, Gender, TextingStyle } from "@/app/lib/supabase/types";
 
-export type OnboardingStep = "welcome" | "age" | "goal" | "style" | "account" | "done";
+export type OnboardingStep =
+  | "welcome"
+  | "age"
+  | "identity"
+  | "goal"
+  | "style"
+  | "account"
+  | "done";
 
 /** Steps that show the progress bar, and their index within it. */
 export const PROGRESS_STEPS: Partial<Record<OnboardingStep, number>> = {
   age: 0,
-  goal: 1,
-  style: 2,
-  account: 3,
+  identity: 1,
+  goal: 2,
+  style: 3,
+  account: 4,
 };
-const PROGRESS_TOTAL = 4;
+const PROGRESS_TOTAL = 5;
 const DARK_STEPS = new Set<OnboardingStep>(["welcome"]);
 
 export function isDarkStep(step: OnboardingStep): boolean {
@@ -28,6 +36,8 @@ export function progressValue(step: OnboardingStep): number | null {
 export function useOnboarding() {
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [gender, setGender] = useState<Gender | null>(null);
+  const [seeking, setSeeking] = useState<Gender | null>(null);
   const [goal, setGoal] = useState<DatingGoal | null>(null);
   const [styles, setStyles] = useState<TextingStyle[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -54,10 +64,12 @@ export function useOnboarding() {
       .update({
         dating_goal: goal,
         texting_style: styles,
+        gender,
+        seeking,
         age_verified_at: new Date().toISOString(),
       })
       .eq("id", userData.user.id);
-  }, [goal, styles]);
+  }, [goal, styles, gender, seeking]);
 
   const createAccount = useCallback(
     async (email: string, password: string) => {
@@ -101,12 +113,16 @@ export function useOnboarding() {
   return {
     step,
     ageConfirmed,
+    gender,
+    seeking,
     goal,
     styles,
     submitting,
     error,
     goTo,
     setAgeConfirmed,
+    setGender,
+    setSeeking,
     setGoal,
     toggleStyle,
     createAccount,

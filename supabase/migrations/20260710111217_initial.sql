@@ -53,6 +53,14 @@ create type public.rating_kind as enum ('elo', 'ranked', 'casual');
 create type public.dating_goal as enum ('serious', 'casual', 'confidence', 'practice');
 create type public.texting_style as enum ('drywit', 'playful', 'dark', 'earnest');
 
+-- Gender identity + preference, both single-select ("men or women"). A player carries their own
+-- `gender` and a `seeking` (the gender they want to date); personas and puzzles carry the gender
+-- they portray. Matchmaking (SPEC §2): VS-AI and puzzles serve a persona/puzzle whose gender = the
+-- player's `seeking`; PvP pairs two players with the same `gender` who share the same `seeking`, and
+-- gives them a persona of that sought gender. Intentionally binary — the pairing/persona mapping is
+-- defined over two sides.
+create type public.gender as enum ('man', 'woman');
+
 -- A ranked match's lifecycle.
 create type public.match_status as enum ('queued', 'active', 'scoring', 'completed', 'abandoned');
 
@@ -70,8 +78,9 @@ create type public.match_side as enum ('a', 'b');
 create type public.time_control as enum ('bullet', 'rapid', 'classical');
 
 -- How a match ended. 'scored' = played to completion; 'timeout' = a player flagged;
--- 'blocked' = the persona blocked/unmatched the player, ending the game early.
-create type public.match_end_reason as enum ('scored', 'timeout', 'resignation', 'abandoned', 'blocked');
+-- 'blocked' = the persona blocked/unmatched the player (checkmate loss, SPEC §3);
+-- 'date_landed' = the persona agreed to a date (checkmate win) — both end the game early.
+create type public.match_end_reason as enum ('scored', 'timeout', 'resignation', 'abandoned', 'blocked', 'date_landed');
 
 -- Lifecycle of a queued analysis / scoring job.
 create type public.job_status as enum ('queued', 'processing', 'completed', 'failed', 'cancelled');
@@ -116,6 +125,12 @@ create table public.profiles (
   -- dating_goal is single-select; texting_style is multi-select (default empty).
   dating_goal       public.dating_goal,
   texting_style     public.texting_style[] not null default '{}',
+
+  -- Gender identity + who they're looking for (SPEC §8, collected at onboarding). `gender` is the
+  -- player's own identity; `seeking` is the gender they want to date. Both are nullable until the
+  -- player answers the onboarding step; together they drive matchmaking (SPEC §2).
+  gender            public.gender,
+  seeking           public.gender,
 
   -- Ratings live in player_ratings (its own table) so RLS alone can make them
   -- read-only to the owner while the rest of the profile stays user-editable —
@@ -205,6 +220,9 @@ create table public.personas (
   id            uuid primary key default gen_random_uuid(),
   slug          text unique not null,
   name          text not null,
+  -- The gender this AI date presents as (shown to players; not a secret). Matchmaking serves a
+  -- persona whose gender = the player's `seeking` (SPEC §2).
+  gender        public.gender not null,
   difficulty    smallint not null default 1,
   is_boss       boolean not null default false,
   is_active     boolean not null default true,
@@ -217,6 +235,8 @@ create table public.personas (
 );
 
 create index personas_active_idx on public.personas (is_active) where is_active;
+-- Pick an active persona of the sought gender (VS-AI / PvP persona selection, SPEC §2).
+create index personas_active_gender_idx on public.personas (gender) where is_active;
 
 -- The secret half of a persona: the hidden "type" players must read (into hiking /
 -- dark humor / dry wit) and the system prompt. Split out so RLS alone protects it —
@@ -232,6 +252,11 @@ create table public.matchmaking_queue (
   id              uuid primary key default gen_random_uuid(),
   user_id         uuid not null references public.profiles (id) on delete cascade,
   ranked_elo      integer not null, -- snapshot at enqueue time, for pairing windows
+  -- Pairing keys snapshotted at enqueue (like ranked_elo): PvP pairs only players with the same
+  -- `gender` who share the same `seeking`, and gives the pair a persona of that sought gender
+  -- (SPEC §2.2). Kept on the row so the pairing query filters without joining profiles.
+  gender          public.gender not null,
+  seeking         public.gender not null,
   time_control    public.time_control not null default 'rapid', -- players pair within a pool
   status          public.job_status not null default 'queued',
   enqueued_at     timestamptz not null default now(),
@@ -240,9 +265,9 @@ create table public.matchmaking_queue (
   unique (user_id) -- a player sits in the queue at most once
 );
 
--- Pair players within the same time-control pool, closest ELO / longest wait first.
+-- Pair players within the same time-control + gender/seeking pool, closest ELO / longest wait first.
 create index matchmaking_queue_open_idx
-  on public.matchmaking_queue (time_control, ranked_elo, enqueued_at)
+  on public.matchmaking_queue (time_control, gender, seeking, ranked_elo, enqueued_at)
   where status = 'queued';
 
 -- Shared parent for every versus match. Every column here is always present regardless
@@ -484,7 +509,7 @@ create table public.games (
   -- Live-play lifecycle (server-authoritative). 'active' games are resumable; the engine
   -- flips this to 'completed'/'abandoned' on finish and stamps end_reason + ended_at.
   status      public.game_status not null default 'active',
-  end_reason  public.match_end_reason, -- 'scored' | 'timeout' | 'resignation' | 'abandoned'; null until ended
+  end_reason  public.match_end_reason, -- 'scored' | 'timeout' | 'blocked' | 'date_landed' | …; null until ended
   ended_at    timestamptz,
   -- Shareable card (SPEC §9). Rendered to PNG at a stable URL from this slug.
   share_slug  text unique default encode(gen_random_bytes(8), 'hex'),
@@ -537,6 +562,9 @@ create table public.puzzles (
   id              uuid primary key default gen_random_uuid(),
   slug            text unique not null,
   persona_id      uuid references public.personas (id) on delete set null,
+  -- The gender of the implied sender of this position. Puzzles are served like VS-AI: only those
+  -- whose gender = the player's `seeking` (SPEC §2). Matches the linked persona's gender when set.
+  gender          public.gender not null,
   prompt          text not null, -- the position: the line the player must respond to
   difficulty      smallint not null default 1,
   is_active       boolean not null default true,
@@ -544,6 +572,8 @@ create table public.puzzles (
 );
 
 create index puzzles_active_idx on public.puzzles (is_active) where is_active;
+-- Serve an active puzzle of the sought gender (SPEC §2, like VS-AI).
+create index puzzles_active_gender_idx on public.puzzles (gender) where is_active;
 
 -- The puzzle answer, split out so RLS alone protects it. No client policy → only the
 -- service_role can read it, so the known best line never ships to the client.
@@ -787,6 +817,9 @@ create policy matchmaking_queue_insert_own on public.matchmaking_queue
     and ranked_elo = (
       select pr.ranked_elo from public.player_ratings pr where pr.user_id = auth.uid()
     )
+    -- gender/seeking must be the player's real profile values (they decide who you pair with).
+    and gender = (select p.gender from public.profiles p where p.id = auth.uid())
+    and seeking = (select p.seeking from public.profiles p where p.id = auth.uid())
   );
 
 -- Helper: is the current user a competitor in this match? Checks each per-mode table.

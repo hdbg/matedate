@@ -25,7 +25,7 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 
 from ..config import Settings
-from ..grading import START_EVAL, TOP_CLASS_KEY, MoveClassKey, classify, swing_from_delta
+from ..grading import NO_BEST_LINE_CLASSES, START_EVAL, MoveClassKey, classify, swing_from_delta
 from .prompt import SYSTEM_PROMPT, build_user_prompt
 from .transcript import Transcript, TranscriptMove
 
@@ -85,15 +85,22 @@ def grade_moves(verdict: GameAnalysisVerdict, transcript: Transcript) -> list[Gr
     The eval trajectory runs over the You-moves in order, starting from `START_EVAL` (Match
     replies carry no eval), so `eval_delta = eval_after - <previous You eval_after>` — the same
     reconstruction the live game uses. Assumes positions already match (validate first).
+
+    The eval bounds are mating squares (SPEC §3): only the *final* You-move may sit on 0/100
+    and grade as a checkmate — interior evals are pinched to [1, 99] so a conversation that
+    demonstrably continued can't contain a game-ending move.
     """
     by_position = {m.position: m for m in verdict.moves}
     graded: list[GradedMove] = []
     prev_eval = START_EVAL
+    last_position = transcript.you_moves[-1].position if transcript.you_moves else None
     for you_move in transcript.you_moves:
         move = by_position[you_move.position]
         eval_after = _clamp_eval(move.eval_after)
+        if you_move.position != last_position:
+            eval_after = max(1.0, min(99.0, eval_after))
         eval_delta = round(eval_after - prev_eval, 2)
-        class_key = classify(swing_from_delta(eval_delta)).class_key
+        class_key = classify(swing_from_delta(eval_delta), eval_after).class_key
         graded.append(
             GradedMove(
                 position=you_move.position,
@@ -119,7 +126,9 @@ def validate_verdict(verdict: GameAnalysisVerdict, transcript: Transcript) -> No
             f"annotated positions {got} do not match the You-side positions {expected}"
         )
     for move in grade_moves(verdict, transcript):
-        if move.class_key != TOP_CLASS_KEY and not (move.best_line and move.best_line.strip()):
+        if move.class_key not in NO_BEST_LINE_CLASSES and not (
+            move.best_line and move.best_line.strip()
+        ):
             raise AnalysisValidationError(
                 f"move at position {move.position} graded {move.class_key} but has no best_line"
             )
@@ -173,7 +182,9 @@ class FakeAnalysisEngine:
         text = content.strip()
         lowered = text.lower()
         if any(word in lowered for word in ("creep", "gross", "block", "unmatch")):
-            return 15.0  # big negative swing → blunder
+            return 0.0  # mating square → checkmate loss on the final move (else pinched to 1)
+        if any(word in lowered for word in ("date", "dinner", "drinks", "coffee")):
+            return 100.0  # mating square → checkmate win on the final move (else pinched to 99)
         if len(text) < 6 or lowered.split(" ", 1)[0] in {"idk", "lol", "k", "hey", "hi", "sup", "yo"}:
             return 40.0  # negative swing → mistake/inaccuracy
         if text.endswith("?") or len(text) > 40 or any(c in text for c in "😂😏🔥⚖️👀"):

@@ -13,6 +13,7 @@ const RESULT_WORD: Record<string, string> = {
   blocked: "blocked",
   timeout: "flagged",
   resignation: "left",
+  date_landed: "landed",
 };
 
 function formatDate(iso: string): string {

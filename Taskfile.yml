@@ -47,8 +47,24 @@ tasks:
     desc: "Enqueue a finished game for analysis: task enqueue-analysis -- <game-id> (or -- --latest)."
     deps: [supabase]
     dir: backend
+    # -m keeps backend/ on sys.path so `app.*` imports resolve.
     cmds:
-      - uv run python scripts/enqueue_analysis.py {{.CLI_ARGS}}
+      - uv run python -m scripts.enqueue_analysis {{.CLI_ARGS}}
+
+  # Offline content authoring against a local LM Studio server (no DB access): `generate`
+  # writes a JSON file for manual review, `seed` appends the reviewed file to
+  # supabase/seed.sql (apply with `supabase db reset`).
+  gen-personas:
+    desc: "Author personas with LM Studio: task gen-personas -- generate [-n N] | seed [file]."
+    dir: backend
+    cmds:
+      - uv run python -m scripts.generate_personas {{.CLI_ARGS}}
+
+  gen-puzzles:
+    desc: "Author puzzles with LM Studio: task gen-puzzles -- generate [-n N] [--persona <slug>] | seed [file]."
+    dir: backend
+    cmds:
+      - uv run python -m scripts.generate_puzzles {{.CLI_ARGS}}
 
   frontend:
     desc: Run the Next.js dev server against local Supabase.

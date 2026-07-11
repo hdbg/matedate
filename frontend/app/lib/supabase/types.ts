@@ -7,6 +7,8 @@
 
 export type DatingGoal = "serious" | "casual" | "confidence" | "practice";
 export type TextingStyle = "drywit" | "playful" | "dark" | "earnest";
+/** Gender identity and preference are both single-select ("men or women"). */
+export type Gender = "man" | "woman";
 
 export interface ProfileRow {
   id: string;
@@ -16,6 +18,8 @@ export interface ProfileRow {
   age_verified_at: string | null;
   dating_goal: DatingGoal | null;
   texting_style: TextingStyle[];
+  gender: Gender | null;
+  seeking: Gender | null;
   referral_code: string | null;
   referred_by: string | null;
   created_at: string;
@@ -37,6 +41,7 @@ export interface PersonaRow {
   id: string;
   slug: string;
   name: string;
+  gender: Gender;
   difficulty: number;
   is_boss: boolean;
   is_active: boolean;
@@ -49,7 +54,13 @@ export interface PersonaRow {
 type ProfileUpdate = Partial<
   Pick<
     ProfileRow,
-    "display_name" | "dating_goal" | "texting_style" | "age_verified_at" | "date_of_birth"
+    | "display_name"
+    | "dating_goal"
+    | "texting_style"
+    | "gender"
+    | "seeking"
+    | "age_verified_at"
+    | "date_of_birth"
   >
 >;
 
@@ -153,6 +164,7 @@ export interface Database {
     Enums: {
       game_mode: "solo" | "screenshot" | "puzzle";
       time_control: "bullet" | "rapid" | "classical";
+      gender: Gender;
     };
     CompositeTypes: Record<string, never>;
   };

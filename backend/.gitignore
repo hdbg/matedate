@@ -1,6 +1,10 @@
 # Secrets / local config
 .env
 
+# Content-generation review files (scripts/generate_personas.py / generate_puzzles.py);
+# the reviewed content lands in supabase/seed.sql, not in git.
+generated_*.json
+
 # Virtualenv
 .venv/
 

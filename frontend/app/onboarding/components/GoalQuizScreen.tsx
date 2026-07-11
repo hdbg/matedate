@@ -18,7 +18,7 @@ export function GoalQuizScreen({
   return (
     <OnboardingScreen>
       <BackButton onClick={onBack} />
-      <Eyebrow>Step 1 of 2</Eyebrow>
+      <Eyebrow>Step 2 of 3</Eyebrow>
       <Title>What are you playing for?</Title>
       <Sub>We&apos;ll tune your AI dates and puzzles to match.</Sub>
 

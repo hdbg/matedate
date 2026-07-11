@@ -24,7 +24,7 @@ from ..database_types import (
     PublicGameAnalysisMovesInsert,
 )
 from ..db import json_row
-from ..grading import TOP_CLASS_KEY
+from ..grading import NO_BEST_LINE_CLASSES
 from .engine import AnalysisEngine, AnalysisResult, grade_moves, validate_verdict
 from .prompt import PROMPT_VERSION
 from .queue import QUEUE_NAME, QueueMessage, queue_archive, queue_send
@@ -227,7 +227,7 @@ async def _persist_analysis(
     # row. Top moves have no better line. No unlock → the reveal row never reaches the client.
     reveal_rows: list[dict[str, Any]] = []
     for move in graded:
-        if move.class_key == TOP_CLASS_KEY or not move.best_line:
+        if move.class_key in NO_BEST_LINE_CLASSES or not move.best_line:
             continue
         move_db_id = id_by_position.get(move.position)
         if move_db_id is None:

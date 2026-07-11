@@ -2,8 +2,8 @@
 
 Dev/testing helper until the request UI exists. Run from `backend/` so `.env` loads:
 
-    uv run python scripts/enqueue_analysis.py <game-id> [--force]
-    uv run python scripts/enqueue_analysis.py --latest [--force]   # most recent completed game
+    uv run python -m scripts.enqueue_analysis <game-id> [--force]
+    uv run python -m scripts.enqueue_analysis --latest [--force]   # most recent completed game
 """
 
 from __future__ import annotations

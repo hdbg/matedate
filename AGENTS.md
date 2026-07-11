@@ -29,6 +29,15 @@ dev uses real local Supabase). Individual tasks: `task supabase`, `task backend`
 `task frontend`, `task enqueue-analysis -- <game-id>|--latest`. `task gen-types` regenerates the
 backend's typed DB schema (`backend/app/database_types.py`) from local Supabase.
 
+Content authoring (`task gen-personas` / `task gen-puzzles`, → `backend/scripts/generate_*.py`)
+runs against a **local LM Studio** server (default `http://127.0.0.1:1234`, override
+`LMSTUDIO_BASE_URL`), never the DB: `generate` rolls 8 personality dimensions (1-10) + a gender
+per item and writes a JSON file for manual review; `seed` appends the reviewed file to
+`supabase/seed.sql` as idempotent inserts (apply with `supabase db reset`). Difficulty, boss
+status, and `best_eval_delta` are derived from the dimension roll, never by the model. Run the
+scripts as `uv run python -m scripts.<name>` (module form — file-path invocation breaks `app.*`
+imports).
+
 Local Supabase needs Docker Desktop running. Keys come from `supabase status`; the local
 service-role/anon keys are static demo keys (safe to use locally, never production secrets).
 
@@ -72,27 +81,33 @@ active game per user, reconnect-safe. `main.py` → `app/ws.py`.
   closes.
 - **End conditions:** whichever comes first — `SOLO_MAX_EXCHANGES` (default 6, → `scored`), the
   move clock expiring (→ `timeout`, fired proactively by the timer or reactively on the next
-  move/reconnect), or a **block** (→ `blocked`).
+  move/reconnect), a **block** (→ `blocked`, checkmate loss), or a **landed date**
+  (→ `date_landed`, checkmate win — flat `+25` rating delta).
 - **The engine (`app/engine.py`):** one combined **PydanticAI** agent per turn returns
-  `MoveVerdict{eval_after 0-100, reply, reasoning, is_blocked}` — it both role-plays the persona's
-  reply and scores the player's message. Provider-agnostic via **OpenRouter** (no vendor lock-in;
-  `OPENROUTER_API_KEY` + `OPENROUTER_MODEL`). A deterministic **`FakeEngine`** is used when
-  `FAKE_ENGINE=true` OR `OPENROUTER_API_KEY` is empty, so the whole WS flow runs offline (used by
-  tests). `build_engine()` picks between them.
-- **`is_blocked` / early end:** when the persona would block/unmatch a genuinely offensive or
-  creepy line, the verdict sets `is_blocked=true`. `apply_move` then sends the persona's parting
-  `response` **and then** a `finish` with `end_reason="blocked"`, so the player sees the block
-  message + the blunder verdict before the game ends. `FakeEngine` triggers this on
-  creep/gross/block/unmatch keywords. `blocked` is a value in the `match_end_reason` enum.
+  `MoveVerdict{eval_after 0-100, reply, reasoning, is_blocked, is_date_landed}` — it both
+  role-plays the persona's reply and scores the player's message. Provider-agnostic via
+  **OpenRouter** (no vendor lock-in; `OPENROUTER_API_KEY` + `OPENROUTER_MODEL`). A deterministic
+  **`FakeEngine`** is used when `FAKE_ENGINE=true` OR `OPENROUTER_API_KEY` is empty, so the whole
+  WS flow runs offline (used by tests). `build_engine()` picks between them.
+- **Checkmates / early end (SPEC §3):** the eval bounds are terminal "mating squares", and only
+  the verdict flags may put a move on them — `apply_move` forces `eval_after` to `0` on
+  `is_blocked` (persona blocks/unmatches a genuinely offensive or creepy line), to `100` on
+  `is_date_landed` (persona explicitly agrees to the date), and pinches everything else to
+  `[1, 99]`. A move on a bound classifies as `checkmate_loss`/`checkmate_win` and ends the game:
+  `apply_move` sends the persona's parting `response` **and then** the `finish`
+  (`end_reason="blocked"` / `"date_landed"`), so the player sees the block message or the "yes"
+  plus the verdict before the game ends. `FakeEngine` triggers these on creep/gross/block/unmatch
+  and date/dinner/drinks/coffee keywords (block wins). Both are `match_end_reason` enum values.
 - **Grading (`app/grading.py`):** deterministic, server-side — eval delta → `swing` (= delta/10) →
   classification (SPEC §3 thresholds). Never computed by the LLM or the client. **Move quality is
   stored as the numeric eval only** in every move table (`moves`, `match_moves`,
   `game_analysis_moves`): the backend writes `eval_before`/`eval_after`, and **`eval_delta` is a
   generated column** (`eval_after - eval_before`, `stored`) — never written (PostgREST rejects it).
   The Brilliant…Blunder rank is *derived on read* by `classify()` and never persisted — there is no
-  `move_kind` enum. The frontend `MoveClassKey`
-  vocab (brilliant/great/good/inaccuracy/mistake/blunder) is what the wire carries (derived by
-  `_move_out`), not a stored column.
+  `move_kind` enum. `classify(swing, eval_after)` grades the terminal checkmates off the eval
+  bounds (`eval_after >= 100` → `checkmate_win`, `<= 0` → `checkmate_loss`) before the delta ramp.
+  The frontend `MoveClassKey` vocab (checkmate_win/brilliant/great/good/inaccuracy/mistake/
+  blunder/checkmate_loss) is what the wire carries (derived by `_move_out`), not a stored column.
 - **DB (`app/supabase_client.py`):** all reads/writes go through the **async** service-role
   Supabase client (`AsyncClient`, constructed synchronously but every `.execute()` is `await`ed,
   so DB I/O never blocks the event loop — no `asyncio.to_thread`). Service role bypasses RLS.
@@ -205,13 +220,18 @@ only affects UI labels. `app/lib/game/service.ts` remains as the shared type re-
 client-side grading is no longer called.
 
 Onboarding (`/onboarding`) does real Supabase signup (or `signInAnonymously` on "Skip"), persisting
-quiz answers to `profiles`.
+quiz answers to `profiles` — including the player's `gender` and who they're `seeking` (the
+Identity step). Those drive gender matching (SPEC §2.7): solo/VS-AI serves a persona whose gender =
+the player's `seeking` (`pick_persona(gender=…)` in `app/personas.py`, from `profiles.seeking`),
+puzzles the same, and ranked PvP pairs same-gender players who seek the same gender (the persona is
+that sought gender). `matchmaking_queue` snapshots gender/seeking (RLS-pinned to the real profile)
+so pairing filters without a join.
 
 ## Testing / verification checklist
 
 - Backend: after a schema change run `task gen-types` (regenerates `app/database_types.py`), then
   `cd backend && uv run mypy .` clean — mypy is the proof the DB layer matches the schema. Drive
   `SoloGameService` or the WS against local Supabase (bad token→4401, play→`response`, cap→`finish
-  scored`, creepy line→`response`+`finish blocked`, reconnect→`game_state`, second socket→4000,
-  clock expiry→`finish timeout`).
+  scored`, creepy line→`response`+`finish blocked`, date ask e.g. "coffee saturday?"→`response`+
+  `finish date_landed`, reconnect→`game_state`, second socket→4000, clock expiry→`finish timeout`).
 - Frontend: `cd frontend && yarn tsc --noEmit && yarn lint && yarn build` all clean.

@@ -18,7 +18,7 @@ export function StyleQuizScreen({
   return (
     <OnboardingScreen>
       <BackButton onClick={onBack} />
-      <Eyebrow>Step 2 of 2</Eyebrow>
+      <Eyebrow>Step 3 of 3</Eyebrow>
       <Title>What&apos;s your texting style?</Title>
       <Sub>Pick all that sound like you. This shapes how the engine reads your moves.</Sub>
 
