@@ -67,7 +67,7 @@ PublicMatchEndReason: TypeAlias = Literal["scored", "timeout", "resignation", "a
 
 PublicJobStatus: TypeAlias = Literal["queued", "processing", "completed", "failed", "cancelled"]
 
-PublicJobKind: TypeAlias = Literal["screenshot", "pvp_round"]
+PublicJobKind: TypeAlias = Literal["screenshot", "pvp_round", "game_analysis"]
 
 PublicUnlockSource: TypeAlias = Literal["subscription", "credit", "referral", "admin"]
 
@@ -706,6 +706,84 @@ class PublicEngineResponsesUpdate(TypedDict):
     prompt_version: NotRequired[Annotated[Optional[str], Field(alias="prompt_version")]]
     raw_response: NotRequired[Annotated[Json[Any], Field(alias="raw_response")]]
     round_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="round_id")]]
+
+class PublicGameAnalyses(BaseModel):
+    created_at: datetime.datetime = Field(alias="created_at")
+    description: str = Field(alias="description")
+    game_id: Optional[uuid.UUID] = Field(alias="game_id")
+    id: uuid.UUID = Field(alias="id")
+    job_id: Optional[uuid.UUID] = Field(alias="job_id")
+    latency_ms: Optional[int] = Field(alias="latency_ms")
+    model: str = Field(alias="model")
+    prompt_version: str = Field(alias="prompt_version")
+    raw_response: Json[Any] = Field(alias="raw_response")
+    round_id: Optional[uuid.UUID] = Field(alias="round_id")
+    tags: List[str] = Field(alias="tags")
+    title: str = Field(alias="title")
+
+class PublicGameAnalysesInsert(TypedDict):
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    description: Annotated[str, Field(alias="description")]
+    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    job_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="job_id")]]
+    latency_ms: NotRequired[Annotated[Optional[int], Field(alias="latency_ms")]]
+    model: Annotated[str, Field(alias="model")]
+    prompt_version: Annotated[str, Field(alias="prompt_version")]
+    raw_response: Annotated[Json[Any], Field(alias="raw_response")]
+    round_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="round_id")]]
+    tags: NotRequired[Annotated[List[str], Field(alias="tags")]]
+    title: Annotated[str, Field(alias="title")]
+
+class PublicGameAnalysesUpdate(TypedDict):
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    description: NotRequired[Annotated[str, Field(alias="description")]]
+    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    job_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="job_id")]]
+    latency_ms: NotRequired[Annotated[Optional[int], Field(alias="latency_ms")]]
+    model: NotRequired[Annotated[str, Field(alias="model")]]
+    prompt_version: NotRequired[Annotated[str, Field(alias="prompt_version")]]
+    raw_response: NotRequired[Annotated[Json[Any], Field(alias="raw_response")]]
+    round_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="round_id")]]
+    tags: NotRequired[Annotated[List[str], Field(alias="tags")]]
+    title: NotRequired[Annotated[str, Field(alias="title")]]
+
+class PublicGameAnalysisMoves(BaseModel):
+    analysis_id: uuid.UUID = Field(alias="analysis_id")
+    best_line: Optional[str] = Field(alias="best_line")
+    classification: PublicMoveKind = Field(alias="classification")
+    comment: str = Field(alias="comment")
+    content: str = Field(alias="content")
+    created_at: datetime.datetime = Field(alias="created_at")
+    id: uuid.UUID = Field(alias="id")
+    move_id: Optional[uuid.UUID] = Field(alias="move_id")
+    position: int = Field(alias="position")
+    side: PublicMessageSide = Field(alias="side")
+
+class PublicGameAnalysisMovesInsert(TypedDict):
+    analysis_id: Annotated[uuid.UUID, Field(alias="analysis_id")]
+    best_line: NotRequired[Annotated[Optional[str], Field(alias="best_line")]]
+    classification: Annotated[PublicMoveKind, Field(alias="classification")]
+    comment: Annotated[str, Field(alias="comment")]
+    content: Annotated[str, Field(alias="content")]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    move_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="move_id")]]
+    position: Annotated[int, Field(alias="position")]
+    side: NotRequired[Annotated[PublicMessageSide, Field(alias="side")]]
+
+class PublicGameAnalysisMovesUpdate(TypedDict):
+    analysis_id: NotRequired[Annotated[uuid.UUID, Field(alias="analysis_id")]]
+    best_line: NotRequired[Annotated[Optional[str], Field(alias="best_line")]]
+    classification: NotRequired[Annotated[PublicMoveKind, Field(alias="classification")]]
+    comment: NotRequired[Annotated[str, Field(alias="comment")]]
+    content: NotRequired[Annotated[str, Field(alias="content")]]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    move_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="move_id")]]
+    position: NotRequired[Annotated[int, Field(alias="position")]]
+    side: NotRequired[Annotated[PublicMessageSide, Field(alias="side")]]
 
 class PublicGameRevealUnlocks(BaseModel):
     game_id: uuid.UUID = Field(alias="game_id")

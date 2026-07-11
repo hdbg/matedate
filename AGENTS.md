@@ -19,14 +19,15 @@ messages like chess moves (Brilliant … Blunder). `SPEC.md` is the product spec
 Toolchain is pinned via `mise.toml` (task, uv, yarn, supabase, rust). `task` provides:
 
 ```
-task dev        # starts local Supabase, backend (:8000), and frontend in parallel
+task dev        # starts local Supabase, backend (:8000), analysis worker, and frontend in parallel
 ```
 
-`task dev` brings up Supabase once (skipped if already running), then runs the backend and
-frontend concurrently. Both read their local env: `backend/.env` and `frontend/.env.local` point
-at the local Supabase CLI instance (there is **no mock/real toggle** — dev uses real local
-Supabase). Individual tasks: `task supabase`, `task backend`, `task frontend`. `task gen-types`
-regenerates the backend's typed DB schema (`backend/app/database_types.py`) from local Supabase.
+`task dev` brings up Supabase once (skipped if already running), then runs the backend, the
+analysis worker, and the frontend concurrently. Both read their local env: `backend/.env` and
+`frontend/.env.local` point at the local Supabase CLI instance (there is **no mock/real toggle** —
+dev uses real local Supabase). Individual tasks: `task supabase`, `task backend`, `task worker`,
+`task frontend`, `task enqueue-analysis -- <game-id>|--latest`. `task gen-types` regenerates the
+backend's typed DB schema (`backend/app/database_types.py`) from local Supabase.
 
 Local Supabase needs Docker Desktop running. Keys come from `supabase status`; the local
 service-role/anon keys are static demo keys (safe to use locally, never production secrets).
@@ -91,11 +92,41 @@ active game per user, reconnect-safe. `main.py` → `app/ws.py`.
   regenerate after any schema change (edit the single migration → `supabase db reset` →
   `task gen-types`). Reads are parsed into the generated `Public*` pydantic Base models
   (they coerce the REST JSON into `datetime`/`UUID`/`float`); writes annotate their payloads
-  with the generated `*Insert`/`*Update` TypedDicts and pass through `game.py`'s `_json_row`
+  with the generated `*Insert`/`*Update` TypedDicts and pass through `app/db.py`'s `json_row`
   (datetime→ISO, UUID→str) because postgrest serializes payloads with plain `json.dumps`.
 - **Run:** `uv run --directory backend uvicorn main:app` (or `task backend`). `uv run mypy .`
   must stay clean (typed protocol + PydanticAI). `backend/.env` (gitignored) holds the
   service-role key + OpenRouter key; see `backend/.env.example`.
+
+### Post-game analysis (`app/analysis/`, separate worker)
+
+Deep "game review" (chess.com style) for a finished game, decoupled from live play via a durable
+queue. Source-independent by design: **one** result-table pair regardless of source (solo now;
+PvP rounds / screenshot uploads later), so there is no per-mode analysis table.
+
+- **Queue:** pgmq queue `game_analysis`. pgmq isn't PostgREST-exposed, so the migration installs
+  `security definer` wrappers `public.pgmq_send/read/archive/delete` (EXECUTE granted to
+  `service_role` only) that the async client drives via `db.rpc()` — see `app/analysis/queue.py`.
+- **Jobs:** the existing `analysis_jobs` table is the lifecycle/idempotency view (`kind='game_analysis'`,
+  `queue_msg_id`, `idempotency_key='game_analysis:<game_id>'`, `attempts`, `last_error`).
+- **Enqueue is explicit** (no auto-hook on finish yet): `enqueue_game_analysis(db, game_id, force=?)`
+  in `app/analysis/service.py`; dev helper `scripts/enqueue_analysis.py` / `task enqueue-analysis`.
+- **Engine (`app/analysis/engine.py`):** a PydanticAI agent returns `GameAnalysisVerdict`
+  {title, description, tags, per-**You**-move {classification, comment, best_line}}. It
+  **re-classifies** every move with a *stronger* model (`ANALYSIS_MODEL`, default an Opus-class
+  slug) — it does not trust the live grades (screenshot sources have none). `validate_verdict`
+  enforces that the annotated positions match the You-side moves and that non-`Best` moves carry a
+  best line (as a PydanticAI output validator → one in-run retry, and again before persist). A
+  deterministic `FakeAnalysisEngine` runs under `FAKE_ENGINE` / no key, same as `build_engine`.
+- **Worker (`backend/worker.py` → `app/analysis/worker.py`, `task worker`, in `task dev`):** a
+  standalone process polling `pgmq_read` with a visibility timeout. Failures record `last_error`
+  and reset the job to `queued` (pgmq redelivers after the vt); `read_ct > ANALYSIS_MAX_ATTEMPTS`
+  → job `failed` + archived (poison message parked in `pgmq.a_game_analysis`); success writes
+  `game_analyses` + `game_analysis_moves` and archives.
+- **Tables:** `game_analyses` (title/description/tags/model/prompt_version/raw_response, nullable
+  `game_id`/`round_id` XOR source) + `game_analysis_moves` (per You move: classification/comment/
+  best_line + a `content` snapshot and nullable `move_id`). Owner-read RLS; service_role writes.
+  Re-analysis is allowed (no `unique(game_id)`); the current analysis is the latest `created_at`.
 
 ### Security invariants (do not violate)
 

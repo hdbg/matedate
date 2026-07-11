@@ -1,0 +1,205 @@
+"""Enqueue + process one game-analysis job, and persist its result.
+
+The queue and the `analysis_jobs` table are two views of the same work: the pgmq message is the
+durable unit the worker pulls; the job row is the observable lifecycle (status/attempts/errors)
+and the idempotency guard. Results land in the source-independent `game_analyses` /
+`game_analysis_moves` tables. All writes go through the service-role client.
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime, timezone
+from typing import Any, cast
+
+from postgrest import APIError
+from supabase import AsyncClient
+
+from ..config import Settings
+from ..database_types import (
+    PublicAnalysisJobsInsert,
+    PublicAnalysisJobsUpdate,
+    PublicGameAnalysesInsert,
+    PublicGameAnalysisMovesInsert,
+)
+from ..db import json_row
+from .engine import TOP_GRADE, AnalysisEngine, AnalysisResult, validate_verdict
+from .prompt import PROMPT_VERSION
+from .queue import QUEUE_NAME, QueueMessage, queue_archive, queue_send
+from .transcript import Transcript, load_game_transcript
+
+_UNIQUE_VIOLATION = "23505"
+_TERMINAL_STATUSES = frozenset({"completed", "cancelled"})
+
+
+class EnqueueError(Exception):
+    """The game can't be enqueued (missing, or not finished)."""
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+async def enqueue_game_analysis(
+    db: AsyncClient, game_id: uuid.UUID, *, force: bool = False
+) -> uuid.UUID:
+    """Create an analysis_jobs row (kind='game_analysis') and enqueue it on pgmq; return the job id.
+
+    Precondition: the game exists and is 'completed'. Idempotent on `game_analysis:<game_id>` —
+    a duplicate enqueue returns the existing job id unchanged. `force=True` appends a nonce so a
+    deliberate re-analysis is always accepted.
+    """
+    res = await (
+        db.table("games")
+        .select("id, user_id, status")
+        .eq("id", str(game_id))
+        .maybe_single()
+        .execute()
+    )
+    row = cast("dict[str, Any] | None", res.data if res else None)
+    if not row:
+        raise EnqueueError(f"game {game_id} not found")
+    if row["status"] != "completed":
+        raise EnqueueError(f"game {game_id} is {row['status']}, not completed")
+
+    idempotency_key = f"game_analysis:{game_id}"
+    if force:
+        idempotency_key += f":{uuid.uuid4().hex}"
+
+    user_id = uuid.UUID(row["user_id"]) if row.get("user_id") else None
+    job_insert: PublicAnalysisJobsInsert = {
+        "kind": "game_analysis",
+        "status": "queued",
+        "game_id": game_id,
+        "user_id": user_id,
+        "idempotency_key": idempotency_key,
+    }
+    try:
+        inserted = await db.table("analysis_jobs").insert(json_row(job_insert)).execute()
+    except APIError as exc:
+        if exc.code == _UNIQUE_VIOLATION:
+            return await _existing_job_id(db, idempotency_key)
+        raise
+    job_id = uuid.UUID(cast("Any", inserted.data)[0]["id"])
+
+    msg_id = await queue_send(
+        db, QUEUE_NAME, {"job_id": str(job_id), "game_id": str(game_id)}
+    )
+    await _update_job(db, job_id, {"queue_msg_id": msg_id})
+    return job_id
+
+
+async def _existing_job_id(db: AsyncClient, idempotency_key: str) -> uuid.UUID:
+    res = await (
+        db.table("analysis_jobs")
+        .select("id")
+        .eq("idempotency_key", idempotency_key)
+        .single()
+        .execute()
+    )
+    return uuid.UUID(cast("dict[str, Any]", res.data)["id"])
+
+
+async def _update_job(db: AsyncClient, job_id: uuid.UUID, patch: PublicAnalysisJobsUpdate) -> None:
+    await db.table("analysis_jobs").update(json_row(patch)).eq("id", str(job_id)).execute()
+
+
+async def process_job(
+    db: AsyncClient, settings: Settings, engine: AnalysisEngine, msg: QueueMessage
+) -> None:
+    """Run one queue message end-to-end. Never raises: every failure is recorded on the job row,
+    and the message is archived only when the job reaches a terminal state (completed/failed)."""
+    message = msg.message
+    try:
+        job_id = uuid.UUID(message["job_id"])
+        game_id = uuid.UUID(message["game_id"])
+    except (KeyError, ValueError):
+        # Malformed payload: nothing we can retry into. Park it.
+        await queue_archive(db, QUEUE_NAME, msg.msg_id)
+        return
+
+    job = await _load_job(db, job_id)
+    if job is None or job["status"] in _TERMINAL_STATUSES:
+        # Stale/duplicate delivery, or already done — don't reprocess.
+        await queue_archive(db, QUEUE_NAME, msg.msg_id)
+        return
+
+    # pgmq's read_ct is the authoritative delivery counter (survives worker crashes).
+    if msg.read_ct > settings.analysis_max_attempts:
+        await _update_job(
+            db, job_id, {"status": "failed", "finished_at": _now(), "attempts": msg.read_ct}
+        )
+        await queue_archive(db, QUEUE_NAME, msg.msg_id)
+        return
+
+    await _update_job(
+        db, job_id, {"status": "processing", "started_at": _now(), "attempts": msg.read_ct}
+    )
+    try:
+        transcript = await load_game_transcript(db, game_id)
+        result = await engine.analyze(transcript)
+        validate_verdict(result.verdict, transcript)
+        await _persist_analysis(db, job_id, game_id, transcript, result)
+    except Exception as exc:  # noqa: BLE001 — record and let pgmq redeliver after the vt.
+        await _update_job(db, job_id, {"status": "queued", "last_error": repr(exc)[:2000]})
+        return
+
+    await _update_job(db, job_id, {"status": "completed", "finished_at": _now()})
+    await queue_archive(db, QUEUE_NAME, msg.msg_id)
+
+
+async def _load_job(db: AsyncClient, job_id: uuid.UUID) -> dict[str, Any] | None:
+    res = (
+        await db.table("analysis_jobs")
+        .select("id, status")
+        .eq("id", str(job_id))
+        .maybe_single()
+        .execute()
+    )
+    return cast("dict[str, Any] | None", res.data if res else None)
+
+
+async def _persist_analysis(
+    db: AsyncClient,
+    job_id: uuid.UUID,
+    game_id: uuid.UUID,
+    transcript: Transcript,
+    result: AnalysisResult,
+) -> uuid.UUID:
+    verdict = result.verdict
+    analysis_insert: PublicGameAnalysesInsert = {
+        "job_id": job_id,
+        "game_id": game_id,
+        "title": verdict.title,
+        "description": verdict.description,
+        "tags": verdict.tags,
+        "model": result.model,
+        "prompt_version": PROMPT_VERSION,
+        "raw_response": cast(
+            "Any",
+            {"model": result.model, "latency_ms": result.latency_ms, "verdict": verdict.model_dump()},
+        ),
+        "latency_ms": result.latency_ms,
+    }
+    created = await db.table("game_analyses").insert(json_row(analysis_insert)).execute()
+    analysis_id = uuid.UUID(cast("Any", created.data)[0]["id"])
+
+    by_position = {m.position: m for m in transcript.you_moves}
+    move_rows: list[dict[str, Any]] = []
+    for move in verdict.moves:
+        source = by_position[move.position]
+        best_line = None if move.classification == TOP_GRADE else move.best_line
+        move_insert: PublicGameAnalysisMovesInsert = {
+            "analysis_id": analysis_id,
+            "position": move.position,
+            "side": "You",
+            "move_id": source.id,
+            "content": source.content,
+            "classification": move.classification,
+            "comment": move.comment,
+            "best_line": best_line,
+        }
+        move_rows.append(json_row(move_insert))
+    if move_rows:
+        await db.table("game_analysis_moves").insert(move_rows).execute()
+    return analysis_id

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
@@ -32,6 +32,7 @@ from pydantic import BaseModel
 from supabase import AsyncClient
 
 from .config import Settings
+from .db import json_row as _json_row
 from .database_types import (
     PublicEngineResponsesInsert,
     PublicGamesInsert,
@@ -70,22 +71,6 @@ def _now() -> datetime:
 # the DB re-check (`now > deadline`) is unambiguously true.
 Sender = Callable[[BaseModel], Awaitable[None]]
 _TIMEOUT_EPSILON = 0.05
-
-
-def _json_row(payload: Mapping[str, Any]) -> dict[str, Any]:
-    """Make a typed write payload JSON-safe for postgrest (which serializes via json.dumps).
-
-    datetime → ISO string, UUID → str; dicts (jsonb), None and primitives pass through.
-    """
-    out: dict[str, Any] = {}
-    for key, value in payload.items():
-        if isinstance(value, datetime):
-            out[key] = value.isoformat()
-        elif isinstance(value, uuid.UUID):
-            out[key] = str(value)
-        else:
-            out[key] = value
-    return out
 
 
 @dataclass

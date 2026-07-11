@@ -86,8 +86,10 @@ create type public.match_end_reason as enum ('scored', 'timeout', 'resignation',
 -- Lifecycle of a queued analysis / scoring job.
 create type public.job_status as enum ('queued', 'processing', 'completed', 'failed', 'cancelled');
 
--- What an analysis job scores.
-create type public.job_kind as enum ('screenshot', 'pvp_round');
+-- What an analysis job scores. 'game_analysis' is the source-independent post-game deep
+-- review (chess.com "game review" style); 'screenshot'/'pvp_round' are the earlier lifecycle
+-- kinds. All three flow through analysis_jobs + a pgmq queue.
+create type public.job_kind as enum ('screenshot', 'pvp_round', 'game_analysis');
 
 -- Where a best-move unlock came from (SPEC §7.2–7.4).
 create type public.unlock_source as enum ('subscription', 'credit', 'referral', 'admin');
@@ -376,10 +378,66 @@ create index match_moves_round_idx on public.match_moves (round_id);
 -- 4. ANALYSIS QUEUE — durable pgmq queue + a jobs tracking table
 -- ===========================================================================
 
--- Durable pull queue for PvP round scoring (visibility timeouts, acks, retries).
--- The Python worker calls pgmq.read / pgmq.delete; it never subscribes to Realtime
--- for intake (SPEC §5.2). Screenshot review stays synchronous and does NOT use this.
+-- Durable pull queues (visibility timeouts, acks, retries). Python workers call
+-- pgmq.read / pgmq.archive via the security-definer wrappers below; they never subscribe to
+-- Realtime for intake (SPEC §5.2). Screenshot review stays synchronous and does NOT use these.
+--   pvp_scoring   — PvP round scoring.
+--   game_analysis — post-game deep analysis (solo now; PvP/screenshot sources later).
 select pgmq.create('pvp_scoring');
+select pgmq.create('game_analysis');
+
+-- pgmq lives in its own schema, which PostgREST does NOT expose (config.toml exposes only
+-- `public` + `graphql_public`), so supabase-py can't call pgmq.* directly. These security-definer
+-- wrappers in `public` let the worker drive the queue via client.rpc(). They run as the migration
+-- owner (which has pgmq access) and are locked to service_role only — never anon/authenticated.
+create or replace function public.pgmq_send(queue_name text, msg jsonb, delay_seconds integer default 0)
+returns bigint
+language sql
+security definer
+set search_path = ''
+as $$
+  select * from pgmq.send(queue_name, msg, delay_seconds);
+$$;
+
+create or replace function public.pgmq_read(queue_name text, vt_seconds integer, qty integer)
+returns table (msg_id bigint, read_ct integer, enqueued_at timestamptz, vt timestamptz, message jsonb)
+language sql
+security definer
+set search_path = ''
+as $$
+  select msg_id, read_ct, enqueued_at, vt, message from pgmq.read(queue_name, vt_seconds, qty);
+$$;
+
+create or replace function public.pgmq_archive(queue_name text, msg_id bigint)
+returns boolean
+language sql
+security definer
+set search_path = ''
+as $$
+  select pgmq.archive(queue_name, msg_id);
+$$;
+
+create or replace function public.pgmq_delete(queue_name text, msg_id bigint)
+returns boolean
+language sql
+security definer
+set search_path = ''
+as $$
+  select pgmq.delete(queue_name, msg_id);
+$$;
+
+revoke execute on function
+  public.pgmq_send(text, jsonb, integer),
+  public.pgmq_read(text, integer, integer),
+  public.pgmq_archive(text, bigint),
+  public.pgmq_delete(text, bigint)
+  from public, anon, authenticated;
+grant execute on function
+  public.pgmq_send(text, jsonb, integer),
+  public.pgmq_read(text, integer, integer),
+  public.pgmq_archive(text, bigint),
+  public.pgmq_delete(text, bigint)
+  to service_role;
 
 -- Application-level view of analysis work, for observability, retries, and idempotency.
 -- Mirrors the pgmq message it was enqueued as (queue_msg_id), and dedupes on
@@ -551,6 +609,53 @@ create table public.engine_responses (
 create index engine_responses_game_idx  on public.engine_responses (game_id);
 create index engine_responses_round_idx on public.engine_responses (round_id);
 
+-- Post-game deep analysis (chess.com "game review" style). SOURCE-INDEPENDENT: one result
+-- shape whatever the source — a solo game, a screenshot upload, or (later) a PvP round — so
+-- there is no per-mode analysis table. Written only by the analysis worker (service_role);
+-- the stronger model RE-classifies every move itself rather than trusting the live grades.
+-- The source ref is a nullable game_id / round_id XOR, mirroring engine_responses/analysis_jobs.
+create table public.game_analyses (
+  id             uuid primary key default gen_random_uuid(),
+  job_id         uuid references public.analysis_jobs (id) on delete set null,
+  game_id        uuid references public.games (id) on delete cascade,
+  round_id       uuid references public.match_rounds (id) on delete cascade,
+  title          text not null,
+  description    text not null,
+  tags           text[] not null default '{}',
+  model          text not null,
+  prompt_version text not null,
+  raw_response   jsonb not null,       -- full verdict kept for tuning (prompts/models change)
+  latency_ms     integer,
+  created_at     timestamptz not null default now(),
+  -- Re-analysis is allowed (models/prompts iterate): no unique(game_id). The "current"
+  -- analysis is the latest created_at; accidental duplicates are prevented one level up by
+  -- analysis_jobs.idempotency_key. Exactly one source per row.
+  constraint game_analysis_source check ((game_id is not null) <> (round_id is not null))
+);
+
+create index game_analyses_game_idx  on public.game_analyses (game_id, created_at desc);
+create index game_analyses_round_idx on public.game_analyses (round_id);
+
+-- The re-classified per-USER-move verdicts ("You" side only): the comment and, unless the
+-- move is top-graded, a "best line" (a better message the user could have sent). content is
+-- snapshotted so a row is displayable without joining the source-specific move table
+-- (moves for game sources, match_moves for future PvP), which is why move_id stays nullable.
+create table public.game_analysis_moves (
+  id             uuid primary key default gen_random_uuid(),
+  analysis_id    uuid not null references public.game_analyses (id) on delete cascade,
+  position       integer not null,             -- matches the source move's position ordering
+  side           public.message_side not null default 'You',
+  move_id        uuid references public.moves (id) on delete set null,
+  content        text not null,
+  classification public.move_kind not null,    -- re-graded here; independent of moves.classification
+  comment        text not null,
+  best_line      text,                          -- a better message; null when the move is top-graded
+  created_at     timestamptz not null default now(),
+  unique (analysis_id, position)
+);
+
+create index game_analysis_moves_analysis_idx on public.game_analysis_moves (analysis_id);
+
 -- ===========================================================================
 -- 6. GATED REVEALS & UNLOCKS — best-move split out so RLS alone can gate it
 -- ===========================================================================
@@ -622,6 +727,8 @@ alter table public.puzzle_solutions  enable row level security;
 alter table public.puzzle_attempts   enable row level security;
 alter table public.moves             enable row level security;
 alter table public.engine_responses  enable row level security;
+alter table public.game_analyses       enable row level security;
+alter table public.game_analysis_moves enable row level security;
 alter table public.game_reveal_unlocks  enable row level security;
 alter table public.match_reveal_unlocks enable row level security;
 alter table public.move_reveals       enable row level security;
@@ -766,6 +873,43 @@ create policy engine_responses_select on public.engine_responses
     ))
   );
 
+-- game_analyses: readable if you own the parent game or are in the parent match. Writes go
+-- through the service_role worker only. Mirrors the engine_responses source-XOR predicate.
+create policy game_analyses_select on public.game_analyses
+  for select using (
+    (game_id is not null and public.owns_game(game_id))
+    or
+    (round_id is not null and exists (
+      select 1 from public.match_rounds mr
+      where mr.id = game_analyses.round_id and public.is_match_participant(mr.match_id)
+    ))
+  );
+
+-- Helper: may the current user read this analysis? (Owns the source game / is in the match.)
+-- Definer-scoped so the per-move policy stays a cheap single lookup.
+create or replace function public.can_read_analysis(p_analysis_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select exists (
+    select 1 from public.game_analyses a
+    where a.id = p_analysis_id
+      and (
+        (a.game_id is not null and public.owns_game(a.game_id))
+        or (a.round_id is not null and exists (
+          select 1 from public.match_rounds mr
+          where mr.id = a.round_id and public.is_match_participant(mr.match_id)
+        ))
+      )
+  );
+$$;
+
+create policy game_analysis_moves_select on public.game_analysis_moves
+  for select using (public.can_read_analysis(analysis_id));
+
 -- Unlocks: you can see what you've unlocked; the service_role mints them on purchase.
 create policy game_reveal_unlocks_select_own on public.game_reveal_unlocks
   for select using (auth.uid() = user_id);
@@ -828,6 +972,7 @@ grant select on
   public.matches, public.pvp_matches, public.ai_matches, public.ghost_matches,
   public.match_rounds, public.match_moves,
   public.analysis_jobs, public.puzzles, public.moves, public.engine_responses,
+  public.game_analyses, public.game_analysis_moves,
   public.game_reveal_unlocks, public.match_reveal_unlocks,
   public.move_reveals, public.match_move_reveals
   to authenticated;

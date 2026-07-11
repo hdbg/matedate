@@ -4,8 +4,8 @@ version: "3"
 
 tasks:
   dev:
-    desc: Start local Supabase, the backend, and the frontend for local development.
-    deps: [backend, frontend]
+    desc: Start local Supabase, the backend, the analysis worker, and the frontend.
+    deps: [backend, worker, frontend]
 
   gen-types:
     desc: Generate the typed DB schema (backend/app/database_types.py) from local Supabase.
@@ -33,6 +33,22 @@ tasks:
     # matches the frontend's NEXT_PUBLIC_BACKEND_WS_URL.
     cmds:
       - uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
+
+  worker:
+    desc: Run the post-game analysis worker (game_analysis pgmq consumer) against local Supabase.
+    deps: [supabase]
+    dir: backend
+    # Reads backend/.env. Idles cheaply polling the queue; with FAKE_ENGINE / no OpenRouter key
+    # it runs the deterministic fake analysis engine.
+    cmds:
+      - uv run python worker.py
+
+  enqueue-analysis:
+    desc: "Enqueue a finished game for analysis: task enqueue-analysis -- <game-id> (or -- --latest)."
+    deps: [supabase]
+    dir: backend
+    cmds:
+      - uv run python scripts/enqueue_analysis.py {{.CLI_ARGS}}
 
   frontend:
     desc: Run the Next.js dev server against local Supabase.
