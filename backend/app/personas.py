@@ -18,6 +18,7 @@ class Persona:
     slug: str
     name: str
     opening_line: str
+    suggested_messages: list[str]  # free opener suggestions, shown to the player
     hidden_type: str | None
     system_prompt: str
 
@@ -65,6 +66,7 @@ async def _with_secret(supabase: AsyncClient, persona: PublicPersonas) -> Person
         slug=persona.slug,
         name=persona.name,
         opening_line=persona.opening_line,
+        suggested_messages=list(persona.suggested_messages or []),
         hidden_type=row.hidden_type,
         system_prompt=row.system_prompt,
     )

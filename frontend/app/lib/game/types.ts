@@ -29,6 +29,8 @@ export interface Persona {
   /** The "type: hidden — read them" hint shown under the name. */
   hint: string;
   openingLine: string;
+  /** Up to three free opener suggestions offered in the composer. */
+  suggestions: string[];
 }
 
 /** The engine's verdict on a single move. */

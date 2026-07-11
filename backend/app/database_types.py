@@ -181,6 +181,7 @@ class PublicPersonas(BaseModel):
     name: str = Field(alias="name")
     opening_line: str = Field(alias="opening_line")
     slug: str = Field(alias="slug")
+    suggested_messages: List[str] = Field(alias="suggested_messages")
 
 class PublicPersonasInsert(TypedDict):
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
@@ -192,6 +193,7 @@ class PublicPersonasInsert(TypedDict):
     name: Annotated[str, Field(alias="name")]
     opening_line: Annotated[str, Field(alias="opening_line")]
     slug: Annotated[str, Field(alias="slug")]
+    suggested_messages: NotRequired[Annotated[List[str], Field(alias="suggested_messages")]]
 
 class PublicPersonasUpdate(TypedDict):
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
@@ -203,6 +205,7 @@ class PublicPersonasUpdate(TypedDict):
     name: NotRequired[Annotated[str, Field(alias="name")]]
     opening_line: NotRequired[Annotated[str, Field(alias="opening_line")]]
     slug: NotRequired[Annotated[str, Field(alias="slug")]]
+    suggested_messages: NotRequired[Annotated[List[str], Field(alias="suggested_messages")]]
 
 class PublicPersonaSecrets(BaseModel):
     hidden_type: Optional[str] = Field(alias="hidden_type")
@@ -746,7 +749,6 @@ class PublicGameAnalysesUpdate(TypedDict):
 
 class PublicGameAnalysisMoves(BaseModel):
     analysis_id: uuid.UUID = Field(alias="analysis_id")
-    best_line: Optional[str] = Field(alias="best_line")
     comment: str = Field(alias="comment")
     content: str = Field(alias="content")
     created_at: datetime.datetime = Field(alias="created_at")
@@ -760,7 +762,6 @@ class PublicGameAnalysisMoves(BaseModel):
 
 class PublicGameAnalysisMovesInsert(TypedDict):
     analysis_id: Annotated[uuid.UUID, Field(alias="analysis_id")]
-    best_line: NotRequired[Annotated[Optional[str], Field(alias="best_line")]]
     comment: Annotated[str, Field(alias="comment")]
     content: Annotated[str, Field(alias="content")]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
@@ -774,7 +775,6 @@ class PublicGameAnalysisMovesInsert(TypedDict):
 
 class PublicGameAnalysisMovesUpdate(TypedDict):
     analysis_id: NotRequired[Annotated[uuid.UUID, Field(alias="analysis_id")]]
-    best_line: NotRequired[Annotated[Optional[str], Field(alias="best_line")]]
     comment: NotRequired[Annotated[str, Field(alias="comment")]]
     content: NotRequired[Annotated[str, Field(alias="content")]]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
@@ -851,3 +851,18 @@ class PublicMatchMoveRevealsUpdate(TypedDict):
     best_move: NotRequired[Annotated[str, Field(alias="best_move")]]
     match_id: NotRequired[Annotated[uuid.UUID, Field(alias="match_id")]]
     match_move_id: NotRequired[Annotated[uuid.UUID, Field(alias="match_move_id")]]
+
+class PublicGameAnalysisMoveReveals(BaseModel):
+    analysis_id: uuid.UUID = Field(alias="analysis_id")
+    analysis_move_id: uuid.UUID = Field(alias="analysis_move_id")
+    best_line: str = Field(alias="best_line")
+
+class PublicGameAnalysisMoveRevealsInsert(TypedDict):
+    analysis_id: Annotated[uuid.UUID, Field(alias="analysis_id")]
+    analysis_move_id: Annotated[uuid.UUID, Field(alias="analysis_move_id")]
+    best_line: Annotated[str, Field(alias="best_line")]
+
+class PublicGameAnalysisMoveRevealsUpdate(TypedDict):
+    analysis_id: NotRequired[Annotated[uuid.UUID, Field(alias="analysis_id")]]
+    analysis_move_id: NotRequired[Annotated[uuid.UUID, Field(alias="analysis_move_id")]]
+    best_line: NotRequired[Annotated[str, Field(alias="best_line")]]

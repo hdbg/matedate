@@ -20,6 +20,7 @@ from ..database_types import (
     PublicAnalysisJobsInsert,
     PublicAnalysisJobsUpdate,
     PublicGameAnalysesInsert,
+    PublicGameAnalysisMoveRevealsInsert,
     PublicGameAnalysisMovesInsert,
 )
 from ..db import json_row
@@ -197,12 +198,12 @@ async def _persist_analysis(
     created = await db.table("game_analyses").insert(json_row(analysis_insert)).execute()
     analysis_id = uuid.UUID(cast("Any", created.data)[0]["id"])
 
+    graded = grade_moves(verdict, transcript)
     by_position = {m.position: m for m in transcript.you_moves}
     move_rows: list[dict[str, Any]] = []
-    for move in grade_moves(verdict, transcript):
+    for move in graded:
         source = by_position[move.position]
-        # Store the numeric eval only; the rank is derived on read. Top moves need no best line.
-        best_line = None if move.class_key == TOP_CLASS_KEY else move.best_line
+        # Store the numeric eval only; eval_delta is generated and the rank is derived on read.
         move_insert: PublicGameAnalysisMovesInsert = {
             "analysis_id": analysis_id,
             "position": move.position,
@@ -211,11 +212,32 @@ async def _persist_analysis(
             "content": source.content,
             "eval_before": move.eval_before,
             "eval_after": move.eval_after,
-            "eval_delta": move.eval_delta,
             "comment": move.comment,
-            "best_line": best_line,
         }
         move_rows.append(json_row(move_insert))
-    if move_rows:
-        await db.table("game_analysis_moves").insert(move_rows).execute()
+    if not move_rows:
+        return analysis_id
+    inserted = await db.table("game_analysis_moves").insert(move_rows).execute()
+    id_by_position = {
+        int(row["position"]): str(row["id"])
+        for row in cast("list[dict[str, Any]]", inserted.data or [])
+    }
+
+    # The best line is the paid best move: it goes to the RLS-gated reveal table, never on the move
+    # row. Top moves have no better line. No unlock → the reveal row never reaches the client.
+    reveal_rows: list[dict[str, Any]] = []
+    for move in graded:
+        if move.class_key == TOP_CLASS_KEY or not move.best_line:
+            continue
+        move_db_id = id_by_position.get(move.position)
+        if move_db_id is None:
+            continue
+        reveal_insert: PublicGameAnalysisMoveRevealsInsert = {
+            "analysis_move_id": uuid.UUID(move_db_id),
+            "analysis_id": analysis_id,
+            "best_line": move.best_line,
+        }
+        reveal_rows.append(json_row(reveal_insert))
+    if reveal_rows:
+        await db.table("game_analysis_move_reveals").insert(reveal_rows).execute()
     return analysis_id

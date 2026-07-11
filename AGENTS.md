@@ -44,6 +44,9 @@ active game per user, reconnect-safe. `main.py` → `app/ws.py`.
 - **One socket per user (`app/ws.py`):** `ConnectionManager` closes a user's prior socket with
   code **4000** when a new one connects.
 - **Protocol (typed in `app/protocol.py`):**
+  - the `persona` payload (`PersonaOut`) carries `suggested_messages` — up to three **free** opener
+    suggestions from `personas.suggested_messages` (readable by any signed-in user), shown in the
+    composer; distinct from the paid best move.
   - server→ `new_game`{persona,time} · `game_state` (reconnect: persona+moves+time+time_left) ·
     `response`{content,classification,swing,time_left} ·
     `finish`{end_reason,accuracy,rating_delta,moves,title,description,**game_id**} · `error`{code,message}
@@ -83,9 +86,11 @@ active game per user, reconnect-safe. `main.py` → `app/ws.py`.
   creep/gross/block/unmatch keywords. `blocked` is a value in the `match_end_reason` enum.
 - **Grading (`app/grading.py`):** deterministic, server-side — eval delta → `swing` (= delta/10) →
   classification (SPEC §3 thresholds). Never computed by the LLM or the client. **Move quality is
-  stored as the numeric eval only** (`eval_before/eval_after/eval_delta`) in every move table
-  (`moves`, `match_moves`, `game_analysis_moves`); the Brilliant…Blunder rank is *derived on read*
-  by `classify()` and never persisted — there is no `move_kind` enum. The frontend `MoveClassKey`
+  stored as the numeric eval only** in every move table (`moves`, `match_moves`,
+  `game_analysis_moves`): the backend writes `eval_before`/`eval_after`, and **`eval_delta` is a
+  generated column** (`eval_after - eval_before`, `stored`) — never written (PostgREST rejects it).
+  The Brilliant…Blunder rank is *derived on read* by `classify()` and never persisted — there is no
+  `move_kind` enum. The frontend `MoveClassKey`
   vocab (brilliant/great/good/inaccuracy/mistake/blunder) is what the wire carries (derived by
   `_move_out`), not a stored column.
 - **DB (`app/supabase_client.py`):** all reads/writes go through the **async** service-role
@@ -141,8 +146,9 @@ PvP rounds / screenshot uploads later), so there is no per-mode analysis table.
   into deltas and derives each rank via `app/grading.py`, exactly like live play. `validate_verdict`
   enforces that the annotated positions match the You-side moves and that non-top (non-brilliant)
   moves carry a best line (as a PydanticAI output validator → one in-run retry, and again before
-  persist). A deterministic `FakeAnalysisEngine` runs under `FAKE_ENGINE` / no key, same as
-  `build_engine`.
+  persist). On persist the best line is written to the **RLS-gated** `game_analysis_move_reveals`
+  (the paid best move), never onto the move row. A deterministic `FakeAnalysisEngine` runs under
+  `FAKE_ENGINE` / no key, same as `build_engine`.
 - **Worker (`backend/worker.py` → `app/analysis/worker.py`, `task worker`, in `task dev`):** a
   standalone process polling `pgmq_read` with a visibility timeout. Failures record `last_error`
   and reset the job to `queued` (pgmq redelivers after the vt); `read_ct > ANALYSIS_MAX_ATTEMPTS`
@@ -150,8 +156,10 @@ PvP rounds / screenshot uploads later), so there is no per-mode analysis table.
   `game_analyses` + `game_analysis_moves` and archives.
 - **Tables:** `game_analyses` (title/description/tags/model/prompt_version/raw_response, nullable
   `game_id`/`round_id` XOR source) + `game_analysis_moves` (per You move:
-  `eval_before/eval_after/eval_delta` + comment/best_line + a `content` snapshot and nullable
-  `move_id`; the rank is derived from `eval_delta`, never stored). Owner-read RLS; service_role writes.
+  `eval_before/eval_after` + generated `eval_delta` + comment + a `content` snapshot and nullable
+  `move_id`; the rank is derived from `eval_delta`, never stored) + `game_analysis_move_reveals`
+  (the paid best line, gated by `can_reveal_analysis` → the same per-game/match unlock as live
+  best moves). Owner-read RLS; service_role writes.
   Re-analysis is allowed (no `unique(game_id)`); the current analysis is the latest `created_at`.
 
 ### Security invariants (do not violate)
@@ -184,8 +192,10 @@ disables ("Review requested ✓") — no waiting, no redirect. The result surfac
 `mocks/MateDate Game Review.html`): a chess-style replay player (scrubber + transport + autoplay in
 `useReviewReplay`, `←`/`→`/space, `localStorage` step), a summary strip (accuracy · brilliant ·
 blunder · rizz Δ), a live eval meter, and a per-move analysis panel (overview at step 0, else the
-derived rank + comment + best line; the best line sits behind a **cosmetic** unlock — the data is
-already owner-readable). It reads `game_analyses`/`game_analysis_moves` plus the source
+derived rank + comment + best line). The best line is now a **real RLS gate**: it comes from
+`game_analysis_move_reveals`, which only returns rows for an unlocked game, so a non-top move with
+no reveal renders locked (the unlock button is a paid-reveal placeholder — no purchase flow yet).
+It reads `game_analyses`/`game_analysis_moves` (+ the reveals) plus the source
 `games`/`solo_games`/`personas`/`moves` (all owner-RLS), matching analysis↔thread by `position` and
 deriving each rank from `eval_delta` via `classifySwing` (`app/lib/game/types.ts`).
 `components/ui/LoadingScene.tsx`

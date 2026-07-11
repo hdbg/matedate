@@ -1,6 +1,7 @@
 import { createClient } from "@/app/lib/supabase/client";
 import { classifyEvalDelta, type MoveClassKey } from "@/app/lib/game/service";
 import type {
+  GameAnalysisMoveRevealRow,
   GameAnalysisMoveRow,
   GameAnalysisRow,
   GameRow,
@@ -16,8 +17,11 @@ export interface ReviewMove {
   swing: number; // eval_delta / 10
   evalAfter: number; // 0–100 interest after this move
   comment: string;
-  bestLine: string | null;
   isTop: boolean; // brilliant — no best line needed, shown free
+  /** The paid best line, only present when the game is unlocked (RLS-gated). */
+  bestLine: string | null;
+  /** True when a best line exists but is locked (non-top move without a returned reveal). */
+  bestLineLocked: boolean;
 }
 
 export interface ReviewThreadItem {
@@ -67,25 +71,33 @@ export async function loadReview(analysisId: string): Promise<ReviewData | null>
   if (!analysisRow) return null;
   const analysis = analysisRow as GameAnalysisRow;
 
-  const { data: moveRows } = await supabase
-    .from("game_analysis_moves")
-    .select("*")
-    .eq("analysis_id", analysisId)
-    .order("position");
+  // The moves and (separately, RLS-gated) their best-line reveals: the reveal rows come back only
+  // when the game is unlocked, so a non-top move with no reveal is a locked best line.
+  const [{ data: moveRows }, { data: revealRows }] = await Promise.all([
+    supabase.from("game_analysis_moves").select("*").eq("analysis_id", analysisId).order("position"),
+    supabase.from("game_analysis_move_reveals").select("*").eq("analysis_id", analysisId),
+  ]);
   const analysisMoves = (moveRows ?? []) as GameAnalysisMoveRow[];
+  const bestLineByMoveId = new Map<string, string>();
+  for (const r of (revealRows ?? []) as GameAnalysisMoveRevealRow[]) {
+    bestLineByMoveId.set(r.analysis_move_id, r.best_line);
+  }
 
   // Per-position re-scored verdict (before we know each move's place in the rendered thread).
   const verdictByPosition = new Map<number, Omit<ReviewMove, "threadIndex">>();
   for (const m of analysisMoves) {
     const classKey = classifyEvalDelta(m.eval_delta);
+    const isTop = classKey === "brilliant";
+    const bestLine = bestLineByMoveId.get(m.id) ?? null;
     verdictByPosition.set(m.position, {
       position: m.position,
       classKey,
       swing: (m.eval_delta ?? 0) / 10,
       evalAfter: m.eval_after ?? DEFAULT_EVAL,
       comment: m.comment,
-      bestLine: m.best_line,
-      isTop: classKey === "brilliant",
+      isTop,
+      bestLine,
+      bestLineLocked: !isTop && bestLine === null, // a better line exists but isn't unlocked
     });
   }
 

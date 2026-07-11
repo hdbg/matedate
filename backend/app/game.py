@@ -178,7 +178,6 @@ class SoloGameService:
             content,
             eval_before,
             eval_after,
-            eval_delta,
             turn.verdict.reply,
             {"model": turn.model, "latency_ms": turn.latency_ms, "verdict": turn.verdict.model_dump()},
         )
@@ -369,11 +368,11 @@ class SoloGameService:
         content: str,
         eval_before: float,
         eval_after: float,
-        eval_delta: float,
         reply: str,
         raw_response: dict[str, Any],
     ) -> None:
-        # Store the numeric eval only; the Brilliant…Blunder rank is derived on read (grading.py).
+        # Store the numeric eval only; eval_delta is a generated column and the Brilliant…Blunder
+        # rank is derived on read (grading.py).
         you_move: PublicMovesInsert = {
             "game_id": game_id,
             "position": position,
@@ -381,7 +380,6 @@ class SoloGameService:
             "content": content,
             "eval_before": eval_before,
             "eval_after": eval_after,
-            "eval_delta": eval_delta,
         }
         await self._db.table("moves").insert(_json_row(you_move)).execute()
         match_move: PublicMovesInsert = {
@@ -468,6 +466,7 @@ def _persona_out(persona: Persona) -> PersonaOut:
         name=persona.name,
         hint=HIDDEN_HINT,
         opening_line=persona.opening_line,
+        suggested_messages=persona.suggested_messages,
     )
 
 

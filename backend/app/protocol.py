@@ -26,6 +26,7 @@ class PersonaOut(BaseModel):
     name: str
     hint: str  # "type: hidden" teaser; never the real hidden_type
     opening_line: str
+    suggested_messages: list[str] = []  # free opener suggestions (not the paid best move)
 
 
 class MoveOut(BaseModel):

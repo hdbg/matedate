@@ -58,7 +58,6 @@ export default function AnalysisPage() {
 
 function ReviewScreen({ id, data }: { id: string; data: ReviewData }) {
   const router = useRouter();
-  const [unlocked, setUnlocked] = useState(false);
   const replay = useReviewReplay(data.youMoves.length, `matedate.reviewStep.${id}`);
   const { step } = replay;
 
@@ -80,13 +79,19 @@ function ReviewScreen({ id, data }: { id: string; data: ReviewData }) {
     }
   };
 
+  // Best lines are RLS-gated (the paid best move): unlocking is a purchase/credit that mints a
+  // game_reveal_unlocks row server-side. That flow isn't built yet, so the button just informs.
+  const onUnlock = () =>
+    window.alert(
+      "🔒 Best moves are a paid reveal.\n\nStart your 3-day free trial to unlock the best line in every review.",
+    );
+
   const panel = (
     <AnalysisPanel
       step={step}
       overview={{ title: data.title, description: data.description, tags: data.tags }}
       move={currentMove}
-      unlocked={unlocked}
-      onUnlock={() => setUnlocked(true)}
+      onUnlock={onUnlock}
     />
   );
 

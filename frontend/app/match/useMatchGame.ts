@@ -6,10 +6,8 @@ import {
   type GradedMove,
   type MoveClassKey,
   type Persona,
-  type Suggestion,
   type VersusMode,
 } from "@/app/lib/game/service";
-import { SUGGESTIONS } from "@/app/lib/game/engine";
 import {
   matchSocketUrl,
   resolveAccessToken,
@@ -51,7 +49,13 @@ const BASE_INTEREST = 58;
 const clamp = (v: number) => Math.max(2, Math.min(98, v));
 
 function toPersona(p: WirePersona): Persona {
-  return { slug: p.slug, name: p.name, hint: p.hint, openingLine: p.opening_line };
+  return {
+    slug: p.slug,
+    name: p.name,
+    hint: p.hint,
+    openingLine: p.opening_line,
+    suggestions: p.suggested_messages ?? [],
+  };
 }
 
 /**
@@ -62,7 +66,6 @@ function toPersona(p: WirePersona): Persona {
  */
 export function useMatchGame(mode: VersusMode) {
   const [persona, setPersona] = useState<Persona | null>(null);
-  const [suggestions] = useState<Suggestion[]>(SUGGESTIONS);
   const [messages, setMessages] = useState<Message[]>([]);
   const [typing, setTyping] = useState(false);
   const [interest, setInterest] = useState(BASE_INTEREST);
@@ -299,7 +302,7 @@ export function useMatchGame(mode: VersusMode) {
     [flagged, typing, appendMessage, stopClock],
   );
 
-  const sendSuggestion = useCallback((suggestion: Suggestion) => send(suggestion.text), [send]);
+  const sendSuggestion = useCallback((text: string) => send(text), [send]);
 
   const dismissResult = useCallback(() => setResult(null), []);
 
@@ -308,7 +311,7 @@ export function useMatchGame(mode: VersusMode) {
 
   return {
     persona,
-    suggestions,
+    suggestions: persona?.suggestions ?? [],
     messages,
     typing,
     interest,

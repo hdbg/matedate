@@ -42,6 +42,7 @@ export interface PersonaRow {
   is_active: boolean;
   description: string | null;
   opening_line: string;
+  suggested_messages: string[];
   created_at: string;
 }
 
@@ -102,7 +103,8 @@ export interface GameAnalysisRow {
   created_at: string;
 }
 
-/** A re-scored "You" move within an analysis. Quality is the numeric eval; rank derives from it. */
+/** A re-scored "You" move within an analysis. Quality is the numeric eval; rank derives from it.
+ * The best line is NOT here — it's the paid reveal in `game_analysis_move_reveals`. */
 export interface GameAnalysisMoveRow {
   id: string;
   analysis_id: string;
@@ -114,8 +116,14 @@ export interface GameAnalysisMoveRow {
   eval_after: number | null;
   eval_delta: number | null;
   comment: string;
-  best_line: string | null;
   created_at: string;
+}
+
+/** The paid "best line" for an analysis move — RLS-gated: only returned when the game is unlocked. */
+export interface GameAnalysisMoveRevealRow {
+  analysis_move_id: string;
+  analysis_id: string;
+  best_line: string;
 }
 
 export interface Database {

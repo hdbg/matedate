@@ -15,6 +15,7 @@ export interface WirePersona {
   name: string;
   hint: string;
   opening_line: string;
+  suggested_messages: string[];
 }
 
 export interface WireMove {

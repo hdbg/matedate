@@ -210,6 +210,9 @@ create table public.personas (
   is_active     boolean not null default true,
   description   text,
   opening_line  text not null, -- shown to both players; not a secret
+  -- Up to three canned opener suggestions, shown to both players for free (readable by any signed-in
+  -- user via personas_select_active — never gated). Not secrets; distinct from the paid best move.
+  suggested_messages text[] not null default '{}' check (cardinality(suggested_messages) <= 3),
   created_at    timestamptz not null default now()
 );
 
@@ -354,7 +357,7 @@ create table public.match_moves (
   -- Brilliant…Blunder rank is derived from the swing (eval_delta) at read time, never stored.
   eval_before    numeric(5,2), -- hidden 0..100 interest state before this move
   eval_after     numeric(5,2),
-  eval_delta     numeric(6,2),
+  eval_delta     numeric(6,2) generated always as (eval_after - eval_before) stored, -- derived, never written
   -- best_move lives in match_move_reveals (RLS-gated by an unlock; see section 6).
 
   created_at     timestamptz not null default now(),
@@ -574,7 +577,7 @@ create table public.moves (
   -- from the swing (eval_delta) at read time, never stored.
   eval_before    numeric(5,2),
   eval_after     numeric(5,2),
-  eval_delta     numeric(6,2),
+  eval_delta     numeric(6,2) generated always as (eval_after - eval_before) stored, -- derived, never written
   -- best_move lives in move_reveals (RLS-gated by an unlock; see section 6).
 
   created_at     timestamptz not null default now(),
@@ -645,9 +648,10 @@ create table public.game_analysis_moves (
   content        text not null,
   eval_before    numeric(5,2),                  -- hidden 0..100 interest state before this move
   eval_after     numeric(5,2),
-  eval_delta     numeric(6,2),                  -- swing = eval_delta / 10 → derived rank
+  eval_delta     numeric(6,2) generated always as (eval_after - eval_before) stored, -- swing = /10 → rank
   comment        text not null,
-  best_line      text,                          -- a better message; null when the move is top-graded
+  -- The "best line" is the paid best move — it lives in game_analysis_move_reveals (RLS-gated by an
+  -- unlock; see section 6), never here, so it can't reach an unentitled client.
   created_at     timestamptz not null default now(),
   unique (analysis_id, position)
 );
@@ -698,6 +702,17 @@ create table public.match_move_reveals (
 
 create index match_move_reveals_match_idx on public.match_move_reveals (match_id);
 
+-- The reveal for an analysis "You" move — the paid best line, split out of game_analysis_moves so
+-- RLS alone gates it. analysis_id is denormalized so the RLS predicate resolves the source
+-- (game/round) + unlock without joining back through game_analysis_moves.
+create table public.game_analysis_move_reveals (
+  analysis_move_id uuid primary key references public.game_analysis_moves (id) on delete cascade,
+  analysis_id      uuid not null references public.game_analyses (id) on delete cascade,
+  best_line        text not null
+);
+
+create index game_analysis_move_reveals_analysis_idx on public.game_analysis_move_reveals (analysis_id);
+
 -- ===========================================================================
 -- RLS
 -- ===========================================================================
@@ -731,6 +746,7 @@ alter table public.game_reveal_unlocks  enable row level security;
 alter table public.match_reveal_unlocks enable row level security;
 alter table public.move_reveals       enable row level security;
 alter table public.match_move_reveals enable row level security;
+alter table public.game_analysis_move_reveals enable row level security;
 
 -- profiles: read/update your own row (insert is handled by the trigger).
 create policy profiles_select_own on public.profiles
@@ -1009,6 +1025,32 @@ create policy move_reveals_select on public.move_reveals
 create policy match_move_reveals_select on public.match_move_reveals
   for select using (public.can_reveal_match(match_id));
 
+-- Helper: may the current user see the best-line reveals for this analysis? Resolves the analysis's
+-- source (game/round XOR) and defers to the same per-game / per-match unlock that gates live moves,
+-- so one unlock covers both the live best move and the game-review best line.
+create or replace function public.can_reveal_analysis(p_analysis_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select exists (
+    select 1 from public.game_analyses a
+    where a.id = p_analysis_id
+      and (
+        (a.game_id is not null and public.can_reveal_game(a.game_id))
+        or (a.round_id is not null and exists (
+          select 1 from public.match_rounds mr
+          where mr.id = a.round_id and public.can_reveal_match(mr.match_id)
+        ))
+      )
+  );
+$$;
+
+create policy game_analysis_move_reveals_select on public.game_analysis_move_reveals
+  for select using (public.can_reveal_analysis(analysis_id));
+
 -- ===========================================================================
 -- GRANTS — table privileges for the Data API role (RLS still gates the rows)
 -- ===========================================================================
@@ -1030,7 +1072,7 @@ grant select on
   public.analysis_jobs, public.puzzles, public.moves, public.engine_responses,
   public.game_analyses, public.game_analysis_moves,
   public.game_reveal_unlocks, public.match_reveal_unlocks,
-  public.move_reveals, public.match_move_reveals
+  public.move_reveals, public.match_move_reveals, public.game_analysis_move_reveals
   to authenticated;
 
 -- Profile is readable + editable (no rating columns live here anymore).

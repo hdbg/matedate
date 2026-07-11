@@ -12,12 +12,13 @@ interface AnalysisPanelProps {
   step: number;
   overview: Overview;
   move: ReviewMove | null; // the You move at `step` (null at the overview)
-  unlocked: boolean;
   onUnlock: () => void;
 }
 
+const LOCKED_PLACEHOLDER = "audition me sunday — I'm cooking a dangerously good shakshuka";
+
 /** The analysis card — the game overview at step 0, a per-move verdict + best line otherwise. */
-export function AnalysisPanel({ step, overview, move, unlocked, onUnlock }: AnalysisPanelProps) {
+export function AnalysisPanel({ step, overview, move, onUnlock }: AnalysisPanelProps) {
   if (step === 0 || !move) {
     return (
       <div className="p-[18px] lg:p-[26px]">
@@ -57,9 +58,11 @@ export function AnalysisPanel({ step, overview, move, unlocked, onUnlock }: Anal
   }
 
   const mv = MOVE_CLASSES[move.classKey];
-  const hasBest = !!move.bestLine;
-  const free = move.isTop || !hasBest; // top moves need no better line
-  const locked = !free && !unlocked;
+  // Top moves need no better line (free). Otherwise the best line is the paid reveal: shown when
+  // unlocked (RLS returned it), else locked behind a real gate.
+  const free = move.isTop;
+  const locked = move.bestLineLocked;
+  const shownLine = locked ? LOCKED_PLACEHOLDER : (move.bestLine ?? "This was the strongest line here — no notes.");
 
   return (
     <div className="p-[18px] lg:p-[26px]">
@@ -95,9 +98,7 @@ export function AnalysisPanel({ step, overview, move, unlocked, onUnlock }: Anal
             locked && "select-none blur-[5px]",
           )}
         >
-          {free
-            ? (move.bestLine ?? "This was the strongest line here — no notes.")
-            : move.bestLine}
+          {shownLine}
         </div>
         {locked && (
           <div className="absolute inset-0 grid place-items-center">

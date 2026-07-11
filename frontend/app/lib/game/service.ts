@@ -13,7 +13,7 @@ export const gameService: GameService = {
     const supabase = createClient();
     const query = supabase
       .from("personas")
-      .select("slug, name, opening_line")
+      .select("slug, name, opening_line, suggested_messages")
       .eq("is_active", true);
 
     const { data, error } = slug
@@ -23,12 +23,13 @@ export const gameService: GameService = {
     if (error) throw error;
     if (!data) throw new Error(`Persona not found${slug ? `: ${slug}` : ""}`);
 
-    const row = data as Pick<PersonaRow, "slug" | "name" | "opening_line">;
+    const row = data as Pick<PersonaRow, "slug" | "name" | "opening_line" | "suggested_messages">;
     return {
       slug: row.slug,
       name: row.name,
       hint: "🎭 persona type: hidden — read them",
       openingLine: row.opening_line,
+      suggestions: row.suggested_messages ?? [],
     } satisfies Persona;
   },
   getSuggestions() {

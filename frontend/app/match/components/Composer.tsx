@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import type { Suggestion } from "@/app/lib/game/service";
 import { cn } from "@/app/lib/utils";
 
 interface ComposerProps {
-  suggestions: Suggestion[];
+  suggestions: string[];
   disabled: boolean;
-  onSuggestion: (suggestion: Suggestion) => void;
+  onSuggestion: (text: string) => void;
   onSend: (text: string) => void;
   onPeek: () => void;
 }
@@ -29,13 +28,13 @@ export function Composer({ suggestions, disabled, onSuggestion, onSend, onPeek }
         <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2.5">
           {suggestions.map((suggestion) => (
             <button
-              key={suggestion.text}
+              key={suggestion}
               type="button"
               disabled={disabled}
               onClick={() => onSuggestion(suggestion)}
               className="flex-shrink-0 cursor-pointer whitespace-nowrap rounded-full border-[1.5px] border-ink/[0.14] bg-white px-3.5 py-2 text-[13px] font-semibold transition-[border-color,transform] duration-100 hover:-translate-y-px hover:border-rosy disabled:opacity-50"
             >
-              {suggestion.text}
+              {suggestion}
             </button>
           ))}
         </div>
