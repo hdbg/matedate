@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toPng } from "html-to-image";
 import { Logo, LogoMark } from "@/app/components/ui/Logo";
 import { MoveIcon } from "@/app/components/ui/MoveIcon";
 import { formatSwing, type MoveClassKey } from "@/app/lib/game/service";
@@ -72,13 +73,49 @@ export function AfterGameModal({
   const recap = recapMoves(result.moves);
   const analysis = ANALYSIS_COPY[analysisStatus];
   const analysisBusy = analysisStatus === "pending" || analysisStatus === "requested";
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
 
-  const share = () => {
-    const text = `${result.title} — ${accuracy}% accuracy on MateDate`;
+  const shareText = (text: string) => {
     if (typeof navigator !== "undefined" && navigator.share) {
       void navigator.share({ title: "MateDate", text }).catch(() => {});
     } else if (typeof navigator !== "undefined" && navigator.clipboard) {
       void navigator.clipboard.writeText(text).catch(() => {});
+    }
+  };
+
+  /** Render the card to a PNG and hand it to the share sheet (or download it). Text fallback
+   * if the export fails. Uses html-to-image: Tailwind v4 emits color-mix()/oklch, which the
+   * html2canvas family can't parse. */
+  const share = async () => {
+    const node = cardRef.current;
+    const text = `${result.title} — ${accuracy}% accuracy on MateDate`;
+    if (!node || exporting) {
+      shareText(text);
+      return;
+    }
+    setExporting(true);
+    try {
+      // Safari can paint the first pass before fonts/images are inlined — render twice, keep
+      // the second.
+      const opts = { pixelRatio: 2, cacheBust: true };
+      await toPng(node, opts);
+      const dataUrl = await toPng(node, opts);
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], "matedate-result.png", { type: "image/png" });
+      if (typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ title: "MateDate", text, files: [file] });
+      } else {
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = "matedate-result.png";
+        a.click();
+      }
+    } catch (err) {
+      // A dismissed share sheet isn't a failure; anything else falls back to sharing text.
+      if (!(err instanceof DOMException && err.name === "AbortError")) shareText(text);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -125,7 +162,7 @@ export function AfterGameModal({
         </div>
 
         {/* share card */}
-        <div className="overflow-hidden rounded-[22px] bg-ink text-king shadow-[var(--sh-3)]">
+        <div ref={cardRef} className="overflow-hidden rounded-[22px] bg-ink text-king shadow-[var(--sh-3)]">
           <div className="flex items-center justify-between px-[17px] pb-[11px] pt-[15px]">
             <Logo markSize={22} wordmarkClassName="text-[18px] tracking-[-0.03em]" />
             <div className="text-right">
@@ -171,10 +208,11 @@ export function AfterGameModal({
         <div className="mt-3 text-center">
           <button
             type="button"
-            onClick={share}
-            className="inline-flex cursor-pointer items-center gap-1.5 border-none bg-none p-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-ink-mute hover:text-rosy-deep"
+            disabled={exporting}
+            onClick={() => void share()}
+            className="inline-flex cursor-pointer items-center gap-1.5 border-none bg-none p-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-ink-mute hover:text-rosy-deep disabled:cursor-default"
           >
-            ↗ Share this card
+            {exporting ? "⏳ Exporting…" : "↗ Share this card"}
           </button>
         </div>
 
