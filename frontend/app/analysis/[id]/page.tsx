@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
-import { AnalysisPanel } from "./components/AnalysisPanel";
-import { ReviewControls } from "./components/ReviewControls";
-import { ReviewHeader } from "./components/ReviewHeader";
-import { ReviewThread } from "./components/ReviewThread";
-import { SummaryStrip } from "./components/SummaryStrip";
-import { loadReview, rankCounts, type ReviewData } from "./review";
-import { useReviewReplay } from "./useReviewReplay";
+import { AnalysisPanel } from "../components/AnalysisPanel";
+import { ReviewControls } from "../components/ReviewControls";
+import { ReviewHeader } from "../components/ReviewHeader";
+import { ReviewThread } from "../components/ReviewThread";
+import { SummaryStrip } from "../components/SummaryStrip";
+import { loadReview, rankCounts, type ReviewData } from "../review";
+import { useReviewReplay } from "../useReviewReplay";
 
 export default function AnalysisPage() {
   const id = String(useParams().id);
