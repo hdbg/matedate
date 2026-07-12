@@ -37,8 +37,13 @@ export interface HistoryItem {
 }
 
 export interface ProfileData {
+  userId: string;
   displayName: string;
   handle: string | null;
+  /** Raw editable fields, prefilling the edit modal. */
+  username: string | null;
+  rawDisplayName: string | null;
+  avatarPath: string | null;
   elo: number;
   peak: number;
   tier: TierInfo;
@@ -84,7 +89,7 @@ export async function loadProfile(): Promise<ProfileData | null> {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("username, display_name, dating_goal, texting_style")
+      .select("username, display_name, avatar_path, dating_goal, texting_style")
       .eq("id", userId)
       .maybeSingle(),
     supabase.from("player_ratings").select("elo_rating").eq("user_id", userId).maybeSingle(),
@@ -110,7 +115,7 @@ export async function loadProfile(): Promise<ProfileData | null> {
 
   const profile = (profileRow ?? null) as Pick<
     ProfileRow,
-    "username" | "display_name" | "dating_goal" | "texting_style"
+    "username" | "display_name" | "avatar_path" | "dating_goal" | "texting_style"
   > | null;
   const rating = (ratingRow ?? null) as Pick<PlayerRatingsRow, "elo_rating"> | null;
   const ratingHistory = (historyRows ?? []) as Pick<RatingHistoryRow, "rating_after">[];
@@ -163,8 +168,12 @@ export async function loadProfile(): Promise<ProfileData | null> {
   const accuracies = games.map((g) => g.accuracy).filter((a): a is number => a != null);
 
   return {
+    userId,
     displayName: profile?.display_name ?? profile?.username ?? "Anonymous player",
     handle: profile?.username ? `@${profile.username}` : null,
+    username: profile?.username ?? null,
+    rawDisplayName: profile?.display_name ?? null,
+    avatarPath: profile?.avatar_path ?? null,
     elo,
     peak,
     tier: tierFor(elo, ratingHistory.length),

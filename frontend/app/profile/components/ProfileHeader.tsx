@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Avatar } from "@/app/components/ui/Avatar";
 import { TABS } from "@/app/components/ui/TabBar";
 import { Wordmark } from "@/app/components/ui/Wordmark";
 import { cn } from "@/app/lib/utils";
@@ -7,10 +8,11 @@ import type { ProfileData } from "../profileData";
 interface ProfileHeaderProps {
   data: ProfileData;
   onToast: (msg: string) => void;
+  onEdit: () => void;
 }
 
 /** Dark identity header: brand, avatar + tier chip, name/handle, flags, actions. */
-export function ProfileHeader({ data, onToast }: ProfileHeaderProps) {
+export function ProfileHeader({ data, onToast, onEdit }: ProfileHeaderProps) {
   const { tier } = data;
   const tierChip = tier.provisional ? "UNRATED" : `${tier.glyph} ${tier.label.toUpperCase()}`;
 
@@ -75,13 +77,13 @@ export function ProfileHeader({ data, onToast }: ProfileHeaderProps) {
       <div className="relative z-[2] items-center gap-7 lg:flex">
         <div className="flex items-center gap-4">
           <div className="relative h-[88px] w-[88px] flex-shrink-0 lg:h-[124px] lg:w-[124px]">
-            {/* avatar upload isn't built yet — no storage bucket, no avatar column */}
             <button
               type="button"
-              onClick={() => onToast("Photos coming soon")}
-              className="grid h-full w-full cursor-pointer place-items-center rounded-full border-[3px] border-rosy bg-king/[0.06] font-mono text-[10px] uppercase tracking-[0.06em] text-king/60 shadow-[0_6px_18px_rgba(0,0,0,0.3)]"
+              title={data.avatarPath ? "Change photo" : "Add photo"}
+              onClick={onEdit}
+              className="grid h-full w-full cursor-pointer place-items-center overflow-hidden rounded-full border-[3px] border-rosy bg-king/[0.06] shadow-[0_6px_18px_rgba(0,0,0,0.3)]"
             >
-              Add photo
+              <Avatar path={data.avatarPath} className="rounded-none" />
             </button>
             <span className="absolute -bottom-1 -right-1.5 whitespace-nowrap rounded-pill border-2 border-ink bg-gold px-2 py-[3px] font-mono text-[10px] font-bold tracking-[0.04em] text-ink lg:text-[11px]">
               {tierChip}
@@ -113,7 +115,7 @@ export function ProfileHeader({ data, onToast }: ProfileHeaderProps) {
         <div className="mt-4 flex gap-2.5 lg:ml-auto lg:mt-1 lg:flex-col lg:self-start">
           <button
             type="button"
-            onClick={() => onToast("Edit profile coming soon")}
+            onClick={onEdit}
             className="flex-1 cursor-pointer rounded-pill border border-rosy bg-rosy px-6 py-[11px] text-[14px] font-bold text-king shadow-[0_4px_0_var(--rosy-deep)] transition-colors hover:bg-rosy-deep active:translate-y-[2px] active:shadow-[0_2px_0_var(--rosy-deep)] lg:flex-none lg:py-[13px] lg:text-[15px]"
           >
             Edit profile

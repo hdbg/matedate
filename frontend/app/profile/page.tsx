@@ -6,6 +6,7 @@ import { AppShell } from "@/app/components/ui/AppShell";
 import { TabBar } from "@/app/components/ui/TabBar";
 import { cn } from "@/app/lib/utils";
 import { CareerStats } from "./components/CareerStats";
+import { EditProfileModal } from "./components/EditProfileModal";
 import { GameHistory } from "./components/GameHistory";
 import { PreferencesCard } from "./components/PreferencesCard";
 import { ProfileHeader } from "./components/ProfileHeader";
@@ -26,7 +27,14 @@ export default function ProfilePage() {
   const [data, setData] = useState<ProfileData | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "missing">("loading");
   const [toast, setToast] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const reload = useCallback(async () => {
+    const profile = await loadProfile();
+    setData(profile);
+    setState(profile ? "ready" : "missing");
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -73,7 +81,7 @@ export default function ProfilePage() {
   return (
     <AppShell>
       <div className="flex-1 overflow-y-auto">
-        <ProfileHeader data={data} onToast={showToast} />
+        <ProfileHeader data={data} onToast={showToast} onEdit={() => setEditing(true)} />
 
         <div className="mx-auto w-full max-w-[1180px] px-5 pb-6 pt-5 lg:grid lg:grid-cols-[376px_1fr] lg:items-start lg:gap-7 lg:px-12 lg:pb-11 lg:pt-8">
           <div>
@@ -87,7 +95,7 @@ export default function ProfilePage() {
               action={
                 <button
                   type="button"
-                  onClick={() => showToast("Edit preferences coming soon")}
+                  onClick={() => setEditing(true)}
                   className="cursor-pointer font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-rosy-deep"
                 >
                   Edit
@@ -105,6 +113,17 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {editing && (
+        <EditProfileModal
+          data={data}
+          onSaved={(msg) => {
+            showToast(msg);
+            void reload();
+          }}
+          onClose={() => setEditing(false)}
+        />
+      )}
 
       <TabBar
         className="lg:hidden"
