@@ -10,6 +10,7 @@ import { BrandPanel } from "./components/BrandPanel";
 import { DoneScreen } from "./components/DoneScreen";
 import { GoalQuizScreen } from "./components/GoalQuizScreen";
 import { IdentityScreen } from "./components/IdentityScreen";
+import { ProfileSetupScreen } from "./components/ProfileSetupScreen";
 import { StyleQuizScreen } from "./components/StyleQuizScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { isDarkStep, progressValue, useOnboarding } from "./useOnboarding";
@@ -92,6 +93,18 @@ export default function OnboardingPage() {
                 onBack={() => goTo("style")}
                 onSubmit={flow.createAccount}
                 onSkip={flow.skipAccount}
+              />
+            )}
+            {step === "profile" && (
+              <ProfileSetupScreen
+                username={flow.username}
+                avatarPreview={flow.avatarPreview}
+                submitting={flow.submitting}
+                error={flow.error}
+                onUsernameChange={flow.setUsername}
+                onPickAvatar={flow.setAvatarFile}
+                onSave={flow.saveProfileStep}
+                onSkip={flow.skipProfileStep}
               />
             )}
             {step === "done" && (
