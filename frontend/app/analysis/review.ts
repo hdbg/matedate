@@ -9,7 +9,9 @@ import type {
   PersonaRow,
 } from "@/app/lib/supabase/types";
 
-/** One re-scored "You" move, aligned to a replay step (1..N). */
+type SupabaseClient = ReturnType<typeof createClient>;
+
+/** One graded "You" move, aligned to a replay step (1..N). */
 export interface ReviewMove {
   position: number;
   threadIndex: number; // index into `thread` so the replay can reveal up to this bubble
@@ -43,12 +45,18 @@ export interface ReviewData {
   thread: ReviewThreadItem[];
   youMoves: ReviewMove[]; // ordered; youMoves[step-1] is the move at replay step `step`
   finalEval: number; // eval after the last You move (the overview split)
+  /** False for a live-eval replay (no deep review yet) — ranks only, no comments/best lines. */
+  hasAnalysis: boolean;
+  /** Source game, when there is one — lets the replay screen request a deep review. */
+  gameId: string | null;
 }
 
 interface MoveRow {
   position: number;
   side: "You" | "Match";
   content: string;
+  eval_after: number | null;
+  eval_delta: number | null;
 }
 
 const DEFAULT_EVAL = 50;
@@ -102,44 +110,151 @@ export async function loadReview(analysisId: string): Promise<ReviewData | null>
   }
 
   // Source-game context (may be absent for non-game sources).
-  let game: GameRow | null = null;
-  let solo: SoloGameRow | null = null;
-  let persona: PersonaRow | null = null;
-  let sourceMoves: MoveRow[] = [];
-
-  if (analysis.game_id) {
-    const [{ data: g }, { data: s }, { data: mv }] = await Promise.all([
-      supabase.from("games").select("*").eq("id", analysis.game_id).maybeSingle(),
-      supabase.from("solo_games").select("*").eq("game_id", analysis.game_id).maybeSingle(),
-      supabase
-        .from("moves")
-        .select("position, side, content")
-        .eq("game_id", analysis.game_id)
-        .order("position"),
-    ]);
-    game = (g as GameRow) ?? null;
-    solo = (s as SoloGameRow) ?? null;
-    sourceMoves = (mv ?? []) as MoveRow[];
-    if (solo?.persona_id) {
-      const { data: p } = await supabase
-        .from("personas")
-        .select("*")
-        .eq("id", solo.persona_id)
-        .maybeSingle();
-      persona = (p as PersonaRow) ?? null;
-    }
-  }
-
-  // Build the rendered thread, attaching each verdict to its You bubble by position.
-  const thread: ReviewThreadItem[] = [];
-  const youMoves: ReviewMove[] = [];
+  const source = analysis.game_id
+    ? await loadGameContext(supabase, analysis.game_id)
+    : { game: null, solo: null, persona: null, moves: [] as MoveRow[] };
 
   const rows: MoveRow[] =
-    sourceMoves.length > 0
-      ? sourceMoves
+    source.moves.length > 0
+      ? source.moves
       : // No transcript: reconstruct a You-only thread from the analysis snapshots.
-        analysisMoves.map((m) => ({ position: m.position, side: "You" as const, content: m.content }));
+        analysisMoves.map((m) => ({
+          position: m.position,
+          side: "You" as const,
+          content: m.content,
+          eval_after: m.eval_after,
+          eval_delta: m.eval_delta,
+        }));
 
+  const { thread, youMoves } = buildThread(rows, verdictByPosition);
+
+  return {
+    title: analysis.title,
+    description: analysis.description,
+    tags: analysis.tags ?? [],
+    accuracy: source.game?.accuracy ?? null,
+    ratingDelta: source.solo?.rating_delta ?? null,
+    personaName: source.persona?.name ?? null,
+    endReason: source.game?.end_reason ?? null,
+    dateISO: source.game?.created_at ?? analysis.created_at,
+    thread,
+    youMoves,
+    finalEval: finalEval(youMoves),
+    hasAnalysis: true,
+    gameId: analysis.game_id,
+  };
+}
+
+/**
+ * Load the review screen for a game, whether or not a deep review exists yet. With one (latest
+ * created_at wins — re-analysis is allowed) it delegates to `loadReview`. Without one it builds a
+ * replay from the live move evals: the same ranks the player already saw in-game, but no comments
+ * and no best lines — hints stay behind the deep review. Null when the game isn't visible (RLS)
+ * or not completed.
+ */
+export async function loadReviewByGame(gameId: string): Promise<ReviewData | null> {
+  const supabase = createClient();
+
+  const [{ data: gameRow }, { data: analysisRow }] = await Promise.all([
+    supabase.from("games").select("*").eq("id", gameId).maybeSingle(),
+    supabase
+      .from("game_analyses")
+      .select("id")
+      .eq("game_id", gameId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  const game = (gameRow ?? null) as GameRow | null;
+  if (!game || game.status !== "completed") return null;
+
+  const analysisId = (analysisRow as Pick<GameAnalysisRow, "id"> | null)?.id;
+  if (analysisId) return loadReview(analysisId);
+
+  const source = await loadGameContext(supabase, gameId, game);
+
+  // Grade the You moves off their live evals. `isTop` is forced so the per-move panel never
+  // renders a best-line box (not even a locked teaser) — there is no line to reveal yet.
+  const verdictByPosition = new Map<number, Omit<ReviewMove, "threadIndex">>();
+  for (const m of source.moves) {
+    if (m.side !== "You") continue;
+    verdictByPosition.set(m.position, {
+      position: m.position,
+      classKey: classifyEvalDelta(m.eval_delta, m.eval_after),
+      swing: (m.eval_delta ?? 0) / 10,
+      evalAfter: m.eval_after ?? DEFAULT_EVAL,
+      comment: "",
+      isTop: true,
+      bestLine: null,
+      bestLineLocked: false,
+    });
+  }
+
+  const { thread, youMoves } = buildThread(source.moves, verdictByPosition);
+
+  return {
+    title: game.title ?? "Game replay",
+    description: game.description ?? "Request a deep review for move-by-move coaching.",
+    tags: [],
+    accuracy: game.accuracy ?? null,
+    ratingDelta: source.solo?.rating_delta ?? null,
+    personaName: source.persona?.name ?? null,
+    endReason: game.end_reason ?? null,
+    dateISO: game.created_at,
+    thread,
+    youMoves,
+    finalEval: finalEval(youMoves),
+    hasAnalysis: false,
+    gameId,
+  };
+}
+
+/** Source-game context: the game row + its solo child, persona, and the full transcript. */
+async function loadGameContext(
+  supabase: SupabaseClient,
+  gameId: string,
+  knownGame?: GameRow,
+): Promise<{
+  game: GameRow | null;
+  solo: SoloGameRow | null;
+  persona: PersonaRow | null;
+  moves: MoveRow[];
+}> {
+  const [game, { data: s }, { data: mv }] = await Promise.all([
+    knownGame ??
+      supabase
+        .from("games")
+        .select("*")
+        .eq("id", gameId)
+        .maybeSingle()
+        .then(({ data }) => (data ?? null) as GameRow | null),
+    supabase.from("solo_games").select("*").eq("game_id", gameId).maybeSingle(),
+    supabase
+      .from("moves")
+      .select("position, side, content, eval_after, eval_delta")
+      .eq("game_id", gameId)
+      .order("position"),
+  ]);
+  const solo = (s as SoloGameRow) ?? null;
+  let persona: PersonaRow | null = null;
+  if (solo?.persona_id) {
+    const { data: p } = await supabase
+      .from("personas")
+      .select("*")
+      .eq("id", solo.persona_id)
+      .maybeSingle();
+    persona = (p as PersonaRow) ?? null;
+  }
+  return { game, solo, persona, moves: (mv ?? []) as MoveRow[] };
+}
+
+/** Build the rendered thread, attaching each verdict to its You bubble by position. */
+function buildThread(
+  rows: MoveRow[],
+  verdictByPosition: Map<number, Omit<ReviewMove, "threadIndex">>,
+): { thread: ReviewThreadItem[]; youMoves: ReviewMove[] } {
+  const thread: ReviewThreadItem[] = [];
+  const youMoves: ReviewMove[] = [];
   rows.forEach((row, threadIndex) => {
     const side = row.side === "You" ? "you" : "match";
     let move: ReviewMove | null = null;
@@ -152,22 +267,11 @@ export async function loadReview(analysisId: string): Promise<ReviewData | null>
     }
     thread.push({ key: `${row.position}-${threadIndex}`, side, content: row.content, move });
   });
+  return { thread, youMoves };
+}
 
-  const finalEval = youMoves.length > 0 ? youMoves[youMoves.length - 1].evalAfter : DEFAULT_EVAL;
-
-  return {
-    title: analysis.title,
-    description: analysis.description,
-    tags: analysis.tags ?? [],
-    accuracy: game?.accuracy ?? null,
-    ratingDelta: solo?.rating_delta ?? null,
-    personaName: persona?.name ?? null,
-    endReason: game?.end_reason ?? null,
-    dateISO: game?.created_at ?? analysis.created_at,
-    thread,
-    youMoves,
-    finalEval,
-  };
+function finalEval(youMoves: ReviewMove[]): number {
+  return youMoves.length > 0 ? youMoves[youMoves.length - 1].evalAfter : DEFAULT_EVAL;
 }
 
 /** Counts for the summary strip, derived from the re-scored moves (never stored). */

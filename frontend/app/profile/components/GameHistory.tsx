@@ -31,11 +31,10 @@ const HIGHLIGHT_TONES = {
 interface GameHistoryProps {
   counts: ProfileData["counts"];
   history: HistoryItem[];
-  onToast: (msg: string) => void;
 }
 
-/** Filterable game list. Rows with a completed deep review open it; the rest toast. */
-export function GameHistory({ counts, history, onToast }: GameHistoryProps) {
+/** Filterable game list. Rows with a completed deep review open it; the rest open the replay. */
+export function GameHistory({ counts, history }: GameHistoryProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<"all" | HistoryCategory>("all");
   const shown = filter === "all" ? history : history.filter((h) => h.category === filter);
@@ -72,9 +71,11 @@ export function GameHistory({ counts, history, onToast }: GameHistoryProps) {
                 key={item.gameId}
                 type="button"
                 onClick={() =>
-                  item.analysisId
-                    ? router.push(`/analysis/${item.analysisId}`)
-                    : onToast("No deep review for this game yet")
+                  router.push(
+                    item.analysisId
+                      ? `/analysis/${item.analysisId}`
+                      : `/analysis/game/${item.gameId}`,
+                  )
                 }
                 className="flex cursor-pointer items-center gap-3 rounded-[18px] border border-ink/[0.07] bg-white p-3.5 text-left shadow-[0_3px_9px_rgba(39,35,32,0.05)] transition-[transform,box-shadow] duration-[120ms] hover:-translate-y-0.5 hover:shadow-[0_9px_20px_rgba(39,35,32,0.11)] lg:gap-4 lg:px-[18px] lg:py-4"
               >

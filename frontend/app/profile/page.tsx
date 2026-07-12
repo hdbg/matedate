@@ -109,7 +109,7 @@ export default function ProfilePage() {
 
           <div>
             <SectionLabel>Game history</SectionLabel>
-            <GameHistory counts={data.counts} history={data.history} onToast={showToast} />
+            <GameHistory counts={data.counts} history={data.history} />
           </div>
         </div>
       </div>

@@ -14,12 +14,23 @@ interface AnalysisPanelProps {
   overview: Overview;
   move: ReviewMove | null; // the You move at `step` (null at the overview)
   onUnlock: () => void;
+  /** False for a live-eval replay: ranks only — no comments, no best-line box. */
+  hasAnalysis: boolean;
+  /** Rendered on the overview when there's no analysis yet (the request-review card). */
+  requestSlot?: React.ReactNode;
 }
 
 const LOCKED_PLACEHOLDER = "audition me sunday — I'm cooking a dangerously good shakshuka";
 
 /** The analysis card — the game overview at step 0, a per-move verdict + best line otherwise. */
-export function AnalysisPanel({ step, overview, move, onUnlock }: AnalysisPanelProps) {
+export function AnalysisPanel({
+  step,
+  overview,
+  move,
+  onUnlock,
+  hasAnalysis,
+  requestSlot,
+}: AnalysisPanelProps) {
   if (step === 0 || !move) {
     return (
       <div className="p-[18px] lg:p-[26px]">
@@ -32,7 +43,7 @@ export function AnalysisPanel({ step, overview, move, onUnlock }: AnalysisPanelP
               {overview.title}
             </div>
             <div className="mt-[3px] font-mono text-[11px] font-bold text-ink-mute">
-              Generated game report
+              {hasAnalysis ? "Generated game report" : "Game replay"}
             </div>
           </div>
         </div>
@@ -54,6 +65,7 @@ export function AnalysisPanel({ step, overview, move, onUnlock }: AnalysisPanelP
         <p className="mt-3.5 text-[13px] text-ink-mute">
           ▶ Press play or tap a move to replay the game beat by beat.
         </p>
+        {requestSlot}
       </div>
     );
   }
@@ -86,32 +98,46 @@ export function AnalysisPanel({ step, overview, move, onUnlock }: AnalysisPanelP
         </div>
       </div>
 
-      <p className="mb-3 text-[14.5px] leading-[1.5] text-ink-soft lg:text-[16px]">{move.comment}</p>
+      {/* Live replay: the rank + swing are what the player already saw in-game; the comment and
+          best line only exist once a deep review has run. */}
+      {!hasAnalysis && (
+        <p className="text-[13px] leading-[1.5] text-ink-mute">
+          Your live rating for this move. Request a deep review from the overview (step 0) for
+          coaching notes and best lines.
+        </p>
+      )}
+      {hasAnalysis && (
+        <>
+          <p className="mb-3 text-[14.5px] leading-[1.5] text-ink-soft lg:text-[16px]">
+            {move.comment}
+          </p>
 
-      <div className="relative rounded-[14px] border-[1.5px] border-ink/[0.1] bg-white px-[13px] py-[11px]">
-        <div className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-rosy-deep">
-          {free ? "✓ Top move" : "✦ Best line"}
-        </div>
-        <div
-          className={cn(
-            "text-[14.5px] font-semibold leading-[1.45] lg:text-[16px]",
-            locked && "select-none blur-[5px]",
-          )}
-        >
-          {shownLine}
-        </div>
-        {locked && (
-          <div className="absolute inset-0 grid place-items-center">
-            <button
-              type="button"
-              onClick={onUnlock}
-              className="rounded-full bg-ink px-[15px] py-[9px] font-mono text-[11px] font-bold tracking-[0.04em] text-king shadow-[var(--sh-2)] hover:bg-black"
+          <div className="relative rounded-[14px] border-[1.5px] border-ink/[0.1] bg-white px-[13px] py-[11px]">
+            <div className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-rosy-deep">
+              {free ? "✓ Top move" : "✦ Best line"}
+            </div>
+            <div
+              className={cn(
+                "text-[14.5px] font-semibold leading-[1.45] lg:text-[16px]",
+                locked && "select-none blur-[5px]",
+              )}
             >
-              🔒 Unlock best move
-            </button>
+              {shownLine}
+            </div>
+            {locked && (
+              <div className="absolute inset-0 grid place-items-center">
+                <button
+                  type="button"
+                  onClick={onUnlock}
+                  className="rounded-full bg-ink px-[15px] py-[9px] font-mono text-[11px] font-bold tracking-[0.04em] text-king shadow-[var(--sh-2)] hover:bg-black"
+                >
+                  🔒 Unlock best move
+                </button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
