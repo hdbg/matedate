@@ -73,6 +73,7 @@ PublicUnlockSource: TypeAlias = Literal["subscription", "credit", "referral", "a
 
 class PublicProfiles(BaseModel):
     age_verified_at: Optional[datetime.datetime] = Field(alias="age_verified_at")
+    avatar_path: Optional[str] = Field(alias="avatar_path")
     created_at: datetime.datetime = Field(alias="created_at")
     date_of_birth: Optional[datetime.date] = Field(alias="date_of_birth")
     dating_goal: Optional[PublicDatingGoal] = Field(alias="dating_goal")
@@ -88,6 +89,7 @@ class PublicProfiles(BaseModel):
 
 class PublicProfilesInsert(TypedDict):
     age_verified_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="age_verified_at")]]
+    avatar_path: NotRequired[Annotated[Optional[str], Field(alias="avatar_path")]]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
     date_of_birth: NotRequired[Annotated[Optional[datetime.date], Field(alias="date_of_birth")]]
     dating_goal: NotRequired[Annotated[Optional[PublicDatingGoal], Field(alias="dating_goal")]]
@@ -103,6 +105,7 @@ class PublicProfilesInsert(TypedDict):
 
 class PublicProfilesUpdate(TypedDict):
     age_verified_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="age_verified_at")]]
+    avatar_path: NotRequired[Annotated[Optional[str], Field(alias="avatar_path")]]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
     date_of_birth: NotRequired[Annotated[Optional[datetime.date], Field(alias="date_of_birth")]]
     dating_goal: NotRequired[Annotated[Optional[PublicDatingGoal], Field(alias="dating_goal")]]

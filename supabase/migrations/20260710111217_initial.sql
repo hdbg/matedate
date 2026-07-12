@@ -113,8 +113,15 @@ $$;
 
 create table public.profiles (
   id                uuid primary key references auth.users (id) on delete cascade,
-  username          text unique,
+  -- Handle, chosen at onboarding or later in the profile editor. Lowercase slug; the client
+  -- mirrors this exact pattern (frontend/app/lib/username.ts) — keep the two in sync.
+  username          text unique check (username is null or username ~ '^[a-z0-9_]{3,20}$'),
   display_name      text,
+
+  -- Profile picture: a path inside the public `avatars` storage bucket
+  -- ('{uid}/avatar-<ts>.webp'), never a full URL — the client derives the public URL from it.
+  -- Null means no photo; the UI falls back to the pawn placeholder.
+  avatar_path       text,
 
   -- 18+ gate (SPEC §8.3). We store the attested date of birth and when the gate
   -- was cleared; we deliberately do not collect data that would trigger COPPA.
@@ -1187,3 +1194,28 @@ grant all privileges on all sequences in schema public to service_role;
 alter table public.analysis_jobs replica identity full;
 alter publication supabase_realtime add table public.analysis_jobs;
 alter publication supabase_realtime add table public.game_analyses;
+
+-- ===========================================================================
+-- STORAGE — profile pictures
+-- ===========================================================================
+-- One public bucket for avatars. Objects live under a per-user prefix ('{uid}/avatar-<ts>.webp',
+-- recorded on profiles.avatar_path); reads ride the public-bucket flag (anyone with the URL — the
+-- path embeds the uid, accepted trade-off pre-launch), while writes are RLS-scoped to the caller's
+-- own folder. Only `create policy` here: `alter table storage.objects` fails on hosted Supabase
+-- (the table is owned by the platform), policies are the supported extension point.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 2097152, array['image/webp', 'image/jpeg', 'image/png'])
+on conflict (id) do nothing;
+
+create policy avatars_insert_own on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy avatars_update_own on storage.objects
+  for update to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy avatars_delete_own on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
