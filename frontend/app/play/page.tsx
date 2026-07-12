@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
 import { NotificationsBell } from "@/app/components/ui/NotificationsBell";
-import { Wordmark } from "@/app/components/ui/Wordmark";
+import { Logo } from "@/app/components/ui/Logo";
 import { createClient } from "@/app/lib/supabase/client";
 import type { TimeControl } from "@/app/lib/game/service";
 import { cn } from "@/app/lib/utils";
@@ -67,7 +67,7 @@ export default function PlayPage() {
     <AppShell>
       {/* Header — full width. Nav lives here on desktop, in the tab bar on mobile. */}
       <header className="flex flex-shrink-0 items-center justify-between gap-4 border-b border-ink/[0.06] px-5 py-3.5 lg:px-10">
-        <Wordmark className="text-[22px] tracking-[-0.03em] text-ink" />
+        <Logo markSize={30} wordmarkClassName="text-[22px] tracking-[-0.03em] text-ink" />
 
         <nav className="hidden items-center gap-1 lg:flex">
           {TABS.map((tab) => {

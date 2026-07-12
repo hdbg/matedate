@@ -14,6 +14,8 @@ export interface ProfileRow {
   id: string;
   username: string | null;
   display_name: string | null;
+  /** Path inside the public `avatars` bucket (never a URL); null → pawn placeholder. */
+  avatar_path: string | null;
   date_of_birth: string | null;
   age_verified_at: string | null;
   dating_goal: DatingGoal | null;
@@ -54,7 +56,9 @@ export interface PersonaRow {
 type ProfileUpdate = Partial<
   Pick<
     ProfileRow,
+    | "username"
     | "display_name"
+    | "avatar_path"
     | "dating_goal"
     | "texting_style"
     | "gender"

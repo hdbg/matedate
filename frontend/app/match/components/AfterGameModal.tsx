@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { Logo, LogoMark } from "@/app/components/ui/Logo";
 import { MoveIcon } from "@/app/components/ui/MoveIcon";
 import { formatSwing, type MoveClassKey } from "@/app/lib/game/service";
 import type { WireMove } from "@/app/lib/game/live";
@@ -112,18 +113,7 @@ export function AfterGameModal({
               aria-hidden
               className="h-[52px] [filter:drop-shadow(1px_0_0_rgba(39,35,32,0.25))_drop-shadow(-1px_0_0_rgba(39,35,32,0.25))_drop-shadow(0_1px_0_rgba(39,35,32,0.25))_drop-shadow(0_-1px_0_rgba(39,35,32,0.25))]"
             />
-            <span className="relative inline-block">
-              <span className="absolute left-[58%] top-[-4px] text-[26px] font-extrabold tracking-[-0.04em] text-rosy [text-shadow:0_0_18px_rgba(214,83,106,0.5)]">
-                !!
-              </span>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/assets/white-king.svg"
-                alt=""
-                aria-hidden
-                className="h-16 origin-bottom rotate-12"
-              />
-            </span>
+            <LogoMark size={64} />
           </div>
           <div className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-rosy-deep">
             {verdictLine(result.endReason)}
@@ -137,9 +127,7 @@ export function AfterGameModal({
         {/* share card */}
         <div className="overflow-hidden rounded-[22px] bg-ink text-king shadow-[var(--sh-3)]">
           <div className="flex items-center justify-between px-[17px] pb-[11px] pt-[15px]">
-            <div className="text-[18px] font-extrabold tracking-[-0.03em]">
-              Mate<span className="text-rosy">Date</span>
-            </div>
+            <Logo markSize={22} wordmarkClassName="text-[18px] tracking-[-0.03em]" />
             <div className="text-right">
               <div className="text-[24px] font-extrabold leading-none tracking-[-0.03em]">
                 {accuracy}%
