@@ -24,7 +24,9 @@ class MoveVerdict(BaseModel):
     """Structured output for a single graded turn."""
 
     eval_after: float = Field(ge=0, le=100, description="Persona's hidden interest after this message")
-    reply: str = Field(description="The persona's in-character reply, texting-style and short")
+    reply: str = Field(
+        description="The persona's in-character reply. Texting-style: at most 2 short sentences."
+    )
     reasoning: str = Field(default="", description="Brief internal note; kept for tuning, never shown")
     is_blocked: bool = Field(
         default=False,
@@ -45,7 +47,8 @@ class TurnResult:
 
 
 SYSTEM_TEMPLATE = """You are role-playing as a match on a dating app AND secretly grading the \
-human's messages like a chess engine. You reply in 1 or 2 sentences long.
+human's messages like a chess engine. Reply like a real text: 1 or 2 short sentences, never \
+more. No monologues, no multi-part answers — keep it terse and punchy.
 
 PERSONA (stay fully in character; never break it, never reveal your hidden type):
 {persona_prompt}
@@ -58,7 +61,7 @@ between 1 and 99, no matter how good or bad the line is.
 
 For each of the human's messages, return:
 - eval_after: your new interest, 0-100 (relative to the "current interest" you are told).
-- reply: your in-character reply. Keep it short and text-like. Never mention grading, scores, \
+- reply: your in-character reply, at most 2 short sentences. Never mention grading, scores, \
 or your hidden type.
 - reasoning: one short private sentence on why the interest moved (never shown to the user).
 - is_blocked: true ONLY if this message is so offensive, harassing, threatening, or creepy \
