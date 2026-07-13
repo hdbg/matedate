@@ -1,8 +1,4 @@
-import Link from "next/link";
 import { Avatar } from "@/app/components/ui/Avatar";
-import { TABS } from "@/app/components/ui/TabBar";
-import { Wordmark } from "@/app/components/ui/Wordmark";
-import { cn } from "@/app/lib/utils";
 import type { ProfileData } from "../profileData";
 
 interface ProfileHeaderProps {
@@ -35,46 +31,7 @@ export function ProfileHeader({ data, onToast, onEdit }: ProfileHeaderProps) {
         className="absolute -top-8 right-[-40px] h-[190px] w-[190px] rounded-full bg-[radial-gradient(circle,rgba(214,83,106,0.22),transparent_70%)] lg:-top-20 lg:right-16 lg:h-[320px] lg:w-[320px]"
       />
 
-      <div className="relative z-[2] mb-4 flex items-center justify-between lg:mb-6">
-        <Link href="/play">
-          <Wordmark className="text-[19px] text-king lg:text-[20px]" />
-        </Link>
-
-        {/* desktop nav — the mobile mock puts nav in the tab bar; desktop needs it here */}
-        <nav className="hidden items-center gap-1 lg:flex">
-          {TABS.map((tab) => {
-            const navClass = cn(
-              "rounded-full px-4 py-2 text-[14px] font-semibold transition-colors",
-              tab.label === "You" ? "bg-king/10 text-king" : "text-king/70 hover:bg-king/[0.08]",
-            );
-            return tab.href ? (
-              <Link key={tab.label} href={tab.href} className={navClass}>
-                {tab.label}
-              </Link>
-            ) : (
-              <button
-                key={tab.label}
-                type="button"
-                onClick={() => onToast(`${tab.label} coming soon`)}
-                className={navClass}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        <button
-          type="button"
-          title="Settings"
-          onClick={() => onToast("Settings coming soon")}
-          className="grid h-[38px] w-[38px] cursor-pointer place-items-center rounded-full border border-king/[0.16] bg-king/[0.06] text-[17px] text-king transition-colors hover:bg-king/[0.14] lg:hidden"
-        >
-          ⚙
-        </button>
-      </div>
-
-      <div className="relative z-[2] items-center gap-7 lg:flex">
+      <div className="relative z-[2] items-center gap-7 pt-3 lg:flex lg:pt-4">
         <div className="flex items-center gap-4">
           <div className="relative h-[88px] w-[88px] flex-shrink-0 lg:h-[124px] lg:w-[124px]">
             <button

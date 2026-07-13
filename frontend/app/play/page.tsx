@@ -1,15 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
-import { NotificationsBell } from "@/app/components/ui/NotificationsBell";
-import { Logo } from "@/app/components/ui/Logo";
+import { TopBar } from "@/app/components/ui/TopBar";
 import { createClient } from "@/app/lib/supabase/client";
 import type { TimeControl } from "@/app/lib/game/service";
 import { cn } from "@/app/lib/utils";
-import { TabBar, TABS } from "@/app/components/ui/TabBar";
+import { TabBar } from "@/app/components/ui/TabBar";
 import { FeaturedCard } from "./components/FeaturedCard";
 import { ModeBadge, ModeRow } from "./components/ModeRow";
 import { TimeControlSheet } from "./components/TimeControlSheet";
@@ -66,40 +64,7 @@ export default function PlayPage() {
   return (
     <AppShell>
       {/* Header — full width. Nav lives here on desktop, in the tab bar on mobile. */}
-      <header className="flex flex-shrink-0 items-center justify-between gap-4 border-b border-ink/[0.06] px-5 py-3.5 lg:px-10">
-        <Logo markSize={30} wordmarkClassName="text-[22px] tracking-[-0.03em] text-ink" />
-
-        <nav className="hidden items-center gap-1 lg:flex">
-          {TABS.map((tab) => {
-            const navClass = cn(
-              "rounded-full px-4 py-2 text-[14px] font-semibold transition-colors",
-              tab.label === "Play" ? "bg-ink text-king" : "text-ink-soft hover:bg-ink/[0.05]",
-            );
-            return tab.href ? (
-              <Link key={tab.label} href={tab.href} className={navClass}>
-                {tab.label}
-              </Link>
-            ) : (
-              <button
-                key={tab.label}
-                type="button"
-                onClick={() => showToast(`${tab.label} coming soon`)}
-                className={navClass}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="flex items-center gap-2.5">
-          <NotificationsBell />
-          <div className="flex items-center gap-2 rounded-full bg-ink py-[7px] pl-[11px] pr-[13px] text-king shadow-[0_3px_10px_rgba(39,35,32,0.2)]">
-            <span className="text-[15px]">♟</span>
-            <span className="font-mono text-[16px] font-bold">{elo}</span>
-          </div>
-        </div>
-      </header>
+      <TopBar active="Play" elo={elo} onInactive={(label) => showToast(`${label} coming soon`)} />
 
       <div className="flex-1 overflow-y-auto px-5 pb-8 pt-5 lg:px-10">
         <div className="mx-auto w-full max-w-5xl">

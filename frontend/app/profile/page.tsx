@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
 import { TabBar } from "@/app/components/ui/TabBar";
+import { TopBar } from "@/app/components/ui/TopBar";
 import { cn } from "@/app/lib/utils";
 import { CareerStats } from "./components/CareerStats";
 import { EditProfileModal } from "./components/EditProfileModal";
@@ -80,6 +81,8 @@ export default function ProfilePage() {
 
   return (
     <AppShell>
+      <TopBar active="You" elo={data.elo} onInactive={(label) => showToast(`${label} coming soon`)} />
+
       <div className="flex-1 overflow-y-auto">
         <ProfileHeader data={data} onToast={showToast} onEdit={() => setEditing(true)} />
 
