@@ -1,19 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AppShell } from "@/app/components/ui/AppShell";
-import { TopBar } from "@/app/components/ui/TopBar";
-import { createClient } from "@/app/lib/supabase/client";
 import type { TimeControl } from "@/app/lib/game/service";
-import { cn } from "@/app/lib/utils";
-import { TabBar } from "@/app/components/ui/TabBar";
 import { FeaturedCard } from "./components/FeaturedCard";
 import { ModeBadge, ModeRow } from "./components/ModeRow";
 import { TimeControlSheet } from "./components/TimeControlSheet";
-
-// New accounts start at 1000 (the player_ratings default, minted by the signup trigger).
-const FALLBACK_ELO = 1000;
+import { useToast } from "../layout";
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -25,36 +18,9 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export default function PlayPage() {
   const router = useRouter();
-  const [elo, setElo] = useState<number>(FALLBACK_ELO);
+  const showToast = useToast();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [chosenTC, setChosenTC] = useState<TimeControl>("bullet");
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const supabase = createClient();
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-      const { data } = await supabase
-        .from("player_ratings")
-        .select("elo_rating")
-        .eq("user_id", userData.user.id)
-        .maybeSingle();
-      const row = data as { elo_rating: number } | null;
-      if (active && row) setElo(row.elo_rating);
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 1900);
-  }, []);
 
   const startRanked = useCallback(() => {
     setSheetOpen(false);
@@ -62,10 +28,7 @@ export default function PlayPage() {
   }, [chosenTC, router]);
 
   return (
-    <AppShell>
-      {/* Header — full width. Nav lives here on desktop, in the tab bar on mobile. */}
-      <TopBar active="Play" elo={elo} onInactive={(label) => showToast(`${label} coming soon`)} />
-
+    <>
       <div className="flex-1 overflow-y-auto px-5 pb-8 pt-5 lg:px-10">
         <div className="mx-auto w-full max-w-5xl">
           {/* greeting */}
@@ -131,12 +94,6 @@ export default function PlayPage() {
         </div>
       </div>
 
-      <TabBar
-        className="lg:hidden"
-        active="Play"
-        onInactive={(label) => showToast(`${label} coming soon`)}
-      />
-
       <TimeControlSheet
         open={sheetOpen}
         chosen={chosenTC}
@@ -144,15 +101,6 @@ export default function PlayPage() {
         onClose={() => setSheetOpen(false)}
         onFind={startRanked}
       />
-
-      <div
-        className={cn(
-          "pointer-events-none absolute bottom-[82px] left-1/2 z-[30] -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-5 py-3 text-[14px] font-semibold text-king shadow-[0_10px_24px_rgba(39,35,32,0.3)] transition-all duration-[280ms]",
-          toast ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
-        )}
-      >
-        {toast}
-      </div>
-    </AppShell>
+    </>
   );
 }

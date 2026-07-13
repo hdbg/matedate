@@ -122,6 +122,23 @@ body {
   animation: screen-in 0.38s ease;
 }
 
+/* Tab-to-tab page transition: a soft fade + lift, gentler than the onboarding slide. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.animate-page-in {
+  animation: page-in 0.26s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-page-in {
+    animation: none;
+  }
+}
+
 @keyframes bubble-in {
   from {
     opacity: 0;

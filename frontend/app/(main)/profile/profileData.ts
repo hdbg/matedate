@@ -65,6 +65,14 @@ export interface ProfileData {
   history: HistoryItem[];
 }
 
+/** Last successful load, kept so a repeat visit paints instantly (revalidated in the background). */
+let lastProfile: ProfileData | null = null;
+
+/** The cached profile, if any — used to seed state on mount and avoid a loading flash. */
+export function cachedProfile(): ProfileData | null {
+  return lastProfile;
+}
+
 /**
  * Load + derive everything the Profile screen shows. All reads are owner-scoped by RLS
  * (`moves`/`solo_games` need no explicit game filter — their policies check game ownership).
@@ -167,7 +175,7 @@ export async function loadProfile(): Promise<ProfileData | null> {
 
   const accuracies = games.map((g) => g.accuracy).filter((a): a is number => a != null);
 
-  return {
+  lastProfile = {
     userId,
     displayName: profile?.display_name ?? profile?.username ?? "Anonymous player",
     handle: profile?.username ? `@${profile.username}` : null,
@@ -196,6 +204,7 @@ export async function loadProfile(): Promise<ProfileData | null> {
     counts,
     history,
   };
+  return lastProfile;
 }
 
 interface GameMoveStats {
