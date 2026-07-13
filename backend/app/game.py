@@ -301,7 +301,13 @@ class SoloGameService:
         qualities = [
             classify(swing_from_delta(m.eval_delta or 0.0), m.eval_after).quality for m in you_moves
         ]
-        accuracy = round(sum(qualities) / len(qualities), 2) if qualities else 0.0
+        # A timeout is a forfeit (SPEC §2.6): the exchanges the player never played count as
+        # zero-quality, so hit-and-run (one good move then idle) grades as the loss it is
+        # rather than banking positive elo on a single move's accuracy.
+        denom = len(qualities)
+        if end_reason == "timeout":
+            denom = max(denom, self._settings.solo_max_exchanges)
+        accuracy = round(sum(qualities) / denom, 2) if denom else 0.0
         # Landing the date is the best possible result — it always pays the full cap (SPEC §3).
         if end_reason == "date_landed":
             rating_delta = 25
