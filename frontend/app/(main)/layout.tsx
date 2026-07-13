@@ -1,21 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
 import { TabBar, type TabLabel } from "@/app/components/ui/TabBar";
 import { TopBar } from "@/app/components/ui/TopBar";
-import { createClient } from "@/app/lib/supabase/client";
+import { useSession } from "@/app/providers/SessionProvider";
 import { cn } from "@/app/lib/utils";
-
-/** New accounts start at 1000 (the player_ratings default, minted by the signup trigger). */
-const FALLBACK_ELO = 1000;
-
-/** Lets the tab pages raise a toast on the shared chrome without owning one each. */
-const ToastContext = createContext<(msg: string) => void>(() => {});
-export function useToast(): (msg: string) => void {
-  return useContext(ToastContext);
-}
+import { ToastContext } from "./toast";
 
 function activeTab(pathname: string): TabLabel {
   return pathname.startsWith("/profile") ? "You" : "Play";
@@ -30,7 +22,7 @@ function activeTab(pathname: string): TabLabel {
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const active = activeTab(pathname);
-  const [elo, setElo] = useState(FALLBACK_ELO);
+  const { elo } = useSession();
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -38,25 +30,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     setToast(msg);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 1900);
-  }, []);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const supabase = createClient();
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-      const { data } = await supabase
-        .from("player_ratings")
-        .select("elo_rating")
-        .eq("user_id", userData.user.id)
-        .maybeSingle();
-      const row = data as { elo_rating: number } | null;
-      if (alive && row) setElo(row.elo_rating);
-    })();
-    return () => {
-      alive = false;
-    };
   }, []);
 
   return (

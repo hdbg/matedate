@@ -3,10 +3,12 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TimeControl } from "@/app/lib/game/service";
+import { useLiveGame } from "@/app/providers/LiveGameProvider";
 import { FeaturedCard } from "./components/FeaturedCard";
 import { ModeBadge, ModeRow } from "./components/ModeRow";
+import { ResumeBanner } from "./components/ResumeBanner";
 import { TimeControlSheet } from "./components/TimeControlSheet";
-import { useToast } from "../layout";
+import { useToast } from "../toast";
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -19,6 +21,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export default function PlayPage() {
   const router = useRouter();
   const showToast = useToast();
+  const { activeGame } = useLiveGame();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [chosenTC, setChosenTC] = useState<TimeControl>("bullet");
 
@@ -26,6 +29,12 @@ export default function PlayPage() {
     setSheetOpen(false);
     router.push(`/match?mode=ranked&tc=${chosenTC}`);
   }, [chosenTC, router]);
+
+  // A game is already live: block new starts and offer a resume link instead (the backend resumes
+  // it on reconnect). The screenshot/puzzle rows aren't games, so they stay enabled. All live games
+  // run on the solo backend and `mode` is only a cosmetic label, so resume into the relaxed view.
+  const blocked = !!activeGame;
+  const resume = () => router.push("/match?mode=bot");
 
   return (
     <>
@@ -41,8 +50,12 @@ export default function PlayPage() {
             </p>
           </div>
 
+          {activeGame && (
+            <ResumeBanner personaName={activeGame.personaName} onResume={resume} />
+          )}
+
           <SectionLabel>Start here</SectionLabel>
-          <FeaturedCard onClick={() => router.push("/match?mode=bot")} />
+          <FeaturedCard onClick={() => router.push("/match?mode=bot")} disabled={blocked} />
 
           <SectionLabel>Compete</SectionLabel>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -54,6 +67,7 @@ export default function PlayPage() {
               description="Same persona, same clock. Higher accuracy wins the round."
               meta={{ value: "Gold II", label: "tier" }}
               onClick={() => setSheetOpen(true)}
+              disabled={blocked}
             />
             <ModeRow
               icon="🤖"
@@ -62,6 +76,7 @@ export default function PlayPage() {
               badge={<ModeBadge className="bg-cream-2 text-ink-soft">🤖 Disclosed AI</ModeBadge>}
               description="Unlimited casual matches vs. badged bots. Doesn't touch ranked ELO."
               onClick={() => router.push("/match?mode=bot")}
+              disabled={blocked}
             />
           </div>
 

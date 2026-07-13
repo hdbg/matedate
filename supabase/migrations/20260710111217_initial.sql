@@ -1195,6 +1195,14 @@ alter table public.analysis_jobs replica identity full;
 alter publication supabase_realtime add table public.analysis_jobs;
 alter publication supabase_realtime add table public.game_analyses;
 
+-- The Play screen also watches games live: the client's LiveGameProvider subscribes to its own
+-- games rows so it can block the queue buttons and offer "resume" while a game is active, and clear
+-- that state the instant the engine flips status to completed/abandoned. REPLICA IDENTITY FULL lets
+-- realtime evaluate the owner RLS (games_select_own) against UPDATEs (status → completed) as well as
+-- the INSERT that opens a game.
+alter table public.games replica identity full;
+alter publication supabase_realtime add table public.games;
+
 -- ===========================================================================
 -- STORAGE — profile pictures
 -- ===========================================================================

@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
-import { createClient } from "@/app/lib/supabase/client";
+import { useLiveGame } from "@/app/providers/LiveGameProvider";
+import { useSupabase } from "@/app/providers/SupabaseProvider";
 import {
   TIME_CONTROL_LABEL,
   type TimeControl,
@@ -33,7 +34,16 @@ function MatchScreen() {
   const timeControl = parseTimeControl(searchParams.get("tc"));
 
   const game = useMatchGame(mode);
+  const supabase = useSupabase();
+  const { refresh: refreshLiveGame } = useLiveGame();
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
+
+  // The game just finished server-side (status → completed): clear the global "active game" signal
+  // right away so the Play screen is unblocked when the player returns (realtime also covers this).
+  const finished = !!game.result;
+  useEffect(() => {
+    if (finished) void refreshLiveGame();
+  }, [finished, refreshLiveGame]);
 
   // The socket has already closed by now (game over). Requesting a deep review is fire-and-forget:
   // the Supabase RPC queues the job and we're done here — no waiting, no redirect. The main
@@ -42,7 +52,6 @@ function MatchScreen() {
     if (!game.result) return;
     setAnalysisStatus("pending");
     try {
-      const supabase = createClient();
       const { data, error } = await supabase.rpc("request_game_analysis", {
         p_game_id: game.result.gameId,
       });

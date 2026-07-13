@@ -2,12 +2,13 @@
  * Featured "Solo vs. the AI date" promo card with the hero scene bleeding off
  * the corner. Dark surface, rosy CTA.
  */
-export function FeaturedCard({ onClick }: { onClick: () => void }) {
+export function FeaturedCard({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="relative w-full overflow-hidden rounded-3xl bg-ink px-5 pb-[18px] pt-5 text-left text-king shadow-[0_14px_30px_rgba(39,35,32,0.28)] transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0"
+      disabled={disabled}
+      className="relative w-full overflow-hidden rounded-3xl bg-ink px-5 pb-[18px] pt-5 text-left text-king shadow-[0_14px_30px_rgba(39,35,32,0.28)] transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 disabled:pointer-events-none disabled:opacity-55"
     >
       <div className="absolute -bottom-3.5 -right-1.5 flex items-end gap-0.5 opacity-90">
         {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createClient } from "@/app/lib/supabase/client";
+import { useSession } from "@/app/providers/SessionProvider";
+import { useSupabase } from "@/app/providers/SupabaseProvider";
 import type { AnalysisJobRow } from "@/app/lib/supabase/types";
 
 /** A terminal analysis outcome surfaced in the notifications bell. */
@@ -49,6 +50,8 @@ function toNotification(job: AnalysisJobRow): AnalysisNotification | null {
  * tracked in localStorage so the badge survives reloads; `markAllRead` clears it (call on open).
  */
 export function useAnalysisNotifications() {
+  const supabase = useSupabase();
+  const { userId } = useSession();
   const [notifications, setNotifications] = useState<AnalysisNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const seenRef = useRef<Set<string>>(loadSeen());
@@ -77,7 +80,7 @@ export function useAnalysisNotifications() {
   }, [notifications]);
 
   useEffect(() => {
-    const supabase = createClient();
+    if (!userId) return;
     // The channel is created after `await`s; a `cancelled` guard checked after each await lets a
     // torn-down mount (React StrictMode double-invokes effects) bail before subscribing — otherwise
     // the second mount reuses the same-named channel instance and `.on()` throws "after subscribe()".
@@ -85,10 +88,6 @@ export function useAnalysisNotifications() {
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
     (async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id;
-      if (!userId || cancelled) return;
-
       // Catch up on reviews that finished while we weren't listening.
       const { data } = await supabase
         .from("analysis_jobs")
@@ -127,7 +126,7 @@ export function useAnalysisNotifications() {
       cancelled = true;
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [recount, upsert]);
+  }, [supabase, userId, recount, upsert]);
 
   return { notifications, unread, markAllRead };
 }

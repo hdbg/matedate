@@ -9,7 +9,8 @@ import { PreferencesCard } from "./components/PreferencesCard";
 import { ProfileHeader } from "./components/ProfileHeader";
 import { RankCard } from "./components/RankCard";
 import { cachedProfile, loadProfile, type ProfileData } from "./profileData";
-import { useToast } from "../layout";
+import { useSession } from "@/app/providers/SessionProvider";
+import { useToast } from "../toast";
 
 function SectionLabel({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   return (
@@ -23,6 +24,7 @@ function SectionLabel({ children, action }: { children: React.ReactNode; action?
 export default function ProfilePage() {
   const router = useRouter();
   const showToast = useToast();
+  const { refresh: refreshSession } = useSession();
   // Seed from the module cache so a repeat visit paints instantly and revalidates in the
   // background — no full-screen "Loading profile…" flash when tabbing back.
   const cached = cachedProfile();
@@ -112,6 +114,8 @@ export default function ProfilePage() {
           onSaved={(msg) => {
             showToast(msg);
             void reload();
+            // Keep the shared chrome (TopBar ELO / identity) in sync with the edit.
+            void refreshSession();
           }}
           onClose={() => setEditing(false)}
         />

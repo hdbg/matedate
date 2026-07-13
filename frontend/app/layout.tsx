@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Space_Mono } from "next/font/google";
+import { AppProviders } from "./providers/AppProviders";
 import "./globals.css";
 
 const bricolage = Bricolage_Grotesque({
@@ -30,7 +31,9 @@ export default function RootLayout({
       lang="en"
       className={`${bricolage.variable} ${spaceMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }

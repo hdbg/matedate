@@ -10,6 +10,7 @@ interface ModeRowProps {
   /** Right-aligned meta (e.g. tier / count) shown instead of the chevron. */
   meta?: { value: string; label: string };
   onClick: () => void;
+  disabled?: boolean;
 }
 
 export function ModeRow({
@@ -20,12 +21,14 @@ export function ModeRow({
   description,
   meta,
   onClick,
+  disabled,
 }: ModeRowProps) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-[15px] rounded-[20px] border border-ink/[0.07] bg-white p-4 text-left shadow-[0_3px_10px_rgba(39,35,32,0.06)] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_22px_rgba(39,35,32,0.12)] active:translate-y-0"
+      disabled={disabled}
+      className="flex w-full items-center gap-[15px] rounded-[20px] border border-ink/[0.07] bg-white p-4 text-left shadow-[0_3px_10px_rgba(39,35,32,0.06)] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_22px_rgba(39,35,32,0.12)] active:translate-y-0 disabled:pointer-events-none disabled:opacity-55"
     >
       <div className={cn("grid h-[52px] w-[52px] flex-shrink-0 place-items-center rounded-[15px] text-[25px]", iconClassName)}>
         {icon}
