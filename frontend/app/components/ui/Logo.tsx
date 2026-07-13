@@ -8,9 +8,9 @@ interface LogoMarkProps {
 }
 
 /**
- * The tilted king with its "!!" burst. The marks sit BEHIND the piece (king paints on top via
- * z-index — an absolutely-positioned sibling would otherwise stack over the in-flow img) and are
- * angled with the king's lean, peeking out past the crown's right shoulder.
+ * The tilted king with its "!!" burst. The marks sit off the king's top-right corner with a small
+ * gap (angled with the king's lean) so they clear the cross instead of overlapping it. They keep a
+ * lower z-index than the king so, if a size ever tightens the gap, the piece still paints on top.
  */
 export function LogoMark({ size = 28, className }: LogoMarkProps) {
   return (
@@ -20,7 +20,7 @@ export function LogoMark({ size = 28, className }: LogoMarkProps) {
       style={{ width: size, height: size }}
     >
       <span
-        className="absolute left-[52%] top-[-16%] z-0 rotate-[24deg] font-extrabold leading-none tracking-[-0.04em] text-rosy [text-shadow:0_0_18px_rgba(214,83,106,0.5)]"
+        className="absolute left-[76%] top-[-30%] z-0 rotate-[24deg] font-extrabold leading-none tracking-[-0.04em] text-rosy [text-shadow:0_0_18px_rgba(214,83,106,0.5)]"
         style={{ fontSize: size * 0.45 }}
       >
         !!

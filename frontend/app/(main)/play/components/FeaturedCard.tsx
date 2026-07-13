@@ -1,6 +1,7 @@
 /**
- * Featured "Solo vs. the AI date" promo card with the hero scene bleeding off
- * the corner. Dark surface, rosy CTA.
+ * Featured "Solo vs. the AI date" promo card with the hero scene anchored fully inside the
+ * bottom-right corner (the card clips overflow, so the pieces stay within the padding). Dark
+ * surface, rosy CTA.
  */
 export function FeaturedCard({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
   return (
@@ -10,7 +11,7 @@ export function FeaturedCard({ onClick, disabled }: { onClick: () => void; disab
       disabled={disabled}
       className="relative w-full overflow-hidden rounded-3xl bg-ink px-5 pb-[18px] pt-5 text-left text-king shadow-[0_14px_30px_rgba(39,35,32,0.28)] transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 disabled:pointer-events-none disabled:opacity-55"
     >
-      <div className="absolute -bottom-3.5 -right-1.5 flex items-end gap-0.5 opacity-90">
+      <div className="absolute bottom-2 right-4 flex items-end gap-0.5 opacity-90">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/assets/black-queen.svg"
@@ -19,7 +20,7 @@ export function FeaturedCard({ onClick, disabled }: { onClick: () => void; disab
           className="h-24 [filter:drop-shadow(1px_0_0_rgba(241,232,217,0.4))_drop-shadow(-1px_0_0_rgba(241,232,217,0.4))_drop-shadow(0_1px_0_rgba(241,232,217,0.4))_drop-shadow(0_-1px_0_rgba(241,232,217,0.4))]"
         />
         <div className="relative">
-          <span className="absolute left-[64%] -top-0.5 text-[34px] font-extrabold tracking-[-0.04em] text-rosy [text-shadow:0_0_20px_rgba(214,83,106,0.55)]">
+          <span className="absolute left-[74%] -top-[26px] rotate-[24deg] text-[34px] font-extrabold tracking-[-0.04em] text-rosy [text-shadow:0_0_20px_rgba(214,83,106,0.55)]">
             !!
           </span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
