@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
 import { useLiveGame } from "@/app/providers/LiveGameProvider";
 import { useSupabase } from "@/app/providers/SupabaseProvider";
+import { useSession } from "@/app/providers/SessionProvider";
 import {
   TIME_CONTROL_LABEL,
   type TimeControl,
@@ -15,6 +16,7 @@ import { Composer } from "./components/Composer";
 import { CompetitiveStrip } from "./components/CompetitiveStrip";
 import { EvalBar } from "./components/EvalBar";
 import { MatchHeader } from "./components/MatchHeader";
+import { MatchIntro } from "./components/MatchIntro";
 import { MessageThread } from "./components/MessageThread";
 import { VerdictFlash } from "./components/VerdictFlash";
 import { useMatchGame } from "./useMatchGame";
@@ -35,6 +37,7 @@ function MatchScreen() {
 
   const game = useMatchGame(mode);
   const supabase = useSupabase();
+  const session = useSession();
   const { refresh: refreshLiveGame } = useLiveGame();
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
 
@@ -139,6 +142,20 @@ function MatchScreen() {
           {game.verdict && <VerdictFlash key={game.verdict.id} verdict={game.verdict} />}
         </main>
       </div>
+      {game.persona && game.intro && (
+        <MatchIntro
+          mode={mode}
+          timeControl={timeControl}
+          persona={game.persona}
+          player={{
+            displayName: session.displayName,
+            username: session.username,
+            avatarPath: session.avatarPath,
+            elo: session.elo,
+          }}
+          onDone={game.beginPlay}
+        />
+      )}
       {game.result && (
         <AfterGameModal
           result={game.result}

@@ -76,6 +76,9 @@ export function useMatchGame(mode: VersusMode) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GameResult | null>(null);
+  // A brand-new game opens on the "opponent found" intro: the clock is held until `beginPlay`
+  // (the server bakes a matching grace into the first turn). Reconnects skip it — see game_state.
+  const [intro, setIntro] = useState(false);
 
   const idRef = useRef(0);
   const nextId = useCallback(() => ++idRef.current, []);
@@ -109,7 +112,7 @@ export function useMatchGame(mode: VersusMode) {
   }, [appendMessage]);
 
   const clock = useMatchClock(handleFlag);
-  const { start: startClock, stop: stopClock } = clock;
+  const { start: startClock, stop: stopClock, set: setClock } = clock;
 
   useEffect(() => {
     interestRef.current = interest;
@@ -176,7 +179,10 @@ export function useMatchGame(mode: VersusMode) {
           setOppAcc(0);
           setFlagged(false);
           setTyping(false);
-          startClock(budgetRef.current);
+          // Hold the clock across the intro; `beginPlay` starts it when the animation completes.
+          // Seed the display with the full bank (paused) so the board reveals a correct clock, not 0:00.
+          setClock(budgetRef.current);
+          setIntro(true);
           break;
         }
         case "game_state": {
@@ -187,6 +193,7 @@ export function useMatchGame(mode: VersusMode) {
           rebuildFromMoves(msg.moves);
           setFlagged(false);
           setTyping(false);
+          setIntro(false); // reconnect resumes straight into play — no intro
           startClock(Math.max(1, Math.round(msg.time_left / 1000)));
           break;
         }
@@ -237,7 +244,7 @@ export function useMatchGame(mode: VersusMode) {
         }
       }
     },
-    [nextId, appendMessage, scoreAccuracy, rebuildFromMoves, startClock, stopClock],
+    [nextId, appendMessage, scoreAccuracy, rebuildFromMoves, startClock, stopClock, setClock],
   );
 
   // Keep the latest handler in a ref so the mount-once socket effect always calls current logic.
@@ -306,8 +313,17 @@ export function useMatchGame(mode: VersusMode) {
 
   const dismissResult = useCallback(() => setResult(null), []);
 
+  // Called when the "opponent found" intro finishes (or is skipped): start the held clock at the
+  // full base bank and hand control to the player. No-op on reconnect (intro was never set).
+  const beginPlay = useCallback(() => {
+    setIntro((wasIntro) => {
+      if (wasIntro) startClock(budgetRef.current);
+      return false;
+    });
+  }, [startClock]);
+
   const warn = clock.running && clock.remaining <= 10;
-  const inputDisabled = flagged || typing || !ready;
+  const inputDisabled = flagged || typing || !ready || intro;
 
   return {
     persona,
@@ -322,11 +338,13 @@ export function useMatchGame(mode: VersusMode) {
     ready,
     error,
     result,
+    intro,
     inputDisabled,
     clock: { remaining: clock.remaining, running: clock.running, warn },
     send,
     sendSuggestion,
     dismissResult,
+    beginPlay,
   };
 }
 

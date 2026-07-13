@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     solo_base_seconds: int = 30
     solo_increment_seconds: int = 5
     solo_max_exchanges: int = 6
+    # One-time pre-game grace baked into the FIRST turn's deadline so the client's "opponent found"
+    # intro plays off-clock: the player still gets the full base bank once play begins. Keep this in
+    # sync with the frontend intro duration (`INTRO_MS` in app/match/components/MatchIntro.tsx).
+    solo_intro_grace_seconds: int = 5
 
     # Post-game deep analysis (chess.com "game review" style). Runs on a stronger model than
     # live play, still via OpenRouter (same key). A separate worker consumes the game_analysis

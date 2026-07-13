@@ -115,17 +115,21 @@ class SoloGameService:
         self._arm(None, None)
 
     async def _start_or_resume(self, user_id: str) -> list[BaseModel]:
+        # A freshly created game arms its first-turn timeout with the same base+grace deadline
+        # `_create_game` inserted, so the intro window isn't charged and the proactive timer agrees.
+        first_turn_seconds = self._settings.solo_base_seconds + self._settings.solo_intro_grace_seconds
+
         game = await self._load_active(user_id)
         if game is None:
             new_game = await self._create_game(user_id)
-            self._arm(user_id, _now() + timedelta(seconds=self._settings.solo_base_seconds))
+            self._arm(user_id, _now() + timedelta(seconds=first_turn_seconds))
             return [new_game]
 
         deadline = game.solo.turn_deadline
         if deadline is not None and _now() > deadline:
             finish = await self._finish(game, "timeout")
             fresh = await self._create_game(user_id)
-            self._arm(user_id, _now() + timedelta(seconds=self._settings.solo_base_seconds))
+            self._arm(user_id, _now() + timedelta(seconds=first_turn_seconds))
             return [finish, fresh]
 
         if deadline is None:
@@ -271,7 +275,9 @@ class SoloGameService:
             persona = await pick_persona(self._db)
         base_seconds = self._settings.solo_base_seconds
         increment_seconds = self._settings.solo_increment_seconds
-        deadline = _now() + timedelta(seconds=base_seconds)
+        # First turn gets a one-time grace so the client's ~5s intro is off-clock; `time` still
+        # reports the base bank, so the player sees (and gets) the full base once the intro ends.
+        deadline = _now() + timedelta(seconds=base_seconds + self._settings.solo_intro_grace_seconds)
         await self._insert_game(user_id, persona, base_seconds, increment_seconds, deadline)
         return NewGameMsg(persona=_persona_out(persona), time=base_seconds * 1000)
 

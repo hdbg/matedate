@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MateDate · Opponent Found</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --cream:#f1e8d9; --cream-2:#e7dcc8; --paper:#f7f0e3;
+    --ink:#272320; --ink-soft:#4a443c; --ink-mute:#8a8175;
+    --king:#fbf6ec; --rosy:#d6536a; --rosy-deep:#b8324c; --rosy-tint:#f3d9de;
+    --m-good:#5f9a55; --gold:#c99a33;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; }
+  body{
+    background:#ddd6ca;
+    background-image:radial-gradient(circle at 30% 20%, #e6dfd2, #d2cabd);
+    font-family:'Bricolage Grotesque', system-ui, sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:100vh; padding:20px 24px 24px; color:var(--ink); gap:16px;
+  }
+  .mono{ font-family:'Space Mono', monospace; }
+
+  /* demo toggle (outside phone) */
+  .democtrl{ display:flex; align-items:center; gap:10px; background:rgba(39,35,32,.9); padding:7px 8px 7px 16px; border-radius:999px; box-shadow:0 8px 24px rgba(39,35,32,.28); }
+  .democtrl .dl{ font-family:'Space Mono',monospace; font-weight:700; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#cfc6b6; }
+  .seg{ display:flex; background:rgba(255,255,255,.1); border-radius:999px; padding:3px; }
+  .seg button{ font-family:'Space Mono',monospace; font-weight:700; font-size:11px; letter-spacing:.04em; color:#cfc6b6; background:none; border:none; padding:7px 14px; border-radius:999px; cursor:pointer; transition:.18s; }
+  .seg button.on{ background:var(--rosy); color:#fff; }
+  .democtrl .replay{ font-family:'Space Mono',monospace; font-weight:700; font-size:11px; color:var(--king); background:rgba(255,255,255,.12); border:none; padding:8px 14px; border-radius:999px; cursor:pointer; }
+  .democtrl .replay:hover{ background:rgba(255,255,255,.22); }
+
+  .phone{
+    width:390px; max-width:100%; height:min(844px, calc(100vh - 96px));
+    border-radius:40px; overflow:hidden;
+    box-shadow:0 30px 70px rgba(39,35,32,.34), 0 2px 0 rgba(255,255,255,.5) inset;
+    position:relative; display:flex; flex-direction:column;
+    background:var(--ink);
+  }
+  /* stage backdrop */
+  .stage{
+    position:absolute; inset:0; overflow:hidden;
+    background:
+      radial-gradient(120% 80% at 50% 32%, rgba(214,83,106,.20), transparent 60%),
+      radial-gradient(circle at 50% 40%, #322c28, #201d1a 70%);
+  }
+  /* animated impact flash filling the screen */
+  .flash{ position:absolute; inset:0; background:radial-gradient(circle at 50% 40%, rgba(255,255,255,.9), rgba(214,83,106,.35) 30%, transparent 60%); opacity:0; pointer-events:none; z-index:6; }
+  /* speed streaks */
+  .streaks{ position:absolute; inset:0; opacity:0; pointer-events:none; background:
+     repeating-linear-gradient(90deg, transparent 0 22px, rgba(251,246,236,.05) 22px 24px); z-index:1; }
+
+  .statusbar{ height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:0 26px; font-family:'Space Mono',monospace; font-weight:700; font-size:13px; color:var(--king); position:relative; z-index:8; }
+  .statusbar .dots-r{ display:flex; gap:5px; align-items:center; }
+  .statusbar .sig{ width:16px; height:10px; background:currentColor; border-radius:2px; opacity:.85; }
+  .statusbar .bat{ width:22px; height:11px; border:1.5px solid currentColor; border-radius:3px; position:relative; }
+  .statusbar .bat::after{ content:''; position:absolute; left:1.5px; top:1.5px; bottom:1.5px; width:82%; background:currentColor; border-radius:1px; }
+
+  .content{ position:relative; z-index:5; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 24px 26px; color:var(--king); }
+
+  /* eyebrow */
+  .eyebrow{ font-family:'Space Mono',monospace; font-weight:700; text-transform:uppercase; letter-spacing:.26em; font-size:12px; color:var(--rosy); height:16px; position:relative; width:100%; text-align:center; margin-top:6px; }
+  .eyebrow span{ position:absolute; inset:0; opacity:0; }
+  .eyebrow .searching{ color:var(--ink-mute); }
+
+  .title{ font-weight:800; letter-spacing:-.035em; font-size:34px; line-height:1; margin:14px 0 0; text-align:center; opacity:0; }
+  .title .b{ color:var(--rosy); }
+
+  /* ---- face-off ---- */
+  .faceoff{
+    position:relative; flex:1; width:100%;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 6px; margin-top:6px;
+  }
+  .fighter{ display:flex; flex-direction:column; align-items:center; gap:12px; width:128px; }
+  .avatar-wrap{ position:relative; width:118px; height:118px; }
+  .avatar-wrap image-slot{ width:118px; height:118px; border-radius:50%; border:3px solid var(--rosy); box-shadow:0 10px 30px rgba(0,0,0,.4); }
+  .fighter.opp .avatar-wrap image-slot{ border-color:var(--gold); }
+  .tier-chip{ position:absolute; bottom:-6px; left:50%; transform:translateX(-50%); background:var(--gold); color:var(--ink); font-family:'Space Mono',monospace; font-weight:700; font-size:9px; letter-spacing:.05em; padding:3px 9px; border-radius:999px; border:2px solid var(--ink); white-space:nowrap; }
+  .finfo{ text-align:center; }
+  .fname{ font-weight:800; font-size:18px; letter-spacing:-.02em; line-height:1.05; }
+  .fhandle{ font-family:'Space Mono',monospace; font-size:11px; color:var(--ink-mute); margin-top:3px; }
+  .felo{ font-family:'Space Mono',monospace; font-weight:700; font-size:20px; margin-top:9px; display:inline-flex; align-items:center; gap:5px; }
+  .felo .pc{ color:var(--rosy); }
+  .felo .lbl{ display:block; font-size:8px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-mute); margin-top:2px; }
+  .badge-ai{ font-family:'Space Mono',monospace; font-weight:700; font-size:10px; letter-spacing:.04em; padding:5px 11px; border-radius:999px; background:rgba(251,246,236,.12); color:var(--king); border:1px solid rgba(251,246,236,.22); margin-top:9px; }
+
+  /* animation entrances */
+  .fighter.you{ transform:translateX(-160%); opacity:0; }
+  .fighter.opp{ transform:translateX(160%); opacity:0; }
+
+  /* VS medallion */
+  .vs{
+    position:absolute; left:50%; top:38%; transform:translate(-50%,-50%) scale(0);
+    z-index:7; display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none;
+  }
+  .vs .medal{
+    width:78px; height:78px; border-radius:50%; display:grid; place-items:center;
+    background:linear-gradient(150deg,var(--rosy),var(--rosy-deep));
+    box-shadow:0 0 0 5px rgba(214,83,106,.22), 0 14px 34px rgba(184,50,76,.5);
+    font-weight:800; font-size:26px; letter-spacing:-.03em; color:#fff; position:relative;
+  }
+  .vs .swords{ position:absolute; top:-26px; font-size:34px; filter:drop-shadow(0 2px 4px rgba(0,0,0,.4)); }
+  .bang{ position:absolute; top:-14px; right:-22px; color:var(--king); font-weight:800; font-size:30px; letter-spacing:-.04em; text-shadow:0 0 20px rgba(255,255,255,.6); opacity:0; }
+
+  /* ---- footer: matchup terms + cta ---- */
+  .terms{ display:flex; align-items:center; justify-content:center; gap:8px; font-family:'Space Mono',monospace; font-weight:700; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#cfc6b6; margin-bottom:14px; opacity:0; }
+  .terms .pill{ background:rgba(251,246,236,.1); border:1px solid rgba(251,246,236,.16); padding:6px 12px; border-radius:999px; }
+  .terms .pill.rosy{ background:var(--rosy); border-color:var(--rosy); color:#fff; }
+  .cta-wrap{ width:100%; opacity:0; }
+  .countdown{ text-align:center; font-family:'Space Mono',monospace; font-weight:700; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-mute); margin-bottom:10px; }
+  .countdown b{ color:var(--rosy); }
+  .btn{ font-family:'Bricolage Grotesque',sans-serif; font-weight:700; border:none; cursor:pointer; border-radius:999px; padding:16px 24px; font-size:17px; width:100%; color:#fff; background:var(--rosy); box-shadow:0 6px 0 var(--rosy-deep); transition:transform .12s, box-shadow .12s, background .15s; text-decoration:none; display:block; text-align:center; }
+  .btn:hover{ background:var(--rosy-deep); }
+  .btn:active{ box-shadow:0 3px 0 var(--rosy-deep); transform:translateY(3px); }
+
+  /* ============ animation states (added on .play) ============ */
+  .play .eyebrow .searching{ animation:ebSearch 1.1s ease forwards; }
+  .play .eyebrow .found{ animation:ebFound .5s ease .95s forwards; }
+  .play .title{ animation:rise .5s cubic-bezier(.3,1.2,.4,1) 1.15s forwards; }
+  .play .fighter.you{ animation:chargeL .62s cubic-bezier(.18,.75,.2,1.05) .95s forwards; }
+  .play .fighter.opp{ animation:chargeR .62s cubic-bezier(.18,.75,.2,1.05) .95s forwards; }
+  .play .streaks{ animation:streak .62s ease .95s; }
+  .play .flash{ animation:flashHit .5s ease 1.5s; }
+  .play .stage{ animation:shake .4s ease 1.5s; }
+  .play .vs{ animation:vsPop 1s cubic-bezier(.3,1.4,.4,1) 1.52s forwards; }
+  .play .vs .bang{ animation:bang .7s cubic-bezier(.2,.9,.25,1) 1.62s forwards; }
+  .play .terms{ animation:rise .5s ease 1.85s forwards; }
+  .play .cta-wrap{ animation:rise .5s ease 2.05s forwards; }
+
+  @keyframes ebSearch{ 0%{ opacity:0; } 15%,80%{ opacity:1; } 100%{ opacity:0; } }
+  @keyframes ebFound{ from{ opacity:0; transform:scale(.9); } to{ opacity:1; transform:scale(1); } }
+  @keyframes rise{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes chargeL{ 0%{ transform:translateX(-160%); opacity:0; } 55%{ opacity:1; } 78%{ transform:translateX(8%); } 100%{ transform:translateX(0); opacity:1; } }
+  @keyframes chargeR{ 0%{ transform:translateX(160%); opacity:0; } 55%{ opacity:1; } 78%{ transform:translateX(-8%); } 100%{ transform:translateX(0); opacity:1; } }
+  @keyframes streak{ 0%{ opacity:0; transform:scaleX(1); } 40%{ opacity:1; } 100%{ opacity:0; transform:scaleX(1.4); } }
+  @keyframes flashHit{ 0%{ opacity:0; } 20%{ opacity:1; } 100%{ opacity:0; } }
+  @keyframes shake{ 0%,100%{ transform:translate(0,0); } 20%{ transform:translate(-6px,3px); } 40%{ transform:translate(5px,-3px); } 60%{ transform:translate(-4px,-2px); } 80%{ transform:translate(3px,2px); } }
+  @keyframes vsPop{ 0%{ transform:translate(-50%,-50%) scale(0) rotate(-18deg); } 55%{ transform:translate(-50%,-50%) scale(1.25) rotate(6deg); } 75%{ transform:translate(-50%,-50%) scale(.92) rotate(-2deg); } 100%{ transform:translate(-50%,-50%) scale(1) rotate(0); } }
+  @keyframes bang{ 0%{ opacity:0; transform:scale(0) rotate(12deg); } 40%{ opacity:1; transform:scale(1.3) rotate(12deg); } 60%{ transform:scale(.95) rotate(12deg); } 100%{ opacity:1; transform:scale(1) rotate(12deg); } }
+
+  @media (prefers-reduced-motion: reduce){
+    .fighter.you,.fighter.opp{ transform:none !important; opacity:1 !important; }
+    .title,.terms,.cta-wrap{ opacity:1 !important; }
+    .vs{ transform:translate(-50%,-50%) scale(1) !important; }
+    .vs .bang{ opacity:1 !important; }
+    .eyebrow .found{ opacity:1 !important; }
+    .play *{ animation:none !important; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="democtrl">
+    <span class="dl">Preview as</span>
+    <div class="seg">
+      <button class="on" id="segRanked" onclick="setMode('ranked')">⚔️ Ranked</button>
+      <button id="segBot" onclick="setMode('bot')">🤖 Practice</button>
+    </div>
+    <button class="replay" onclick="replay()">↻ Replay</button>
+  </div>
+
+<div class="phone" data-screen-label="Opponent found">
+  <div class="stage" id="stage"></div>
+  <div class="streaks"></div>
+  <div class="flash"></div>
+
+  <div class="statusbar">
+    <span>9:41</span>
+    <span class="dots-r"><span class="sig"></span><span class="mono" style="font-size:11px;">5G</span><span class="bat"></span></span>
+  </div>
+
+  <div class="content">
+    <div class="eyebrow">
+      <span class="searching">Finding a worthy opponent…</span>
+      <span class="found" id="ebFound">⚔️ Opponent found</span>
+    </div>
+    <h1 class="title">Make your <span class="b">move.</span></h1>
+
+    <div class="faceoff">
+      <!-- YOU -->
+      <div class="fighter you">
+        <div class="avatar-wrap">
+          <image-slot id="of-you" shape="circle" placeholder="You"></image-slot>
+          <span class="tier-chip">♛ GOLD II</span>
+        </div>
+        <div class="finfo">
+          <div class="fname">You</div>
+          <div class="fhandle">@jordan_gambit</div>
+          <div class="felo"><span class="pc">♟</span> 1487<span class="lbl">Rizz ELO</span></div>
+        </div>
+      </div>
+
+      <!-- VS medallion -->
+      <div class="vs">
+        <div class="medal"><span class="swords">⚔️</span>VS<span class="bang">!!</span></div>
+      </div>
+
+      <!-- OPPONENT -->
+      <div class="fighter opp">
+        <div class="avatar-wrap">
+          <image-slot id="of-opp" shape="circle" placeholder="Opponent"></image-slot>
+          <span class="tier-chip" id="oppTier">♛ GOLD II</span>
+        </div>
+        <div class="finfo">
+          <div class="fname" id="oppName">Mira</div>
+          <div class="fhandle" id="oppHandle">@mira_endgame</div>
+          <div class="felo" id="oppElo"><span class="pc">♟</span> 1502<span class="lbl">Rizz ELO</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="terms" id="terms">
+      <span class="pill rosy">⚡ Bullet · 20s</span>
+      <span class="pill" id="termMode">Ranked · ELO on the line</span>
+    </div>
+
+    <div class="cta-wrap">
+      <div class="countdown" id="countdown">Starting in <b id="cd">3</b></div>
+      <a class="btn" href="MateDate Match.html">Enter the match →</a>
+    </div>
+  </div>
+</div>
+
+<script src="image-slot.js"></script>
+<script>
+  const stageEl = document.getElementById('stage').parentElement; // .phone
+  let mode = 'ranked';
+
+  function setMode(m){
+    mode = m;
+    document.getElementById('segRanked').classList.toggle('on', m==='ranked');
+    document.getElementById('segBot').classList.toggle('on', m==='bot');
+
+    const oppName = document.getElementById('oppName');
+    const oppHandle = document.getElementById('oppHandle');
+    const oppElo = document.getElementById('oppElo');
+    const oppTier = document.getElementById('oppTier');
+    const termMode = document.getElementById('termMode');
+    const cdWrap = document.getElementById('countdown');
+    const eb = document.getElementById('ebFound');
+
+    if(m==='bot'){
+      eb.textContent = '🤖 Practice partner found';
+      oppName.textContent = 'RizzBot-1400';
+      oppHandle.textContent = 'AI · disclosed';
+      // ELO not available for bots — show a disclosed-AI badge instead
+      oppElo.outerHTML = '<div class="badge-ai" id="oppElo">🤖 Unranked bot</div>';
+      oppTier.style.display = 'none';
+      termMode.textContent = 'Practice · doesn\u2019t touch ELO';
+      cdWrap.style.display = 'none';
+    } else {
+      eb.textContent = '⚔️ Opponent found';
+      oppName.textContent = 'Mira';
+      oppHandle.textContent = '@mira_endgame';
+      const cur = document.getElementById('oppElo');
+      cur.outerHTML = '<div class="felo" id="oppElo"><span class="pc">♟</span> 1502<span class="lbl">Rizz ELO</span></div>';
+      oppTier.style.display = '';
+      termMode.textContent = 'Ranked · ELO on the line';
+      cdWrap.style.display = '';
+    }
+    replay();
+  }
+
+  let cdTimer;
+  function replay(){
+    const p = document.querySelector('.phone');
+    p.classList.remove('play'); void p.offsetWidth; p.classList.add('play');
+    // countdown after the reveal settles (~2.4s), only in ranked
+    clearInterval(cdTimer);
+    if(mode==='ranked'){
+      const cdEl = document.getElementById('cd');
+      let n = 3; cdEl.textContent = n;
+      setTimeout(()=>{
+        cdTimer = setInterval(()=>{
+          n--; if(n<=0){ clearInterval(cdTimer); cdEl.textContent='0'; return; }
+          cdEl.textContent = n;
+        }, 900);
+      }, 2400);
+    }
+  }
+
+  // kick off on load
+  window.addEventListener('load', ()=> setTimeout(replay, 120));
+</script>
+</body>
+</html>
