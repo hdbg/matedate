@@ -144,7 +144,7 @@ create table public.profiles (
   -- a client can never PATCH its own ELO.
 
   -- Growth loop (SPEC §7.4).
-  referral_code     text unique default encode(gen_random_bytes(6), 'hex'),
+  referral_code     text unique default encode(extensions.gen_random_bytes(6), 'hex'),
   referred_by       uuid references public.profiles (id) on delete set null,
 
   created_at        timestamptz not null default now(),
@@ -519,7 +519,7 @@ create table public.games (
   end_reason  public.match_end_reason, -- 'scored' | 'timeout' | 'blocked' | 'date_landed' | …; null until ended
   ended_at    timestamptz,
   -- Shareable card (SPEC §9). Rendered to PNG at a stable URL from this slug.
-  share_slug  text unique default encode(gen_random_bytes(8), 'hex'),
+  share_slug  text unique default encode(extensions.gen_random_bytes(8), 'hex'),
   created_at  timestamptz not null default now()
 );
 
