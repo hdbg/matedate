@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "python",
+  "packages": {
+    "python": "3.14"
+  },
+  "deploy": {
+    "startCommand": "uv run python worker.py",
+    "variables": {
+      "ANALYSIS_MODEL": "anthropic/claude-opus-4.1",
+      "ANALYSIS_VISIBILITY_TIMEOUT_SECONDS": "300",
+      "ANALYSIS_MAX_ATTEMPTS": "3",
+      "ANALYSIS_POLL_SECONDS": "2",
+      "FAKE_ENGINE": "false"
+    }
+  }
+}

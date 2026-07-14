@@ -1,0 +1,18 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "python",
+  "packages": {
+    "python": "3.14"
+  },
+  "deploy": {
+    "startCommand": "uv run uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}",
+    "variables": {
+      "OPENROUTER_MODEL": "anthropic/claude-sonnet-4",
+      "SOLO_BASE_SECONDS": "30",
+      "SOLO_INCREMENT_SECONDS": "5",
+      "SOLO_MAX_EXCHANGES": "6",
+      "SOLO_INTRO_GRACE_SECONDS": "5",
+      "FAKE_ENGINE": "false"
+    }
+  }
+}
