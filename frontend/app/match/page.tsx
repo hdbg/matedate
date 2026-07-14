@@ -6,11 +6,7 @@ import { AppShell } from "@/app/components/ui/AppShell";
 import { useLiveGame } from "@/app/providers/LiveGameProvider";
 import { useSupabase } from "@/app/providers/SupabaseProvider";
 import { useSession } from "@/app/providers/SessionProvider";
-import {
-  TIME_CONTROL_LABEL,
-  type TimeControl,
-  type VersusMode,
-} from "@/app/lib/game/service";
+import { type TimeControl, type VersusMode } from "@/app/lib/game/service";
 import { AfterGameModal, type AnalysisStatus } from "./components/AfterGameModal";
 import { Composer } from "./components/Composer";
 import { CompetitiveStrip } from "./components/CompetitiveStrip";
@@ -19,23 +15,25 @@ import { MatchHeader } from "./components/MatchHeader";
 import { MatchIntro } from "./components/MatchIntro";
 import { MessageThread } from "./components/MessageThread";
 import { VerdictFlash } from "./components/VerdictFlash";
+import { PvpMatchScreen } from "./PvpMatchScreen";
 import { useMatchGame } from "./useMatchGame";
+import type { PvpAction } from "./usePvpGame";
 
-function parseMode(value: string | null): VersusMode {
-  return value === "bot" ? "bot" : "ranked";
+type MatchMode = VersusMode | "friend";
+
+function parseMode(value: string | null): MatchMode {
+  return value === "bot" ? "bot" : value === "friend" ? "friend" : "ranked";
 }
 
 function parseTimeControl(value: string | null): TimeControl {
   return value === "bullet" || value === "classical" || value === "rapid" ? value : "rapid";
 }
 
+/** The solo/practice board (disclosed AI). PvP renders `PvpMatchScreen` instead. */
 function MatchScreen() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const mode = parseMode(searchParams.get("mode"));
-  const timeControl = parseTimeControl(searchParams.get("tc"));
 
-  const game = useMatchGame(mode);
+  const game = useMatchGame();
   const supabase = useSupabase();
   const session = useSession();
   const { refresh: refreshLiveGame } = useLiveGame();
@@ -65,18 +63,7 @@ function MatchScreen() {
     }
   };
 
-  const leave = () => {
-    if (
-      mode === "ranked" &&
-      !game.flagged &&
-      !window.confirm(
-        "Leaving now forfeits the match (counts as a timeout loss for ranked ELO). Leave?",
-      )
-    ) {
-      return;
-    }
-    router.push("/play");
-  };
+  const leave = () => router.push("/play");
 
   const peek = () =>
     window.alert(
@@ -106,11 +93,7 @@ function MatchScreen() {
     );
   }
 
-  const clockLabel = game.flagged
-    ? "Flagged — you lose"
-    : mode === "bot"
-      ? "Practice · relaxed"
-      : `${TIME_CONTROL_LABEL[timeControl]} · your move`;
+  const clockLabel = game.flagged ? "Flagged — you lose" : "Practice · relaxed";
 
   return (
     <AppShell>
@@ -122,10 +105,10 @@ function MatchScreen() {
             clockValue={game.clock.remaining}
             clockLabel={clockLabel}
             warn={game.clock.warn}
-            dim={mode === "bot"}
+            dim
             onBack={leave}
           />
-          <CompetitiveStrip mode={mode} yourAcc={game.yourAcc} oppAcc={game.oppAcc} />
+          <CompetitiveStrip mode="bot" yourAcc={game.yourAcc} />
           <EvalBar interest={game.interest} personaName={game.persona.name} />
         </aside>
 
@@ -144,8 +127,8 @@ function MatchScreen() {
       </div>
       {game.persona && game.intro && (
         <MatchIntro
-          mode={mode}
-          timeControl={timeControl}
+          mode="bot"
+          timeControl="rapid"
           persona={game.persona}
           player={{
             displayName: session.displayName,
@@ -169,10 +152,27 @@ function MatchScreen() {
   );
 }
 
+function MatchRouter() {
+  const searchParams = useSearchParams();
+  const mode = parseMode(searchParams.get("mode"));
+  const timeControl = parseTimeControl(searchParams.get("tc"));
+  const code = searchParams.get("code");
+
+  if (mode === "bot") return <MatchScreen />;
+  // PvP: ranked queues; friend creates an invite, or joins one when a code rides the URL.
+  const action: PvpAction =
+    mode === "ranked"
+      ? { kind: "queue", tc: timeControl }
+      : code
+        ? { kind: "join", code }
+        : { kind: "create", tc: timeControl };
+  return <PvpMatchScreen action={action} timeControl={timeControl} />;
+}
+
 export default function MatchPage() {
   return (
     <Suspense fallback={<AppShell />}>
-      <MatchScreen />
+      <MatchRouter />
     </Suspense>
   );
 }

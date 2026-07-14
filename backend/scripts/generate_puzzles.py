@@ -2,7 +2,7 @@
 
 Two-step, no direct DB writes:
 
-    uv run python -m scripts.generate_puzzles generate [--model <key>] [-n N] [--persona <slug>]
+    uv run python -m scripts.generate_puzzles generate [--model <key>] [-n N] [--parallel P] [--persona <slug>]
         # writes generated_puzzles.json for review
     uv run python -m scripts.generate_puzzles seed [file]
         # appends the reviewed file to supabase/seed.sql as idempotent inserts
@@ -53,6 +53,7 @@ from scripts.lmstudio import (
     LMStudioError,
     PersonalityDims,
     choose_model,
+    gather_bounded,
     slugify,
 )
 from scripts.seed_sql import SEED_SQL, append_block, quote
@@ -87,13 +88,17 @@ Create one puzzle. First invent the sender: a {gender} with exactly this persona
 {dims}
 
 Return every field:
-- sender: one line — name, age, and one vivid identifying detail (job, obsession, vibe).
+- sender: one line — name, age, and one identifying detail (job, vibe). A relatable,
+  recognizable person the player could plausibly match with, not an obscure oddball.
 - context: 1-2 sentences on how the conversation got here — what was said or happened
   just before the position (kept for the reviewer, never shown to players).
 - prompt: the sender's message — the position the player must respond to, in the
-  sender's exact voice, lowercase-casual dating-app tone, mid-conversation.
-- best_move: the single strongest player reply, in a natural player voice.
-- trap_reply: the tempting reply most players would send that this sender would punish.
+  sender's exact voice, lowercase-casual dating-app tone, mid-conversation. 1-2 short
+  sentences, 15-20 words at most.
+- best_move: the single strongest player reply, in a natural player voice — 1-2 short
+  sentences, 15-20 words at most.
+- trap_reply: the tempting reply most players would send that this sender would punish
+  (same length).
 - rationale: one sentence on why the best move wins and the trap loses for this sender.
 - slug_hint: 2-4 lowercase words joined by hyphens naming the position.
 Do not mention the numeric scores anywhere in the output.\
@@ -119,11 +124,11 @@ Return every field:
   just before the position (kept for the reviewer, never shown to players). It must not
   be their opening line; pick a later moment in the chat.
 - prompt: the sender's message — the position the player must respond to, in their exact
-  texting style, mid-conversation.
+  texting style, mid-conversation. 1-2 short sentences, 15-20 words at most.
 - best_move: the single strongest player reply — the one this persona's green flags
-  reward most.
+  reward most. 1-2 short sentences, 15-20 words at most.
 - trap_reply: the tempting reply most players would send that trips this persona's red
-  flags.
+  flags (same length).
 - rationale: one sentence on why the best move wins and the trap loses for this persona.
 - slug_hint: 2-4 lowercase words joined by hyphens naming the position.
 Do not mention the numeric dial scores anywhere in the output.\
@@ -136,9 +141,11 @@ class GeneratedPuzzle(BaseModel):
     slug_hint: str = Field(min_length=3, max_length=60)
     sender: str = Field(min_length=10)
     context: str = Field(min_length=20)
-    prompt: str = Field(min_length=10)
-    best_move: str = Field(min_length=10)
-    trap_reply: str = Field(min_length=10)
+    # Player-facing position and replies kept short (~15-20 words); the cap is generous
+    # headroom over the prompt's word target, catching only runaway paragraphs.
+    prompt: str = Field(min_length=10, max_length=200)
+    best_move: str = Field(min_length=10, max_length=200)
+    trap_reply: str = Field(min_length=10, max_length=200)
     rationale: str = Field(min_length=10)
 
 
@@ -228,11 +235,13 @@ async def generate(args: argparse.Namespace) -> None:
     client = LMStudioClient(args.base_url)
     try:
         model = await choose_model(client, args.model)
+        # Build every puzzle's inputs up front, in order, so --seed stays reproducible no
+        # matter how many requests run in parallel. A linked persona reuses its own dials
+        # for all count; otherwise each puzzle rolls a fresh sender.
         rng = random.Random(args.seed)
-        records: list[PuzzleRecord] = []
-        for i in range(1, args.count + 1):
+        inputs: list[tuple[PersonalityDims, Gender, str]] = []
+        for _ in range(args.count):
             if persona is not None:
-                # The persona's own dials drive the content, difficulty, and reward.
                 dims = PersonalityDims(scores=persona.dimensions)
                 gender: Gender = persona.gender
                 user_prompt = PERSONA_SENDER_TEMPLATE.format(
@@ -246,6 +255,9 @@ async def generate(args: argparse.Namespace) -> None:
                 dims = PersonalityDims.roll(rng)
                 gender = rng.choice(GENDERS)
                 user_prompt = INVENTED_SENDER_TEMPLATE.format(dims=dims.render(), gender=gender)
+            inputs.append((dims, gender, user_prompt))
+
+        async def make(i: int, dims: PersonalityDims, gender: Gender, user_prompt: str) -> PuzzleRecord:
             gen = await client.generate(
                 model=model,
                 output_type=GeneratedPuzzle,
@@ -261,7 +273,12 @@ async def generate(args: argparse.Namespace) -> None:
             print(f"    best move: {record.best_move}  (+{record.best_eval_delta})")
             print(f"    trap: {record.trap_reply}")
             print(f"    why: {record.rationale}")
-            records.append(record)
+            return record
+
+        records = await gather_bounded(
+            args.parallel,
+            [make(i, dims, gender, up) for i, (dims, gender, up) in enumerate(inputs, start=1)],
+        )
     finally:
         await client.aclose()
     doc = PuzzleFile(model=model, generated_at=datetime.now(UTC).isoformat(), puzzles=records)
@@ -345,6 +362,10 @@ def main() -> None:
     gen = sub.add_parser("generate", help="generate puzzles into a JSON file for review")
     gen.add_argument("--model", help="LM Studio model key (omit to pick interactively)")
     gen.add_argument("--count", "-n", type=int, default=1, help="how many puzzles (default 1)")
+    gen.add_argument(
+        "--parallel", type=int, default=1,
+        help="how many model requests to run concurrently (match the model's parallel slots; default 1)",
+    )
     gen.add_argument("--persona", help="slug of an existing persona to link the puzzles to")
     gen.add_argument(
         "--personas-file",

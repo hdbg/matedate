@@ -3,8 +3,8 @@
 -- Covers the four launch domains plus the engine's output surface:
 --   1. Auth        — profiles mirrored off auth.users, 18+ gate, referral code.
 --   2. Ratings     — player_ratings (read-only to the owner via RLS) + a change log.
---   3. Matchmaking — personas, queue, per-mode match tables (pvp / ai / ghost), rounds, moves.
---   4. Analysis    — a durable pgmq queue for PvP scoring + a jobs table for lifecycle/observability.
+--   3. Matchmaking — personas, queue, per-mode match tables (pvp / ai / ghost), invites, moves.
+--   4. Analysis    — a durable pgmq queue for deep analysis + a jobs table for lifecycle/observability.
 --   5. Engine      — the classify / eval output, for single-player games and PvP moves alike.
 --   6. Reveals     — the paid best-move + persona/puzzle secrets, split into their own
 --                    tables so row-level RLS alone gates them (no column-level security).
@@ -22,7 +22,7 @@
 -- ---------------------------------------------------------------------------
 
 create extension if not exists pgcrypto; -- gen_random_uuid()
-create extension if not exists pgmq;     -- durable pull queue for PvP scoring jobs
+create extension if not exists pgmq;     -- durable pull queue for analysis jobs
 
 -- ---------------------------------------------------------------------------
 -- 1. Enums
@@ -61,8 +61,10 @@ create type public.texting_style as enum ('drywit', 'playful', 'dark', 'earnest'
 -- defined over two sides.
 create type public.gender as enum ('man', 'woman');
 
--- A ranked match's lifecycle.
-create type public.match_status as enum ('queued', 'active', 'scoring', 'completed', 'abandoned');
+-- A versus match's lifecycle. Matches are born 'active': one is only created once both
+-- competitors exist (a matchmaking pair or an accepted friend invite), and grading is live
+-- per move, so there is no queued/scoring state.
+create type public.match_status as enum ('active', 'completed', 'abandoned');
 
 -- Which versus format a match is. Each has its own table (no shared discriminator rows):
 -- pvp = human vs human, ai = human vs disclosed AI, ghost = human vs a recorded replay.
@@ -73,8 +75,9 @@ create type public.match_mode as enum ('pvp', 'ai', 'ghost');
 -- 'b' is the opponent (a second human, the AI, or the replayed ghost).
 create type public.match_side as enum ('a', 'b');
 
--- Move time limit for a ranked match (flaking prevention, SPEC §2.6). Bullet/rapid/
--- classical map to 20/40/60 seconds per move; letting the clock hit zero forfeits.
+-- Time-control pool for a versus match (flaking prevention, SPEC §2.6). Each pool maps to a
+-- per-player Fischer clock (base + increment, snapshotted on the match row by the backend);
+-- letting the bank hit zero forfeits. Players pair only within the same pool.
 create type public.time_control as enum ('bullet', 'rapid', 'classical');
 
 -- How a match ended. 'scored' = played to completion; 'timeout' = a player flagged;
@@ -86,9 +89,9 @@ create type public.match_end_reason as enum ('scored', 'timeout', 'resignation',
 create type public.job_status as enum ('queued', 'processing', 'completed', 'failed', 'cancelled');
 
 -- What an analysis job scores. 'game_analysis' is the source-independent post-game deep
--- review (chess.com "game review" style); 'screenshot'/'pvp_round' are the earlier lifecycle
--- kinds. All three flow through analysis_jobs + a pgmq queue.
-create type public.job_kind as enum ('screenshot', 'pvp_round', 'game_analysis');
+-- review (chess.com "game review" style); 'screenshot' is the earlier lifecycle kind.
+-- Both flow through analysis_jobs + a pgmq queue.
+create type public.job_kind as enum ('screenshot', 'game_analysis');
 
 -- Where a best-move unlock came from (SPEC §7.2–7.4).
 create type public.unlock_source as enum ('subscription', 'credit', 'referral', 'admin');
@@ -219,7 +222,7 @@ create index rating_history_user_created_idx
   on public.rating_history (user_id, created_at desc);
 
 -- ===========================================================================
--- 3. MATCHMAKING — personas, queue, matches, rounds, moves
+-- 3. MATCHMAKING — personas, queue, matches, invites, moves
 -- ===========================================================================
 
 -- Reusable AI dates. Used by solo, practice, and ranked (both players get the same one).
@@ -280,28 +283,32 @@ create index matchmaking_queue_open_idx
 -- Shared parent for every versus match. Every column here is always present regardless
 -- of mode; the mode-specific sides and result columns live in the per-mode child tables
 -- below, so no table ever carries half-filled, discriminator-dependent columns. Both
--- competitors play the same persona / scenario / opening line.
+-- competitors play the same persona / scenario / opening line, each in their OWN parallel
+-- conversation, in lockstep alternation (side 'a' always moves first; content is hidden
+-- mid-match, so the first-mover information edge is negligible). A match is a single
+-- contest: it ends on a checkmate (blocked / date_landed), a timeout, or both sides
+-- completing max_exchanges — whoever graded higher accuracy wins ('scored'); an exact tie
+-- is a draw (winner_side stays null).
 create table public.matches (
   id            uuid primary key default gen_random_uuid(),
   mode          public.match_mode not null, -- which child table holds the two sides
   persona_id    uuid not null references public.personas (id),
-  status        public.match_status not null default 'queued',
-  best_of       smallint not null default 3,
-  -- Time control (flaking prevention, SPEC §2.6). move_seconds is the per-move budget,
-  -- snapshotted here and kept consistent with time_control by the check below.
-  time_control  public.time_control not null default 'rapid',
-  move_seconds  smallint not null default 40,
+  status        public.match_status not null default 'active',
+  -- Per-player Fischer clock snapshot (SPEC §2.6). The pools map to (base, increment) in
+  -- backend config — bullet 20+3, rapid 40+5, classical 60+8 — and are snapshotted here so
+  -- config tuning never rewrites a live match; the DB checks positivity only.
+  time_control      public.time_control not null default 'rapid',
+  base_seconds      smallint not null,
+  increment_seconds smallint not null,
+  max_exchanges     smallint not null default 6, -- per-player exchange cap, snapshotted
+  rated         boolean not null default true,   -- friend-invite matches are unrated
   opening_line  text not null, -- snapshotted from the persona so it stays stable
-  winner_side   public.match_side, -- null until the match is decided
+  winner_side   public.match_side, -- null until the match is decided; stays null on a draw
   end_reason    public.match_end_reason, -- null until the match ends
   created_at    timestamptz not null default now(),
   completed_at  timestamptz,
-  constraint best_of_positive check (best_of > 0),
-  constraint move_seconds_matches_control check (
-    (time_control = 'bullet'    and move_seconds = 20) or
-    (time_control = 'rapid'     and move_seconds = 40) or
-    (time_control = 'classical' and move_seconds = 60)
-  )
+  constraint clock_positive check (base_seconds > 0 and increment_seconds >= 0),
+  constraint max_exchanges_positive check (max_exchanges > 0)
 );
 
 create index matches_status_idx  on public.matches (status);
@@ -311,16 +318,34 @@ alter table public.matchmaking_queue
   add constraint matchmaking_queue_match_fk
   foreign key (match_id) references public.matches (id) on delete set null;
 
--- Human vs human (SPEC §2.2). Both sides are real accounts; both stake ranked ELO.
+-- Human vs human (SPEC §2.2). Both sides are real accounts; ranked (matchmade) matches
+-- stake ranked ELO, friend-invite matches are unrated (matches.rated = false).
 create table public.pvp_matches (
   match_id            uuid primary key references public.matches (id) on delete cascade,
   player_a            uuid not null references public.profiles (id) on delete cascade,
   player_b            uuid not null references public.profiles (id) on delete cascade,
-  player_a_elo_before integer,
+
+  -- Lockstep turn state (server-authoritative, written only by the backend). turn_side is
+  -- the player on the move; turn_deadline = now() + that player's bank when their turn
+  -- opened (null while the engine grades a submitted move and after the match ends), so the
+  -- on-move player's live bank is turn_deadline - now(). The bank columns hold each
+  -- player's Fischer bank AT REST (ms); the mover's bank is re-persisted (remaining +
+  -- increment) when their move is accepted. Exchange counts derive from match_moves
+  -- (count of speaker = 'You' rows per side) — not duplicated here.
+  turn_side        public.match_side not null default 'a',
+  turn_deadline    timestamptz,
+  player_a_bank_ms integer not null,
+  player_b_bank_ms integer not null,
+
+  -- Result snapshot (written at finish; accuracy is the mean move quality, like games).
+  player_a_accuracy   numeric(5,2),
+  player_b_accuracy   numeric(5,2),
+  player_a_elo_before integer, -- rating columns stay null on unrated matches
   player_a_elo_after  integer,
   player_b_elo_before integer,
   player_b_elo_after  integer,
-  constraint pvp_distinct_players check (player_a <> player_b)
+  constraint pvp_distinct_players check (player_a <> player_b),
+  constraint pvp_banks_nonneg check (player_a_bank_ms >= 0 and player_b_bank_ms >= 0)
 );
 
 create index pvp_matches_player_a_idx on public.pvp_matches (player_a);
@@ -354,38 +379,40 @@ create table public.ghost_matches (
 create index ghost_matches_player_idx on public.ghost_matches (player);
 create index ghost_matches_source_idx on public.ghost_matches (source_match_id);
 
--- A round within a match (best-of-N exchanges).
-create table public.match_rounds (
+-- Friend-challenge invites (unrated PvP): the creator gets a shareable link carrying an
+-- unguessable code; only someone holding the link can join. Codes are resolved server-side
+-- over the WS (service_role) — there is deliberately no client lookup-by-code path, so
+-- codes can't be enumerated via PostgREST. An invite lives only while the creator's socket
+-- is waiting on it: disconnect/cancel flips it to 'cancelled', a successful join to
+-- 'completed' (+ match_id).
+create table public.match_invites (
   id            uuid primary key default gen_random_uuid(),
-  match_id      uuid not null references public.matches (id) on delete cascade,
-  round_number  smallint not null,
-  prompt        text,   -- the persona's line that opens this round
-  status        public.match_status not null default 'active',
-  winner_side   public.match_side, -- which side took the round; null until scored
+  code          text unique not null, -- secrets.token_urlsafe(12), backend-generated
+  creator       uuid not null references public.profiles (id) on delete cascade,
+  time_control  public.time_control not null default 'rapid',
+  status        public.job_status not null default 'queued', -- queued=open, completed=matched
+  match_id      uuid references public.matches (id) on delete set null, -- set once joined
   created_at    timestamptz not null default now(),
-  scored_at     timestamptz,
-  unique (match_id, round_number)
+  matched_at    timestamptz
 );
 
-create index match_rounds_match_idx on public.match_rounds (match_id);
+create index match_invites_open_code_idx on public.match_invites (code) where status = 'queued';
 
--- A competitor's message within a round, plus the engine's verdict on it. `side`
--- identifies which competitor (a or b) — resolved to an identity via the per-mode child
--- table (pvp_matches/ai_matches/ghost_matches). Exactly one move per side per round.
+-- One message inside a competitor's conversation with the persona, plus the engine's
+-- verdict on it — the two-dimensional mirror of `moves`: `side` says WHOSE conversation
+-- the row belongs to (competitor a or b, resolved to an identity via the per-mode child
+-- table), `speaker` says who spoke ('You' = that competitor, 'Match' = the persona).
+-- Both players talk to the same persona in parallel; grading is live per move (no scoring
+-- worker), and the match clock lives on pvp_matches, so there is no per-move deadline.
 create table public.match_moves (
   id             uuid primary key default gen_random_uuid(),
-  round_id       uuid not null references public.match_rounds (id) on delete cascade,
-  side           public.match_side not null,
-  content        text, -- null while the turn is pending; filled once submitted/replayed
+  match_id       uuid not null references public.matches (id) on delete cascade,
+  side           public.match_side not null,   -- whose conversation this row belongs to
+  position       integer not null,             -- 0-based order within that side's conversation
+  speaker        public.message_side not null, -- 'You' = the competitor, 'Match' = the persona
+  content        text not null,
 
-  -- Move clock (flaking prevention, SPEC §2.6). The turn opens with deadline =
-  -- now() + matches.move_seconds; responded_at is set on submit. If the deadline
-  -- passes with responded_at still null, timed_out is set and the player forfeits.
-  deadline       timestamptz,
-  responded_at   timestamptz,
-  timed_out      boolean not null default false,
-
-  -- Engine response (written by the scoring service). Quality is the numeric eval only; the
+  -- Engine response ('You' rows only). Quality is the numeric eval only; the
   -- Brilliant…Blunder rank is derived from the swing (eval_delta) at read time, never stored.
   eval_before    numeric(5,2), -- hidden 0..100 interest state before this move
   eval_after     numeric(5,2),
@@ -393,22 +420,20 @@ create table public.match_moves (
   -- best_move lives in match_move_reveals (RLS-gated by an unlock; see section 6).
 
   created_at     timestamptz not null default now(),
-  scored_at      timestamptz,
-  unique (round_id, side)
+  unique (match_id, side, position)
 );
 
-create index match_moves_round_idx on public.match_moves (round_id);
+create index match_moves_match_idx on public.match_moves (match_id);
 
 -- ===========================================================================
 -- 4. ANALYSIS QUEUE — durable pgmq queue + a jobs tracking table
 -- ===========================================================================
 
--- Durable pull queues (visibility timeouts, acks, retries). Python workers call
+-- Durable pull queue (visibility timeouts, acks, retries). Python workers call
 -- pgmq.read / pgmq.archive via the security-definer wrappers below; they never subscribe to
--- Realtime for intake (SPEC §5.2). Screenshot review stays synchronous and does NOT use these.
---   pvp_scoring   — PvP round scoring.
+-- Realtime for intake (SPEC §5.2). Screenshot review stays synchronous and does NOT use this.
+-- PvP grading is live per move (no scoring queue).
 --   game_analysis — post-game deep analysis (solo now; PvP/screenshot sources later).
-select pgmq.create('pvp_scoring');
 select pgmq.create('game_analysis');
 
 -- pgmq lives in its own schema, which PostgREST does NOT expose (config.toml exposes only
@@ -472,10 +497,10 @@ create table public.analysis_jobs (
   kind            public.job_kind not null,
   status          public.job_status not null default 'queued',
   user_id         uuid references public.profiles (id) on delete set null,
-  -- The thing being scored: a round (pvp) or a game (screenshot lifecycle tracking).
-  round_id        uuid references public.match_rounds (id) on delete cascade,
+  -- The thing being scored: a match (pvp, deferred) or a game.
+  match_id        uuid references public.matches (id) on delete cascade,
   game_id         uuid,  -- FK added after games table
-  queue_msg_id    bigint, -- pgmq message id, when enqueued on pvp_scoring
+  queue_msg_id    bigint, -- pgmq message id, when enqueued on game_analysis
   idempotency_key text unique,
   -- Pre-generated game_analyses.id: request_game_analysis() mints it up front and returns it to
   -- the client so it can await exactly that row over realtime; the worker inserts with this id.
@@ -624,34 +649,39 @@ create table public.moves (
 create index moves_game_idx on public.moves (game_id);
 
 -- Raw engine output kept for tuning (thresholds/prompts change constantly, SPEC §3).
--- Attaches to whichever unit produced it — a single-player game or a PvP round.
+-- Attaches to whichever unit produced it — a single-player game, or one side's turn in a
+-- versus match (side says whose conversation the graded turn belongs to).
 create table public.engine_responses (
   id             uuid primary key default gen_random_uuid(),
   game_id        uuid references public.games (id) on delete cascade,
-  round_id       uuid references public.match_rounds (id) on delete cascade,
+  match_id       uuid references public.matches (id) on delete cascade,
+  side           public.match_side, -- set for match turns, null for games
   model          text not null,
   prompt_version text,
   raw_response   jsonb not null,
   latency_ms     integer,
   created_at     timestamptz not null default now(),
   constraint engine_response_target check (
-    (game_id is not null) <> (round_id is not null)
-  )
+    (game_id is not null) <> (match_id is not null)
+  ),
+  constraint engine_response_side_scope check (side is null or match_id is not null)
 );
 
 create index engine_responses_game_idx  on public.engine_responses (game_id);
-create index engine_responses_round_idx on public.engine_responses (round_id);
+create index engine_responses_match_idx on public.engine_responses (match_id);
 
 -- Post-game deep analysis (chess.com "game review" style). SOURCE-INDEPENDENT: one result
--- shape whatever the source — a solo game, a screenshot upload, or (later) a PvP round — so
--- there is no per-mode analysis table. Written only by the analysis worker (service_role);
--- the stronger model RE-classifies every move itself rather than trusting the live grades.
--- The source ref is a nullable game_id / round_id XOR, mirroring engine_responses/analysis_jobs.
+-- shape whatever the source — a solo game, a screenshot upload, or (later) one side of a
+-- PvP match — so there is no per-mode analysis table. Written only by the analysis worker
+-- (service_role); the stronger model RE-classifies every move itself rather than trusting
+-- the live grades. The source ref is a nullable game_id / match_id XOR (side says whose
+-- conversation was analyzed), mirroring engine_responses/analysis_jobs.
 create table public.game_analyses (
   id             uuid primary key default gen_random_uuid(),
   job_id         uuid references public.analysis_jobs (id) on delete set null,
   game_id        uuid references public.games (id) on delete cascade,
-  round_id       uuid references public.match_rounds (id) on delete cascade,
+  match_id       uuid references public.matches (id) on delete cascade,
+  side           public.match_side, -- set for match sources, null for games
   title          text not null,
   description    text not null,
   tags           text[] not null default '{}',
@@ -663,11 +693,12 @@ create table public.game_analyses (
   -- Re-analysis is allowed (models/prompts iterate): no unique(game_id). The "current"
   -- analysis is the latest created_at; accidental duplicates are prevented one level up by
   -- analysis_jobs.idempotency_key. Exactly one source per row.
-  constraint game_analysis_source check ((game_id is not null) <> (round_id is not null))
+  constraint game_analysis_source check ((game_id is not null) <> (match_id is not null)),
+  constraint game_analysis_side_scope check (side is null or match_id is not null)
 );
 
 create index game_analyses_game_idx  on public.game_analyses (game_id, created_at desc);
-create index game_analyses_round_idx on public.game_analyses (round_id);
+create index game_analyses_match_idx on public.game_analyses (match_id);
 
 -- The re-scored per-USER-move verdicts ("You" side only): the analysis model's fresh eval and
 -- the comment, plus (unless the move is top-graded) a "best line" (a better message the user
@@ -766,7 +797,7 @@ alter table public.matches           enable row level security;
 alter table public.pvp_matches       enable row level security;
 alter table public.ai_matches        enable row level security;
 alter table public.ghost_matches     enable row level security;
-alter table public.match_rounds      enable row level security;
+alter table public.match_invites     enable row level security;
 alter table public.match_moves       enable row level security;
 alter table public.analysis_jobs     enable row level security;
 alter table public.games             enable row level security;
@@ -808,26 +839,18 @@ create policy rating_history_select_own on public.rating_history
 create policy personas_select_active on public.personas
   for select using (is_active);
 
--- matchmaking_queue: read your own spot; join the queue for yourself only. The pairing snapshot
--- (ranked_elo) must equal your *real* rating, and you may only enqueue in the fresh 'queued' state
--- (no pre-set match_id/matched_at) — otherwise a client could self-assign an easy-pairing ELO or
--- fake a match link. Leaving the queue is a DELETE, which clients don't get by default; cancel is
--- service-mediated (an RPC / the backend) when ranked PvP is built.
+-- matchmaking_queue: read your own spot only. Queueing is entirely service-mediated: the
+-- backend joins/leaves the queue over the WS with the service_role key and snapshots the
+-- pairing keys (ranked_elo/gender/seeking) from the player's *real* rating and profile
+-- itself, so there is no client INSERT (or DELETE) path to forge an easy-pairing snapshot.
 create policy matchmaking_queue_select_own on public.matchmaking_queue
   for select using (auth.uid() = user_id);
-create policy matchmaking_queue_insert_own on public.matchmaking_queue
-  for insert with check (
-    auth.uid() = user_id
-    and status = 'queued'
-    and match_id is null
-    and matched_at is null
-    and ranked_elo = (
-      select pr.ranked_elo from public.player_ratings pr where pr.user_id = auth.uid()
-    )
-    -- gender/seeking must be the player's real profile values (they decide who you pair with).
-    and gender = (select p.gender from public.profiles p where p.id = auth.uid())
-    and seeking = (select p.seeking from public.profiles p where p.id = auth.uid())
-  );
+
+-- match_invites: the creator can see (and poll) their own invite; there is deliberately NO
+-- lookup-by-code or insert policy — codes are created and resolved over the WS by the
+-- backend (service_role), so a client can never enumerate or forge invites via PostgREST.
+create policy match_invites_select_own on public.match_invites
+  for select using (auth.uid() = creator);
 
 -- Helper: is the current user a competitor in this match? Checks each per-mode table.
 create or replace function public.is_match_participant(p_match_id uuid)
@@ -880,23 +903,22 @@ create policy ai_matches_select on public.ai_matches
 create policy ghost_matches_select on public.ghost_matches
   for select using (auth.uid() = player);
 
-create policy match_rounds_select on public.match_rounds
-  for select using (public.is_match_participant(match_id));
-
--- match_moves: a participant sees their OWN side's moves at any time, but the opponent's line only
--- once the round is scored (scored_at set). This preserves the "same persona, results become
--- arguable/shareable after scoring" model (SPEC §2.2) while stopping a player from reading the
--- opponent's un-scored message + its hidden eval mid-round and copying it.
+-- match_moves: a participant sees their OWN conversation at any time, but the opponent's
+-- line only once the match is over. This preserves the "same persona, results become
+-- arguable/shareable after the match" model (SPEC §2.2) while stopping a player from
+-- reading the opponent's messages + hidden evals mid-match and copying them. (A future
+-- premium live-reveal rides the WS — the backend is service_role — so this client-read
+-- gate stays intact either way.)
 create policy match_moves_select on public.match_moves
   for select using (
-    exists (
-      select 1 from public.match_rounds mr
-      where mr.id = match_moves.round_id
-        and public.is_match_participant(mr.match_id)
-        and (
-          match_moves.side = public.my_match_side(mr.match_id)
-          or mr.scored_at is not null
-        )
+    public.is_match_participant(match_id)
+    and (
+      side = public.my_match_side(match_id)
+      or exists (
+        select 1 from public.matches m
+        where m.id = match_moves.match_id
+          and m.status in ('completed', 'abandoned')
+      )
     )
   );
 
@@ -963,10 +985,7 @@ create policy game_analyses_select on public.game_analyses
   for select using (
     (game_id is not null and public.owns_game(game_id))
     or
-    (round_id is not null and exists (
-      select 1 from public.match_rounds mr
-      where mr.id = game_analyses.round_id and public.is_match_participant(mr.match_id)
-    ))
+    (match_id is not null and public.is_match_participant(match_id))
   );
 
 -- Helper: may the current user read this analysis? (Owns the source game / is in the match.)
@@ -983,10 +1002,7 @@ as $$
     where a.id = p_analysis_id
       and (
         (a.game_id is not null and public.owns_game(a.game_id))
-        or (a.round_id is not null and exists (
-          select 1 from public.match_rounds mr
-          where mr.id = a.round_id and public.is_match_participant(mr.match_id)
-        ))
+        or (a.match_id is not null and public.is_match_participant(a.match_id))
       )
   );
 $$;
@@ -1096,7 +1112,7 @@ create policy match_move_reveals_select on public.match_move_reveals
   for select using (public.can_reveal_match(match_id));
 
 -- Helper: may the current user see the best-line reveals for this analysis? Resolves the analysis's
--- source (game/round XOR) and defers to the same per-game / per-match unlock that gates live moves,
+-- source (game/match XOR) and defers to the same per-game / per-match unlock that gates live moves,
 -- so one unlock covers both the live best move and the game-review best line.
 create or replace function public.can_reveal_analysis(p_analysis_id uuid)
 returns boolean
@@ -1110,10 +1126,7 @@ as $$
     where a.id = p_analysis_id
       and (
         (a.game_id is not null and public.can_reveal_game(a.game_id))
-        or (a.round_id is not null and exists (
-          select 1 from public.match_rounds mr
-          where mr.id = a.round_id and public.can_reveal_match(mr.match_id)
-        ))
+        or (a.match_id is not null and public.can_reveal_match(a.match_id))
       )
   );
 $$;
@@ -1151,7 +1164,7 @@ revoke all on all sequences in schema public from anon, authenticated;
 grant select on
   public.player_ratings, public.rating_history, public.personas,
   public.matches, public.pvp_matches, public.ai_matches, public.ghost_matches,
-  public.match_rounds, public.match_moves,
+  public.match_invites, public.match_moves,
   public.analysis_jobs, public.puzzles, public.moves,
   public.game_analyses, public.game_analysis_moves,
   public.game_reveal_unlocks, public.match_reveal_unlocks,
@@ -1161,9 +1174,9 @@ grant select on
 -- Profile is readable + editable (no rating columns live here anymore).
 grant select, update on public.profiles to authenticated;
 
--- Matchmaking queue: join only. Clients don't get DELETE (see the policy note); leaving is
--- service-mediated when ranked PvP lands.
-grant select, insert on public.matchmaking_queue to authenticated;
+-- Matchmaking queue: read your own spot only; joining/leaving is service-mediated over the
+-- WS (see the policy note), so clients get no INSERT/DELETE.
+grant select on public.matchmaking_queue to authenticated;
 
 -- Single-player game state is read-only to the client. Every row (games + the per-mode children)
 -- is authored by the service_role backend so grading/clock/rating/status stay server-authoritative

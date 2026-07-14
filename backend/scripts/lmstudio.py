@@ -16,10 +16,12 @@ only for authoring content (`generate_personas.py` / `generate_puzzles.py`).
 
 from __future__ import annotations
 
+import asyncio
 import os
 import random
 import re
 import sys
+from collections.abc import Awaitable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -120,6 +122,23 @@ class LMStudioClient:
             f"model {model} returned invalid {output_type.__name__} "
             f"{max_attempts} times; last error:\n{last_error}"
         )
+
+
+async def gather_bounded[T](limit: int, coros: Iterable[Awaitable[T]]) -> list[T]:
+    """Await every coroutine, running at most `limit` at once, results in input order.
+
+    Lets the content scripts fan out generation across a model that serves parallel
+    requests (LM Studio's per-model `Parallel` slots) without swamping it; `limit=1`
+    is fully sequential. Order is preserved, so callers can zip results back to their
+    deterministically-rolled inputs regardless of which finishes first.
+    """
+    sem = asyncio.Semaphore(max(1, limit))
+
+    async def guarded(coro: Awaitable[T]) -> T:
+        async with sem:
+            return await coro
+
+    return await asyncio.gather(*(guarded(coro) for coro in coros))
 
 
 async def choose_model(client: LMStudioClient, model_arg: str | None) -> str:

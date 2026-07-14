@@ -1,9 +1,10 @@
 """Source-independent transcript loading for analysis.
 
 A `Transcript` is just the ordered list of messages with their positions and sides. Today the
-only loader reads solo/screenshot games from `moves`; PvP rounds (which live in `match_moves`)
-would get a second loader that produces the same `Transcript` shape, so the engine and
-persistence stay unaware of the source.
+only loader reads solo/screenshot games from `moves`; a PvP side (which lives in `match_moves`,
+keyed by `(match_id, side)` with `speaker` as the You/Match axis) would get a second loader
+that produces the same `Transcript` shape, so the engine and persistence stay unaware of the
+source.
 """
 
 from __future__ import annotations

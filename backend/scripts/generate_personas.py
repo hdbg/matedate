@@ -2,7 +2,7 @@
 
 Two-step, no direct DB writes:
 
-    uv run python -m scripts.generate_personas generate [--model <key>] [-n N]
+    uv run python -m scripts.generate_personas generate [--model <key>] [-n N] [--parallel P]
         # rolls the 8 personality dimensions per persona, asks the local model for a
         # full character sheet, writes generated_personas.json for review
     uv run python -m scripts.generate_personas seed [file]
@@ -31,15 +31,16 @@ import random
 import secrets
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, StringConstraints, ValidationError
 
 from scripts.lmstudio import (
     LMStudioClient,
     LMStudioError,
     PersonalityDims,
     choose_model,
+    gather_bounded,
     slugify,
 )
 from scripts.seed_sql import SEED_SQL, append_block, quote, quote_array
@@ -57,8 +58,12 @@ Mistake, Blunder). Genuinely creepy or offensive messages make the persona block
 player and end the game. You write new personas as complete character sheets.
 
 Craft rules:
-- Be specific, never generic. "loves travel, coffee and dogs" is a failed persona;
-  "collects arguments about why every city's best museum is the weird small one" is not.
+- Aim for relatable, recognizable people the player could plausibly match with — not obscure
+  oddballs. Give them a clear voice and one or two concrete details, but keep their interests
+  and vibe broadly familiar. "loves travel, coffee and dogs" is too bland and faceless;
+  "only collects arguments about why every city's best museum is the weird small one" is too
+  niche. Land in the middle — e.g. "runs half-marathons and is competitive about board-game
+  nights". Lean toward the ordinary-but-specific, not the eccentric.
 - The personality dimensions you are given are law. Extreme dials (1-2 or 9-10) must
   dominate the voice; mid dials should barely show. A warmth-2 persona does not use pet
   names; a chaos-9 persona does not ask polite interview questions.
@@ -80,17 +85,22 @@ Return every field of the character sheet:
 - backstory: 2-3 sentences of who they are — where their edge/softness comes from, one
   concrete detail a date would remember. Written in second person ("You grew up …"),
   it will be pasted into their role-play instructions.
-- interests: 3-5 short entries, each specific enough to argue about (no "music, movies").
+- interests: 3-5 short, common-but-concrete hobbies or tastes — recognizable things many
+  people share, named specifically enough to react to (e.g. "trail running", "horror movies",
+  "making pasta from scratch"), not obscure subcultures.
 - texting_style: 2-3 sentences describing exactly how they type: message length,
   capitalization, punctuation, emoji habits, signature quirks (trailing "lol", tildes,
   voice-of-god full sentences, whatever fits the dials).
 - description: 1-2 punchy player-facing sentences that hint at the vibe without naming
   the hidden type (compare: "Sharp, teasing, rewards conviction. Reads as dry wit until
   you commit to a bit.").
-- opening_line: their first message, in their exact texting style — dating-app tone,
-  ending in a hook the player has to respond to.
-- suggested_messages: exactly 3 candidate player replies to that opening line — one
-  bold/high-risk, one safe/solid, one lazy low-effort, in that order.
+- opening_line: their first message, in their exact texting style — dating-app tone, ending
+  in a hook the player has to respond to. Keep it to 1-2 short sentences, 15-20 words at most.
+- suggested_messages: exactly 3 candidate player replies to that opening line — the first
+  bold/high-risk, the second safe/solid, the third lazy/low-effort, in that order. Output only
+  the plain message text a player would actually send: no labels, categories, or prefixes
+  (never "Bold:", "Risky:", "Safe:", "Lazy:", etc.). Each is 1-2 short sentences, 15-20 words
+  at most.
 - hidden_type: the archetype, 2-4 words.
 - green_flags: 3-4 kinds of player messages this persona rewards with rising interest,
   specific to this personality.
@@ -113,8 +123,12 @@ class GeneratedPersona(BaseModel):
     interests: list[str] = Field(min_length=3, max_length=5)
     texting_style: str = Field(min_length=40)
     description: str = Field(min_length=20)
-    opening_line: str = Field(min_length=10)
-    suggested_messages: list[str] = Field(min_length=3, max_length=3)
+    # Kept short (~15-20 words) so the composer/opener stay punchy; the cap is generous
+    # headroom over the prompt's word target — it only catches runaway paragraphs.
+    opening_line: str = Field(min_length=10, max_length=200)
+    suggested_messages: list[Annotated[str, StringConstraints(min_length=1, max_length=200)]] = (
+        Field(min_length=3, max_length=3)
+    )
     hidden_type: str = Field(min_length=3, max_length=60)
     green_flags: list[str] = Field(min_length=3, max_length=4)
     red_flags: list[str] = Field(min_length=3, max_length=4)
@@ -206,11 +220,12 @@ async def generate(args: argparse.Namespace) -> None:
     client = LMStudioClient(args.base_url)
     try:
         model = await choose_model(client, args.model)
+        # Roll every persona's dimensions up front, in order, so --seed stays reproducible
+        # no matter how many requests run in parallel.
         rng = random.Random(args.seed)
-        records: list[PersonaRecord] = []
-        for i in range(1, args.count + 1):
-            dims = PersonalityDims.roll(rng)
-            gender = rng.choice(GENDERS)
+        rolls = [(PersonalityDims.roll(rng), rng.choice(GENDERS)) for _ in range(args.count)]
+
+        async def make(i: int, dims: PersonalityDims, gender: Gender) -> PersonaRecord:
             gen = await client.generate(
                 model=model,
                 output_type=GeneratedPersona,
@@ -224,7 +239,12 @@ async def generate(args: argparse.Namespace) -> None:
             print(f"    dims: {dims.summary()}")
             print(f"    {gen.job} · {record.hidden_type}")
             print(f"    opener: {record.opening_line}")
-            records.append(record)
+            return record
+
+        records = await gather_bounded(
+            args.parallel,
+            [make(i, dims, gender) for i, (dims, gender) in enumerate(rolls, start=1)],
+        )
     finally:
         await client.aclose()
     doc = PersonaFile(model=model, generated_at=datetime.now(UTC).isoformat(), personas=records)
@@ -296,6 +316,10 @@ def main() -> None:
     gen = sub.add_parser("generate", help="generate personas into a JSON file for review")
     gen.add_argument("--model", help="LM Studio model key (omit to pick interactively)")
     gen.add_argument("--count", "-n", type=int, default=1, help="how many personas (default 1)")
+    gen.add_argument(
+        "--parallel", type=int, default=1,
+        help="how many model requests to run concurrently (match the model's parallel slots; default 1)",
+    )
     gen.add_argument("--temperature", type=float, default=0.8)
     gen.add_argument("--seed", type=int, help="RNG seed for reproducible dimension rolls")
     gen.add_argument("--base-url", help="LM Studio server URL (default LMSTUDIO_BASE_URL or http://127.0.0.1:1234)")

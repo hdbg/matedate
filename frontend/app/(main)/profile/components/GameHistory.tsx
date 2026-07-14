@@ -146,7 +146,7 @@ export function GameHistory({ counts, history }: GameHistoryProps) {
         <div className="px-5 py-[30px] text-center text-[14px] text-ink-mute">
           No games in this category yet.
           <Link href="/play" className="mt-1.5 block font-mono text-[12px] text-rosy-deep">
-            Go play a round →
+            Go play a match →
           </Link>
         </div>
       )}
