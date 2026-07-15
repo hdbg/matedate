@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="MateDate">
+  <title>MateDate</title>
+  <defs>
+    <!-- warm paper plate, matching the site background tokens -->
+    <radialGradient id="plate" cx="34%" cy="26%" r="90%">
+      <stop offset="0%" stop-color="#faf4e8"/>
+      <stop offset="70%" stop-color="#f7f0e3"/>
+      <stop offset="100%" stop-color="#efe4d0"/>
+    </radialGradient>
+    <!-- rosy glow behind the "!!" burst, echoing the logo's text-shadow -->
+    <filter id="burst-glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="9" result="b"/>
+      <feFlood flood-color="#d6536a" flood-opacity="0.55"/>
+      <feComposite in2="b" operator="in" result="g"/>
+      <feMerge>
+        <feMergeNode in="g"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- rounded-square plate so the mark reads on any tab colour -->
+  <rect x="8" y="8" width="496" height="496" rx="116" fill="url(#plate)"/>
+  <rect x="8.75" y="8.75" width="494.5" height="494.5" rx="115.25" fill="none" stroke="#e0d3ba" stroke-width="1.5"/>
+
+  <!-- the tilted white king (from assets/white-king.svg), scaled + rotated 12deg about its base -->
+  <g transform="translate(250 372) rotate(12) scale(7.4) translate(-22.5 -40)">
+    <g fill="none" fill-rule="evenodd" stroke="#272320" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M 22.5,11.63 L 22.5,6" stroke-linejoin="miter"/>
+      <path d="M 20,8 L 25,8" stroke-linejoin="miter"/>
+      <path d="M 22.5,25 C 22.5,25 27,17.5 25.5,14.5 C 25.5,14.5 24.5,12 22.5,12 C 20.5,12 19.5,14.5 19.5,14.5 C 18,17.5 22.5,25 22.5,25" fill="#fbf6ec" stroke-linecap="butt" stroke-linejoin="miter"/>
+      <path d="M 11.5,37 C 17,40.5 27,40.5 32.5,37 L 32.5,30 C 32.5,30 41.5,25.5 38.5,19.5 C 34.5,13 25,16 22.5,23.5 L 22.5,27 L 22.5,23.5 C 19,16 9.5,13 6.5,19.5 C 3.5,25.5 11.5,29.5 11.5,29.5 L 11.5,37 z" fill="#fbf6ec"/>
+      <path d="M 11.5,30 C 17,27 27,27 32.5,30"/>
+      <path d="M 11.5,33.5 C 17,30.5 27,30.5 32.5,33.5"/>
+      <path d="M 11.5,37 C 17,34 27,34 32.5,37"/>
+    </g>
+  </g>
+
+  <!-- the "!!" brilliant-move burst, drawn as vectors so it needs no webfont -->
+  <g transform="translate(392 150) rotate(24)" fill="#d6536a" filter="url(#burst-glow)">
+    <rect x="-38" y="-58" width="22" height="86" rx="11"/>
+    <circle cx="-27" cy="46" r="12.5"/>
+    <rect x="6" y="-58" width="22" height="86" rx="11"/>
+    <circle cx="17" cy="46" r="12.5"/>
+  </g>
+</svg>
