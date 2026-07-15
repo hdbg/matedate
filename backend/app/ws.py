@@ -102,9 +102,15 @@ async def solo_ws(websocket: WebSocket) -> None:
         while True:
             try:
                 data = await websocket.receive_json()
-            except WebSocketDisconnect:
+            except (WebSocketDisconnect, RuntimeError):
+                # RuntimeError: starlette raises it *synchronously* from receive_json once the
+                # socket is no longer CONNECTED (peer gone, or we closed it — e.g. replaced by a
+                # new socket). Catching it under the generic `except … continue` below would spin
+                # this loop at 100% CPU forever, since neither receive nor send would yield.
+                logger.info("[%s] receive loop ended (disconnect/closed)", cid)
                 break
             except Exception:
+                logger.info("[%s] bad JSON frame", cid)
                 await send(ErrorMsg(code="bad_message", message="invalid JSON"))
                 continue
             results = await _handle(service, user_id, data)
