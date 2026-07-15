@@ -88,7 +88,6 @@ export default function PlayPage() {
               icon="🤖"
               iconClassName="bg-cream-2"
               name="Practice"
-              badge={<ModeBadge className="bg-cream-2 text-ink-soft">🤖 Disclosed AI</ModeBadge>}
               description="Unlimited casual matches vs. badged bots. Doesn't touch ranked ELO."
               onClick={() => router.push("/match?mode=bot")}
               disabled={blocked}
@@ -117,8 +116,6 @@ export default function PlayPage() {
           </div>
 
           <p className="mx-2 mb-1 mt-[22px] text-center font-mono text-[11px] leading-[1.6] text-ink-mute">
-            🤖 = you&apos;re playing a bot, and we&apos;ll always tell you.
-            <br />
             For entertainment &amp; practice. Be yourself.
           </p>
         </div>
