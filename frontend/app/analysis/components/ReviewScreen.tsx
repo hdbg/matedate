@@ -29,6 +29,9 @@ export function ReviewScreen({ data, storageKey }: ReviewScreenProps) {
   const currentIndex = currentMove ? currentMove.threadIndex : -1;
   const counts = rankCounts(data.youMoves);
 
+  // Close the WHOLE review in one press: all review-internal navigation (the board switch)
+  // uses router.replace, so history holds exactly one entry for this screen and back()
+  // always leaves it — to the profile / bell / wherever the review was opened from.
   const back = () => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
     else router.push("/play");
@@ -113,7 +116,9 @@ export function ReviewScreen({ data, storageKey }: ReviewScreenProps) {
 
 /** PvP reviews show one board of the match at a time; this toggles which one you're reading.
  * Switching navigates to the other side's analysis (or its live replay when it hasn't been
- * deep-reviewed yet — both boards are always readable once the match is over). */
+ * deep-reviewed yet — both boards are always readable once the match is over). It REPLACES
+ * the history entry: flipping boards is review-internal state, so the header back arrow
+ * (and the browser's) still closes the whole review in a single step. */
 function SideSwitch({ match }: { match: ReviewMatchContext }) {
   const router = useRouter();
 
@@ -122,7 +127,7 @@ function SideSwitch({ match }: { match: ReviewMatchContext }) {
       type="button"
       disabled={active}
       onClick={() => {
-        if (!active) router.push(match.otherHref);
+        if (!active) router.replace(match.otherHref);
       }}
       className={cn(
         "rounded-full px-3.5 py-1.5 font-mono text-[11px] font-bold tracking-[0.04em] transition",
