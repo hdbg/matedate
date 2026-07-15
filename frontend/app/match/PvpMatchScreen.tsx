@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
 import { useSession } from "@/app/providers/SessionProvider";
+import { useSupabase } from "@/app/providers/SupabaseProvider";
 import { TIME_CONTROL_LABEL, type TimeControl } from "@/app/lib/game/service";
 import { Composer } from "./components/Composer";
 import { EvalBar } from "./components/EvalBar";
@@ -11,7 +12,7 @@ import { MatchHeader } from "./components/MatchHeader";
 import { MatchIntro } from "./components/MatchIntro";
 import { MessageThread } from "./components/MessageThread";
 import { OpponentPanel } from "./components/OpponentPanel";
-import { PvpResultModal } from "./components/PvpResultModal";
+import { PvpResultModal, type PvpAnalysisStatus } from "./components/PvpResultModal";
 import { InviteWait, SearchingOverlay } from "./components/PvpWaiting";
 import { VerdictFlash } from "./components/VerdictFlash";
 import { usePvpGame, type PvpAction } from "./usePvpGame";
@@ -30,12 +31,31 @@ interface PvpMatchScreenProps {
 export function PvpMatchScreen({ action, timeControl }: PvpMatchScreenProps) {
   const router = useRouter();
   const session = useSession();
+  const supabase = useSupabase();
   const game = usePvpGame(action);
+  const [analysisStatus, setAnalysisStatus] = useState<PvpAnalysisStatus>("idle");
 
   // Queue/invite cancelled (by us or a dead socket) — this screen has nothing to show.
   useEffect(() => {
     if (game.cancelled) router.push("/play");
   }, [game.cancelled, router]);
+
+  // Fire-and-forget, like the solo modal: the RPC queues deep reviews of BOTH boards (the
+  // side switch on the review screen needs the opponent's too) and the notifications bell
+  // announces the result — no waiting, no redirect.
+  const requestAnalysis = async () => {
+    if (!game.result) return;
+    setAnalysisStatus("pending");
+    try {
+      const { data, error } = await supabase.rpc("request_match_analysis", {
+        p_match_id: game.result.matchId,
+      });
+      if (error || !data) throw error ?? new Error("no analysis id returned");
+      setAnalysisStatus("requested");
+    } catch {
+      setAnalysisStatus("error");
+    }
+  };
 
   const leave = () => {
     if (
@@ -183,6 +203,8 @@ export function PvpMatchScreen({ action, timeControl }: PvpMatchScreenProps) {
       {game.result && (
         <PvpResultModal
           result={game.result}
+          analysisStatus={analysisStatus}
+          onRequestAnalysis={() => void requestAnalysis()}
           onNewGame={() => router.push("/play")}
           onClose={game.dismissResult}
         />

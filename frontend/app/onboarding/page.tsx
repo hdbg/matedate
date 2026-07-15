@@ -1,8 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
 import { ProgressBar } from "@/app/components/ui/ProgressBar";
+import { safeNext } from "@/app/lib/auth/sessionGuard";
 import { cn } from "@/app/lib/utils";
 import { AccountScreen } from "./components/AccountScreen";
 import { AgeGateScreen } from "./components/AgeGateScreen";
@@ -15,8 +17,11 @@ import { StyleQuizScreen } from "./components/StyleQuizScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { isDarkStep, progressValue, useOnboarding } from "./useOnboarding";
 
-export default function OnboardingPage() {
+function OnboardingFlow() {
   const router = useRouter();
+  // Where the session guard bounced the visitor from (`/onboarding?next=…`); once a session
+  // exists, the Done screen sends them back there instead of the default mode selector.
+  const next = safeNext(useSearchParams().get("next")) ?? "/play";
   const flow = useOnboarding();
   const { step, goTo } = flow;
 
@@ -108,11 +113,19 @@ export default function OnboardingPage() {
               />
             )}
             {step === "done" && (
-              <DoneScreen onPlay={() => router.push("/play")} onRestart={() => goTo("welcome")} />
+              <DoneScreen onPlay={() => router.push(next)} onRestart={() => goTo("welcome")} />
             )}
           </div>
         </div>
       </div>
     </AppShell>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<AppShell />}>
+      <OnboardingFlow />
+    </Suspense>
   );
 }

@@ -195,6 +195,15 @@ PvP sides / screenshot uploads later), so there is no per-mode analysis table.
     the message, and **returns the pre-generated analysis id**.
   - **Dev/service-role:** `enqueue_game_analysis(db, game_id, force=?)` in `app/analysis/service.py`
     (`scripts/enqueue_analysis.py` / `task enqueue-analysis`) mirrors it in Python.
+  - **PvP:** `public.request_match_analysis(match_id)` (participants of a `completed` match,
+    rated or friendly) enqueues **both sides** — one job per side, idempotent on
+    `game_analysis:match:<match_id>:<side>` — so the review screen's side switch always has a
+    fully annotated opposing board. The caller's side job carries their `user_id` (drives the
+    bell); the opposing side's job is minted with `user_id = null` (no surprise notification)
+    and *adopted* when that player requests later. Returns the caller's side's analysis id.
+    The worker loads one side via `load_match_transcript(db, match_id, side)` (same
+    `Transcript` shape; `move_id` stays null — that FK references `moves` only) and persists
+    `game_analyses(match_id, side)`.
   The worker inserts `game_analyses` with that id (`_persist_analysis(..., analysis_id)`).
 - **Fire-and-forget + notifications.** Requesting a review does not block the player: the RPC
   queues it and returns. The main screen's notifications bell watches for the result over realtime.
@@ -280,9 +289,28 @@ play `components/OpponentPanel.tsx` renders everything the player may see of the
 status, clock, glyph row, eval bar, accuracies — never content (`OppMoveOut.content` is null
 until the finish); the composer locks outside your turn ("Waiting for <opponent>…"). On
 `match_finish` the hook stashes a `PvpResult` for `components/PvpResultModal.tsx` (W/L/D, both
-accuracies, ±elo or "friendly", and the opponent-transcript reveal). Profile history fills the
-`ranked` category from `pvp_matches` + embedded `matches` (result from `winner_side` vs own
-side; friend matches labeled "friendly").
+accuracies, ±elo or "friendly", and the opponent-transcript reveal — plus a "Deep analysis"
+button that fires the `request_match_analysis` RPC). Profile history fills the `ranked`
+category from `pvp_matches` + embedded `matches` (result from `winner_side` vs own side;
+friend matches labeled "friendly") and links completed match reviews. The `/analysis/[id]`
+review screen handles match sources: `review.ts` loads the side's `match_moves` thread +
+per-side accuracy/elo from `pvp_matches`, and a **Board switch** (You | Opponent) navigates
+to the other side's analysis (each side is its own `game_analyses` row, found by
+`(match_id, side)`). Matches WITHOUT a deep review open **`/analysis/match/[matchId]`**
+(`loadReviewByMatch`, `?board=a|b`, defaults to your own side) — a live-eval replay with a
+request-review card, the match twin of `/analysis/game/[gameId]`; the board switch falls back
+to the other side's live replay when its analysis doesn't exist yet. Profile history routes
+ranked rows there when no completed review is linked.
+
+**Session guard:** every route except `/`, `/onboarding`, and `/join/*` requires a Supabase
+session. One source of truth — `app/lib/auth/sessionGuard.ts` (`isPublicPath` /
+`onboardingPath` / `safeNext`) — enforced twice: server-side in
+`app/lib/supabase/middleware.ts` (via `proxy.ts`, covers full loads AND client navigations'
+RSC fetches) and client-side by `app/providers/SessionGate.tsx` (inside AppProviders; catches
+a session dying on an already-rendered page). Signed-out visitors land on
+`/onboarding?next=<original destination>`; the Done screen pushes `next` (validated,
+internal paths only) after signup or the anonymous Skip — this is how a sessionless friend
+clicking a `/join/<code>` link still ends up in the match after onboarding.
 
 Onboarding (`/onboarding`) does real Supabase signup (or `signInAnonymously` on "Skip"), persisting
 quiz answers to `profiles` — including the player's `gender` and who they're `seeking` (the

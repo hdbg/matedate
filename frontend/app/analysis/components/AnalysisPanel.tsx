@@ -16,6 +16,8 @@ interface AnalysisPanelProps {
   onUnlock: () => void;
   /** False for a live-eval replay: ranks only — no comments, no best-line box. */
   hasAnalysis: boolean;
+  /** True when reviewing the OPPONENT's side of a PvP match — flips the "your reply" label. */
+  opponentBoard?: boolean;
   /** Rendered on the overview when there's no analysis yet (the request-review card). */
   requestSlot?: React.ReactNode;
 }
@@ -29,6 +31,7 @@ export function AnalysisPanel({
   move,
   onUnlock,
   hasAnalysis,
+  opponentBoard = false,
   requestSlot,
 }: AnalysisPanelProps) {
   if (step === 0 || !move) {
@@ -90,7 +93,7 @@ export function AnalysisPanel({
             {mv.label}
           </div>
           <div className="mt-[3px] font-mono text-[11px] font-bold text-ink-mute">
-            Move {step} · your reply
+            Move {step} · {opponentBoard ? "their reply" : "your reply"}
           </div>
         </div>
         <div className="shrink-0 font-mono text-[20px] font-bold lg:text-[24px]" style={{ color: mv.color }}>

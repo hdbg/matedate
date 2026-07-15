@@ -1068,6 +1068,97 @@ $$;
 revoke execute on function public.request_game_analysis(uuid) from public, anon;
 grant execute on function public.request_game_analysis(uuid) to authenticated;
 
+-- Internal helper for request_match_analysis: enqueue ONE side of a match (idempotent per
+-- match+side). p_user is the requester to notify (analysis_jobs.user_id drives the bell) or
+-- null for the passively-analyzed opposing side; a null-user job is "adopted" when that side's
+-- player requests later, so their bell still fires (or their catch-up query finds it).
+-- Definer-only plumbing — no client EXECUTE.
+create or replace function public.request_match_side_analysis(
+  p_match_id uuid, p_side public.match_side, p_user uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_key      text := 'game_analysis:match:' || p_match_id::text || ':' || p_side::text;
+  v_job_id   uuid;
+  v_analysis uuid;
+  v_user     uuid;
+  v_msg_id   bigint;
+begin
+  select id, analysis_id, user_id into v_job_id, v_analysis, v_user
+  from public.analysis_jobs where idempotency_key = v_key;
+  if found then
+    if v_user is null and p_user is not null then
+      update public.analysis_jobs set user_id = p_user where id = v_job_id;
+    end if;
+    return v_analysis;
+  end if;
+
+  v_analysis := gen_random_uuid();
+  insert into public.analysis_jobs (kind, status, user_id, match_id, idempotency_key, analysis_id)
+  values ('game_analysis', 'queued', p_user, p_match_id, v_key, v_analysis)
+  returning id into v_job_id;
+
+  select pgmq.send(
+    'game_analysis',
+    jsonb_build_object(
+      'job_id', v_job_id, 'match_id', p_match_id, 'side', p_side, 'analysis_id', v_analysis
+    )
+  ) into v_msg_id;
+  update public.analysis_jobs set queue_msg_id = v_msg_id where id = v_job_id;
+
+  return v_analysis;
+end;
+$$;
+
+-- Client entrypoint to request a deep review of a finished PvP match (rated or friendly).
+-- Analyzes BOTH sides — one job per side — so the review screen's side switch always has a
+-- fully annotated opposing board. Authorizes via my_match_side (participants only, completed
+-- matches only). Returns the caller's own side's pre-generated analysis id (awaitable over
+-- realtime, same contract as request_game_analysis).
+create or replace function public.request_match_analysis(p_match_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user     uuid := auth.uid();
+  v_side     public.match_side;
+  v_status   text;
+  v_analysis uuid;
+begin
+  if v_user is null then
+    raise exception 'not authenticated' using errcode = '28000';
+  end if;
+  v_side := public.my_match_side(p_match_id);
+  if v_side is null then
+    raise exception 'match not found' using errcode = 'P0002';
+  end if;
+  select status::text into v_status from public.matches where id = p_match_id;
+  if v_status <> 'completed' then
+    raise exception 'match % is %, not completed', p_match_id, v_status using errcode = 'P0001';
+  end if;
+
+  v_analysis := public.request_match_side_analysis(p_match_id, v_side, v_user);
+  perform public.request_match_side_analysis(
+    p_match_id,
+    case when v_side = 'a' then 'b'::public.match_side else 'a'::public.match_side end,
+    null
+  );
+  return v_analysis;
+end;
+$$;
+
+revoke execute on function
+  public.request_match_side_analysis(uuid, public.match_side, uuid),
+  public.request_match_analysis(uuid)
+  from public, anon, authenticated;
+grant execute on function public.request_match_analysis(uuid) to authenticated;
+
 -- Unlocks: you can see what you've unlocked; the service_role mints them on purchase.
 create policy game_reveal_unlocks_select_own on public.game_reveal_unlocks
   for select using (auth.uid() = user_id);

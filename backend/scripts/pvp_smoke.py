@@ -23,13 +23,16 @@ import sys
 import time
 import urllib.request
 import uuid
-from typing import Any
+from typing import Any, cast
 
 from postgrest.exceptions import APIError
 from supabase import AsyncClient
 from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import ConnectionClosed
 
+from app.analysis.engine import build_analysis_engine
+from app.analysis.queue import QUEUE_NAME, queue_read
+from app.analysis.service import process_job
 from app.config import get_settings
 
 PORT = 8123
@@ -293,6 +296,75 @@ async def main() -> int:
 
     sides = await _move_sides(as_b, match_id)
     check("a" in sides, "post-match: opponent thread visible via RLS")
+
+    print("· deep analysis: RPC enqueues both boards, worker annotates, side switch resolves")
+    as_a = rls_client(a_token)
+    b_analysis = (await as_b.rpc("request_match_analysis", {"p_match_id": match_id}).execute()).data
+    check(isinstance(b_analysis, str) and bool(b_analysis), "RPC returns the caller's analysis id")
+    again = (await as_b.rpc("request_match_analysis", {"p_match_id": match_id}).execute()).data
+    check(again == b_analysis, "re-requesting is idempotent")
+    a_analysis = (await as_a.rpc("request_match_analysis", {"p_match_id": match_id}).execute()).data
+    check(bool(a_analysis) and a_analysis != b_analysis, "each player gets their own side's id")
+    try:
+        await rls_client(c_token).rpc(
+            "request_match_analysis", {"p_match_id": match_id}
+        ).execute()
+        check(False, "non-participant RPC rejected")
+    except APIError:
+        check(True, "non-participant RPC rejected")
+    # Drain the queue inline (same code path as the worker, fake analysis engine — no key set).
+    engine = build_analysis_engine(settings)
+    for _ in range(6):
+        queued = await queue_read(db, QUEUE_NAME, vt_seconds=60, qty=5)
+        if not queued:
+            break
+        for qmsg in queued:
+            await process_job(db, settings, engine, qmsg)
+    analyses = cast(
+        "list[dict[str, Any]]",
+        (
+            await db.table("game_analyses").select("id, side").eq("match_id", match_id).execute()
+        ).data
+        or [],
+    )
+    by_side = {str(r["side"]): str(r["id"]) for r in analyses}
+    check(by_side.get("a") == a_analysis and by_side.get("b") == b_analysis,
+          "worker wrote one analysis per side, under the pre-generated ids")
+    jobs = cast(
+        "list[dict[str, Any]]",
+        (
+            await db.table("analysis_jobs")
+            .select("status, user_id")
+            .eq("match_id", match_id)
+            .execute()
+        ).data
+        or [],
+    )
+    check(
+        len(jobs) == 2 and all(j["status"] == "completed" for j in jobs),
+        "both side jobs completed",
+    )
+    check(
+        {j["user_id"] for j in jobs} == {a_id, b_id},
+        "opponent-side job adopted by its player (bell will fire for both)",
+    )
+    # RLS: a participant reads BOTH sides' analyses + moves; the best lines stay locked
+    # (no match unlock → zero reveal rows reach the client).
+    visible = (
+        await as_b.table("game_analyses").select("id").eq("match_id", match_id).execute()
+    ).data
+    check(len(visible or []) == 2, "participant reads both sides' analyses via RLS")
+    a_moves = (
+        await as_b.table("game_analysis_moves").select("id").eq("analysis_id", a_analysis).execute()
+    ).data
+    check(bool(a_moves), "opponent-board analysis moves readable (the side switch's data)")
+    reveals = (
+        await as_b.table("game_analysis_move_reveals")
+        .select("analysis_move_id")
+        .eq("analysis_id", b_analysis)
+        .execute()
+    ).data
+    check(not reveals, "best lines stay locked without a match unlock (RLS)")
 
     print("· date landed = instant win, pushed to the idle opponent")
     await start_match(a, b)

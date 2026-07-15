@@ -123,7 +123,7 @@ export async function loadProfile(): Promise<ProfileData | null> {
       .limit(100),
     supabase
       .from("analysis_jobs")
-      .select("game_id, analysis_id")
+      .select("game_id, match_id, analysis_id")
       .eq("kind", "game_analysis")
       .eq("status", "completed"),
   ]);
@@ -138,7 +138,7 @@ export async function loadProfile(): Promise<ProfileData | null> {
   const solos = (soloRows ?? []) as SoloGameRow[];
   const moves = (moveRows ?? []) as MoveEvalRow[];
   const pvps = (pvpRows ?? []) as (PvpMatchRow & { matches: MatchRow })[];
-  const jobs = (jobRows ?? []) as Pick<AnalysisJobRow, "game_id" | "analysis_id">[];
+  const jobs = (jobRows ?? []) as Pick<AnalysisJobRow, "game_id" | "match_id" | "analysis_id">[];
 
   const soloByGame = new Map(solos.map((s) => [s.game_id, s]));
 
@@ -166,6 +166,10 @@ export async function loadProfile(): Promise<ProfileData | null> {
   const analysisByGame = new Map(
     jobs.filter((j) => j.game_id && j.analysis_id).map((j) => [j.game_id!, j.analysis_id!]),
   );
+  // Only my own jobs are visible (RLS), i.e. the side I requested — exactly the board to open.
+  const analysisByMatch = new Map(
+    jobs.filter((j) => j.match_id && j.analysis_id).map((j) => [j.match_id!, j.analysis_id!]),
+  );
 
   const moveStats = moveStatsByGame(moves);
   let brilliants = 0;
@@ -179,7 +183,9 @@ export async function loadProfile(): Promise<ProfileData | null> {
         analysisId: analysisByGame.get(game.id) ?? null,
       }),
     ),
-    ...pvps.map((pvp) => toPvpHistoryItem(pvp, userId, personaNameById)),
+    ...pvps.map((pvp) =>
+      toPvpHistoryItem(pvp, userId, personaNameById, analysisByMatch.get(pvp.match_id) ?? null),
+    ),
   ].sort((a, b) => (a.whenISO < b.whenISO ? 1 : -1));
 
   const counts: ProfileData["counts"] = { all: 0, solo: 0, ranked: 0, practice: 0, review: 0, puzzle: 0 };
@@ -292,6 +298,7 @@ function toPvpHistoryItem(
   pvp: PvpMatchRow & { matches: MatchRow },
   userId: string,
   personaNameById: Map<string, string>,
+  analysisId: string | null,
 ): HistoryItem {
   const match = pvp.matches;
   const side: "a" | "b" = pvp.player_a === userId ? "a" : "b";
@@ -319,7 +326,7 @@ function toPvpHistoryItem(
     result,
     delta: match.rated && eloBefore != null && eloAfter != null ? eloAfter - eloBefore : null,
     flatLabel: match.rated ? "—" : "friendly",
-    analysisId: null,
+    analysisId,
   };
 }
 

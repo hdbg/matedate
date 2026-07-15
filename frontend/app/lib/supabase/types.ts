@@ -122,6 +122,7 @@ export interface AnalysisJobRow {
   status: "queued" | "processing" | "completed" | "failed" | "cancelled";
   user_id: string | null;
   game_id: string | null;
+  match_id: string | null;
   analysis_id: string | null;
   last_error: string | null;
   created_at: string;
@@ -129,12 +130,15 @@ export interface AnalysisJobRow {
   finished_at: string | null;
 }
 
-/** A finished game's deep-review header. Written by the analysis worker; owner-readable. */
+/** A finished game's deep-review header. Written by the analysis worker; readable by the
+ * source game's owner / the source match's participants. For match sources, `side` says
+ * whose conversation was analyzed (each side of a PvP match gets its own analysis). */
 export interface GameAnalysisRow {
   id: string;
   job_id: string | null;
   game_id: string | null;
   match_id: string | null;
+  side: "a" | "b" | null;
   title: string;
   description: string;
   tags: string[];

@@ -7,8 +7,22 @@ import { formatSwing, type MoveClassKey } from "@/app/lib/game/service";
 import type { WireMove } from "@/app/lib/game/live";
 import type { PvpResult } from "../usePvpGame";
 
+/** State of the "Deep analysis" request — fire-and-forget, same contract as the solo modal:
+ * once `requested`, both boards are analyzed in the background and the main screen's
+ * notifications bell announces the result. */
+export type PvpAnalysisStatus = "idle" | "pending" | "requested" | "error";
+
+const ANALYSIS_COPY: Record<PvpAnalysisStatus, { label: string; sub: string }> = {
+  idle: { label: "Deep analysis", sub: "Both boards, move by move" },
+  pending: { label: "Requesting…", sub: "Queuing your review" },
+  requested: { label: "Review requested ✓", sub: "We'll notify you when it's ready" },
+  error: { label: "Retry analysis", sub: "That didn't go through" },
+};
+
 interface PvpResultModalProps {
   result: PvpResult;
+  analysisStatus: PvpAnalysisStatus;
+  onRequestAnalysis: () => void;
   onNewGame: () => void;
   onClose: () => void;
 }
@@ -35,8 +49,16 @@ const RESULT_BADGE: Record<PvpResult["result"], { label: string; className: stri
   draw: { label: "Draw", className: "bg-cream-2 text-ink-soft" },
 };
 
-export function PvpResultModal({ result, onNewGame, onClose }: PvpResultModalProps) {
+export function PvpResultModal({
+  result,
+  analysisStatus,
+  onRequestAnalysis,
+  onNewGame,
+  onClose,
+}: PvpResultModalProps) {
   const [showOpp, setShowOpp] = useState(false);
+  const analysis = ANALYSIS_COPY[analysisStatus];
+  const analysisBusy = analysisStatus === "pending" || analysisStatus === "requested";
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -155,12 +177,28 @@ export function PvpResultModal({ result, onNewGame, onClose }: PvpResultModalPro
           )}
         </div>
 
-        {/* actions */}
+        {/* actions — Deep analysis leads (reviews both boards, powers the side switch) */}
         <div className="mt-4 flex flex-col gap-[11px] lg:flex-row-reverse">
           <button
             type="button"
+            onClick={onRequestAnalysis}
+            disabled={analysisBusy}
+            className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2.5 rounded-full border-none bg-rosy px-[22px] py-[15px] text-[16px] font-bold tracking-[-0.01em] text-white shadow-[0_6px_0_var(--rosy-deep)] transition hover:bg-rosy-deep active:translate-y-[3px] active:shadow-[0_3px_0_var(--rosy-deep)] disabled:cursor-default disabled:opacity-80 disabled:active:translate-y-0"
+          >
+            <span className="font-mono text-[13px]" aria-hidden>
+              🔍
+            </span>
+            <span className="flex flex-col items-start leading-[1.05]">
+              {analysis.label}
+              <small className="font-mono text-[9.5px] font-bold uppercase tracking-[0.06em] opacity-70">
+                {analysis.sub}
+              </small>
+            </span>
+          </button>
+          <button
+            type="button"
             onClick={onNewGame}
-            className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2.5 rounded-full border-none bg-rosy px-[22px] py-[15px] text-[16px] font-bold tracking-[-0.01em] text-white shadow-[0_6px_0_var(--rosy-deep)] transition hover:bg-rosy-deep active:translate-y-[3px] active:shadow-[0_3px_0_var(--rosy-deep)]"
+            className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2.5 rounded-full border-none bg-ink px-[22px] py-[15px] text-[16px] font-bold tracking-[-0.01em] text-king shadow-[var(--sh-1)] transition hover:bg-black active:translate-y-px"
           >
             <span className="font-mono text-[13px]" aria-hidden>
               ⚔️
@@ -169,18 +207,6 @@ export function PvpResultModal({ result, onNewGame, onClose }: PvpResultModalPro
               New game
               <small className="font-mono text-[9.5px] font-bold uppercase tracking-[0.06em] opacity-70">
                 Back to modes
-              </small>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2.5 rounded-full border-none bg-ink px-[22px] py-[15px] text-[16px] font-bold tracking-[-0.01em] text-king shadow-[var(--sh-1)] transition hover:bg-black active:translate-y-px"
-          >
-            <span className="flex flex-col items-start leading-[1.05]">
-              Review the board
-              <small className="font-mono text-[9.5px] font-bold uppercase tracking-[0.06em] opacity-70">
-                Close this card
               </small>
             </span>
           </button>

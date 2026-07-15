@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
-import { rankCounts, type ReviewData } from "../review";
+import { cn } from "@/app/lib/utils";
+import { rankCounts, type ReviewData, type ReviewMatchContext } from "../review";
 import { useReviewReplay } from "../useReviewReplay";
 import { AnalysisPanel } from "./AnalysisPanel";
 import { RequestReviewCard } from "./RequestReviewCard";
@@ -55,8 +56,13 @@ export function ReviewScreen({ data, storageKey }: ReviewScreenProps) {
       move={currentMove}
       onUnlock={onUnlock}
       hasAnalysis={data.hasAnalysis}
+      opponentBoard={data.match ? !data.match.isYou : false}
       requestSlot={
-        !data.hasAnalysis && data.gameId ? <RequestReviewCard gameId={data.gameId} /> : undefined
+        !data.hasAnalysis && data.gameId ? (
+          <RequestReviewCard target={{ kind: "game", id: data.gameId }} />
+        ) : !data.hasAnalysis && data.match ? (
+          <RequestReviewCard target={{ kind: "match", id: data.match.matchId }} />
+        ) : undefined
       }
     />
   );
@@ -75,6 +81,7 @@ export function ReviewScreen({ data, storageKey }: ReviewScreenProps) {
             onBack={back}
             onShare={share}
           />
+          {data.match && <SideSwitch match={data.match} />}
           <SummaryStrip
             accuracy={data.accuracy}
             brilliant={counts.brilliant}
@@ -101,5 +108,45 @@ export function ReviewScreen({ data, storageKey }: ReviewScreenProps) {
         </aside>
       </div>
     </AppShell>
+  );
+}
+
+/** PvP reviews show one board of the match at a time; this toggles which one you're reading.
+ * Switching navigates to the other side's analysis (or its live replay when it hasn't been
+ * deep-reviewed yet — both boards are always readable once the match is over). */
+function SideSwitch({ match }: { match: ReviewMatchContext }) {
+  const router = useRouter();
+
+  const chip = (label: string, active: boolean) => (
+    <button
+      type="button"
+      disabled={active}
+      onClick={() => {
+        if (!active) router.push(match.otherHref);
+      }}
+      className={cn(
+        "rounded-full px-3.5 py-1.5 font-mono text-[11px] font-bold tracking-[0.04em] transition",
+        active
+          ? "cursor-default bg-ink text-king"
+          : "cursor-pointer bg-white text-ink-soft shadow-[var(--sh-1)] hover:text-ink",
+      )}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="flex flex-shrink-0 items-center gap-2 border-b border-ink/[0.08] bg-cream/60 px-4 py-2 lg:px-7">
+      <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink-mute">
+        ⚔️ Board
+      </span>
+      {chip("You", match.isYou)}
+      {chip("Opponent", !match.isYou)}
+      {!match.rated && (
+        <span className="ml-auto font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-ink-mute">
+          friendly
+        </span>
+      )}
+    </div>
   );
 }
