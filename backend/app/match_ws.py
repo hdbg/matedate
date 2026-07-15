@@ -12,6 +12,7 @@ idle opponent's socket is closed by the session via the close callback.
 """
 
 import asyncio
+import logging
 from functools import lru_cache
 from typing import Annotated, Any, Union
 
@@ -36,6 +37,9 @@ from .supabase_client import get_supabase
 from .ws import CLOSE_UNAUTHORIZED, manager
 
 
+logger = logging.getLogger("matedate.ws.match")
+
+
 @lru_cache
 def _engine() -> Engine:
     return build_engine(get_settings())
@@ -49,17 +53,25 @@ _frame_adapter: TypeAdapter[ClientFrame] = TypeAdapter(ClientFrame)
 
 
 async def match_ws(websocket: WebSocket) -> None:
+    cid = f"m{id(websocket) & 0xffffff:06x}"  # short per-connection id for correlating log lines
+    client = websocket.client
+    logger.info("[%s] /ws/match connect from %s", cid, client)
     await websocket.accept()
+    logger.info("[%s] accepted", cid)
 
     supabase = get_supabase()
     token = websocket.query_params.get("token", "")
+    logger.info("[%s] token present=%s len=%d", cid, bool(token), len(token))
     try:
         user_id = await verify_token(supabase, token)
-    except AuthError:
+    except AuthError as exc:
+        logger.info("[%s] auth failed (%s); closing %d", cid, exc, CLOSE_UNAUTHORIZED)
         await websocket.close(code=CLOSE_UNAUTHORIZED, reason="unauthorized")
         return
+    logger.info("[%s] authed user=%s", cid, user_id)
 
     await manager.register(user_id, websocket)
+    logger.info("[%s] registered", cid)
 
     # Serialize every send: the request loop and the session's pushes (opponent frames, the
     # timeout finish) would otherwise interleave and corrupt the WS framing.
@@ -67,10 +79,12 @@ async def match_ws(websocket: WebSocket) -> None:
 
     async def send(message: BaseModel) -> None:
         async with send_lock:
+            label = getattr(message, "type", type(message).__name__)
             try:
                 await websocket.send_json(message.model_dump())
+                logger.info("[%s] sent %s", cid, label)
             except Exception:
-                pass  # socket closing/closed — nothing more we can do
+                logger.info("[%s] send %s dropped (socket closing)", cid, label)
 
     async def close() -> None:
         try:
@@ -81,31 +95,48 @@ async def match_ws(websocket: WebSocket) -> None:
     conn = PlayerConn(user_id=user_id, send=send, close=close)
     try:
         # Resume an in-progress match straight away (reconnect / backend restart).
+        logger.info("[%s] checking for resumable match…", cid)
         session = await registry.get_or_load(supabase, get_settings(), _engine(), user_id)
+        logger.info("[%s] resumable match=%s", cid, session is not None)
         if session is not None:
             opening = await session.attach(conn)
             for message in opening:
                 await send(message)
             if _ends_match(opening):
+                logger.info("[%s] resumed match already over; closing", cid)
                 return
 
+        logger.info("[%s] entering receive loop", cid)
         while True:
             try:
                 data = await websocket.receive_json()
             except (WebSocketDisconnect, RuntimeError):
                 # RuntimeError: the session closed this socket under us (match over).
+                logger.info("[%s] receive loop ended (disconnect/closed)", cid)
                 break
             except Exception:
+                logger.info("[%s] bad JSON frame", cid)
                 await send(ErrorMsg(code="bad_message", message="invalid JSON"))
                 continue
+            frame_type = data.get("type") if isinstance(data, dict) else type(data).__name__
+            logger.info("[%s] recv frame type=%s", cid, frame_type)
             results = await _handle(supabase, conn, data)
+            logger.info(
+                "[%s] handled %s -> %s", cid, frame_type, [type(m).__name__ for m in results]
+            )
             for message in results:
                 await send(message)
             if _ends_match(results):
+                logger.info("[%s] match finished; closing", cid)
                 break
     except WebSocketDisconnect:
-        pass
+        logger.info("[%s] WebSocketDisconnect", cid)
+    except Exception:
+        logger.exception("[%s] unhandled error in match_ws", cid)
+        raise
     finally:
+        logger.info("[%s] cleanup (session=%s queued=%s invite=%s)",
+                    cid, conn.session is not None, conn.queued, conn.invite_code is not None)
         if conn.session is not None:
             conn.session.detach(conn)
         if conn.queued:
@@ -113,6 +144,7 @@ async def match_ws(websocket: WebSocket) -> None:
         if conn.invite_code is not None:
             await invites.cancel(supabase, conn)
         manager.unregister(user_id, websocket)
+        logger.info("[%s] closed", cid)
 
 
 async def _handle(db: AsyncClient, conn: PlayerConn, data: Any) -> list[BaseModel]:

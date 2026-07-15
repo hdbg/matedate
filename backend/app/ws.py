@@ -1,6 +1,7 @@
 """WebSocket transport: one authenticated socket per user, one active game per user."""
 
 import asyncio
+import logging
 from functools import lru_cache
 from typing import Any
 
@@ -13,6 +14,8 @@ from .engine import Engine, build_engine
 from .game import SoloGameService
 from .protocol import ClientMove, ErrorMsg, FinishMsg
 from .supabase_client import get_supabase
+
+logger = logging.getLogger("matedate.ws.solo")
 
 # WebSocket close codes (application range 4000-4999).
 CLOSE_REPLACED = 4000
@@ -58,15 +61,20 @@ async def _handle(service: SoloGameService, user_id: str, data: Any) -> list[Bas
 
 
 async def solo_ws(websocket: WebSocket) -> None:
+    cid = f"s{id(websocket) & 0xffffff:06x}"
+    logger.info("[%s] /ws connect from %s", cid, websocket.client)
     await websocket.accept()
 
     supabase = get_supabase()
     token = websocket.query_params.get("token", "")
+    logger.info("[%s] token present=%s len=%d", cid, bool(token), len(token))
     try:
         user_id = await verify_token(supabase, token)
-    except AuthError:
+    except AuthError as exc:
+        logger.info("[%s] auth failed (%s); closing %d", cid, exc, CLOSE_UNAUTHORIZED)
         await websocket.close(code=CLOSE_UNAUTHORIZED, reason="unauthorized")
         return
+    logger.info("[%s] authed user=%s; registered", cid, user_id)
 
     await manager.register(user_id, websocket)
 
