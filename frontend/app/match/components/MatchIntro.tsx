@@ -30,11 +30,24 @@ interface PlayerInfo {
   elo: number;
 }
 
+/** A real human opponent (PvP): shown in place of the persona on the right side. */
+export interface IntroOpponent {
+  name: string;
+  handle: string;
+  avatarPath: string | null;
+  /** Null on unrated (friend) matches. */
+  elo: number | null;
+}
+
 interface MatchIntroProps {
   mode: VersusMode;
   timeControl: TimeControl;
   persona: Persona;
   player: PlayerInfo;
+  /** PvP: the human on the other side. Omitted for solo/practice (the persona stands in). */
+  opponent?: IntroOpponent;
+  /** PvP friend matches are unrated; flips the terms chip. Defaults to ranked semantics. */
+  rated?: boolean;
   /** Called when the reveal finishes (or the player taps to skip) — starts the held clock. */
   onDone: () => void;
 }
@@ -52,7 +65,15 @@ function placeholderElo(slug: string, playerElo: number): number {
  * placeholder ELO/tier); practice / versus-AI shows the persona name + a disclosed-AI badge and no
  * ELO. Auto-advances after INTRO_MS; tap anywhere to skip.
  */
-export function MatchIntro({ mode, timeControl, persona, player, onDone }: MatchIntroProps) {
+export function MatchIntro({
+  mode,
+  timeControl,
+  persona,
+  player,
+  opponent,
+  rated = true,
+  onDone,
+}: MatchIntroProps) {
   const ranked = mode === "ranked";
   const [count, setCount] = useState(3);
   const [exiting, setExiting] = useState(false);
@@ -177,25 +198,53 @@ export function MatchIntro({ mode, timeControl, persona, player, onDone }: Match
 
           {/* OPPONENT */}
           <div className="intro-opp flex w-32 flex-col items-center gap-3 opacity-0">
-            <div className="relative">
-              <div className="grid h-[110px] w-[110px] place-items-center rounded-full border-[3px] border-gold bg-ink/40 shadow-[0_10px_30px_rgba(0,0,0,0.4)]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/assets/black-queen.svg" alt="" aria-hidden className="h-[68%] w-[68%]" />
-              </div>
-              {ranked && <TierChip tier={oppTier.glyph} label={oppTier.label} />}
-            </div>
-            {ranked ? (
-              <FighterInfo name={persona.name} handle={`@${persona.slug}`} elo={oppElo} />
+            {opponent ? (
+              <>
+                <div className="relative">
+                  <Avatar
+                    path={opponent.avatarPath}
+                    size={110}
+                    className="ring-[3px] ring-gold shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
+                  />
+                  {opponent.elo != null && (
+                    <TierChip
+                      tier={tierFor(opponent.elo, RATED).glyph}
+                      label={tierFor(opponent.elo, RATED).label}
+                    />
+                  )}
+                </div>
+                <FighterInfo name={opponent.name} handle={opponent.handle} elo={opponent.elo} />
+              </>
             ) : (
-              <div className="text-center">
-                <div className="text-[18px] font-extrabold leading-[1.05] tracking-[-0.02em]">
-                  {persona.name}
+              <>
+                <div className="relative">
+                  <div className="grid h-[110px] w-[110px] place-items-center rounded-full border-[3px] border-gold bg-ink/40 shadow-[0_10px_30px_rgba(0,0,0,0.4)]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/assets/black-queen.svg"
+                      alt=""
+                      aria-hidden
+                      className="h-[68%] w-[68%]"
+                    />
+                  </div>
+                  {ranked && <TierChip tier={oppTier.glyph} label={oppTier.label} />}
                 </div>
-                <div className="mt-[3px] font-mono text-[11px] text-ink-mute">AI · disclosed</div>
-                <div className="mt-2.5 inline-block rounded-full border border-king/20 bg-king/10 px-[11px] py-[5px] font-mono text-[10px] font-bold text-king">
-                  🤖 Unranked bot
-                </div>
-              </div>
+                {ranked ? (
+                  <FighterInfo name={persona.name} handle={`@${persona.slug}`} elo={oppElo} />
+                ) : (
+                  <div className="text-center">
+                    <div className="text-[18px] font-extrabold leading-[1.05] tracking-[-0.02em]">
+                      {persona.name}
+                    </div>
+                    <div className="mt-[3px] font-mono text-[11px] text-ink-mute">
+                      AI · disclosed
+                    </div>
+                    <div className="mt-2.5 inline-block rounded-full border border-king/20 bg-king/10 px-[11px] py-[5px] font-mono text-[10px] font-bold text-king">
+                      🤖 Unranked bot
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -206,7 +255,11 @@ export function MatchIntro({ mode, timeControl, persona, player, onDone }: Match
             ⚡ {TIME_CONTROL_LABEL[timeControl]} · {tcSeconds}s
           </span>
           <span className="rounded-full border border-king/15 bg-king/10 px-3 py-1.5">
-            {ranked ? "Ranked · ELO on the line" : "Practice · doesn’t touch ELO"}
+            {!ranked
+              ? "Practice · doesn’t touch ELO"
+              : rated
+                ? "Ranked · ELO on the line"
+                : "Friendly · doesn’t touch ELO"}
           </span>
         </div>
 
@@ -224,7 +277,15 @@ export function MatchIntro({ mode, timeControl, persona, player, onDone }: Match
   );
 }
 
-function FighterInfo({ name, handle, elo }: { name: string; handle: string; elo: number }) {
+function FighterInfo({
+  name,
+  handle,
+  elo,
+}: {
+  name: string;
+  handle: string;
+  elo: number | null;
+}) {
   return (
     <div className="text-center">
       <div className="text-[18px] font-extrabold leading-[1.05] tracking-[-0.02em]">{name}</div>
@@ -232,9 +293,11 @@ function FighterInfo({ name, handle, elo }: { name: string; handle: string; elo:
       <div className="mt-2 font-mono font-bold">
         <div className="flex items-center justify-center gap-1.5 text-[20px]">
           <span className="text-rosy">♟</span>
-          {elo}
+          {elo ?? "—"}
         </div>
-        <div className="mt-0.5 text-[8px] uppercase tracking-[0.12em] text-ink-mute">ELO</div>
+        <div className="mt-0.5 text-[8px] uppercase tracking-[0.12em] text-ink-mute">
+          {elo != null ? "ELO" : "unrated"}
+        </div>
       </div>
     </div>
   );

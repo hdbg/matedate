@@ -13,19 +13,28 @@ const COPY: Record<RequestStatus, { label: string; sub: string }> = {
   error: { label: "Retry request", sub: "That didn't go through" },
 };
 
+/** What to analyze: a solo/practice game, or a PvP match (both boards). */
+export interface ReviewTarget {
+  kind: "game" | "match";
+  id: string;
+}
+
 /**
- * Ask the backend to deep-review this game (the `request_game_analysis` RPC — own completed
- * games only, idempotent per game). Fire-and-forget: the notifications bell announces the
- * finished review, and revisiting this game then shows it automatically.
+ * Ask the backend to deep-review this game or match (the `request_game_analysis` /
+ * `request_match_analysis` RPC — own completed sources only, idempotent). Fire-and-forget:
+ * the notifications bell announces the finished review, and revisiting then shows it.
  */
-export function RequestReviewCard({ gameId }: { gameId: string }) {
+export function RequestReviewCard({ target }: { target: ReviewTarget }) {
   const [status, setStatus] = useState<RequestStatus>("idle");
   const copy = COPY[status];
   const busy = status === "pending" || status === "requested";
 
   const request = async () => {
     setStatus("pending");
-    const { error } = await createClient().rpc("request_game_analysis", { p_game_id: gameId });
+    const { error } =
+      target.kind === "game"
+        ? await createClient().rpc("request_game_analysis", { p_game_id: target.id })
+        : await createClient().rpc("request_match_analysis", { p_match_id: target.id });
     setStatus(error ? "error" : "requested");
   };
 

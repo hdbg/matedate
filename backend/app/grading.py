@@ -80,3 +80,20 @@ def classify(swing: float, eval_after: float | None = None) -> Grade:
 
 def swing_from_delta(eval_delta: float) -> float:
     return round(eval_delta / EVAL_PER_PAWN, 2)
+
+
+def resolve_eval_after(eval_after: float, *, is_blocked: bool, is_date_landed: bool) -> float:
+    """Land a verdict's eval on the board: the bounds are mating squares (SPEC §3), so only the
+    verdict flags may put a move on 0/100 — everything else is pinched to [1, 99] so a
+    merely-enthusiastic score can't accidentally end the game."""
+    if is_blocked:
+        return 0.0
+    if is_date_landed:
+        return 100.0
+    return max(1.0, min(99.0, eval_after))
+
+
+def accuracy_from_qualities(qualities: list[int], denom: int) -> float:
+    """Mean move quality over `denom` (pass a denom larger than len(qualities) to grade
+    forfeited exchanges as zero-quality, e.g. on a timeout)."""
+    return round(sum(qualities) / denom, 2) if denom else 0.0

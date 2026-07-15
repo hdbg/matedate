@@ -74,7 +74,9 @@ export function GameHistory({ counts, history }: GameHistoryProps) {
                   router.push(
                     item.analysisId
                       ? `/analysis/${item.analysisId}`
-                      : `/analysis/game/${item.gameId}`,
+                      : item.category === "ranked"
+                        ? `/analysis/match/${item.gameId}` // gameId holds the match id here
+                        : `/analysis/game/${item.gameId}`,
                   )
                 }
                 className="flex cursor-pointer items-center gap-3 rounded-[18px] border border-ink/[0.07] bg-white p-3.5 text-left shadow-[0_3px_9px_rgba(39,35,32,0.05)] transition-[transform,box-shadow] duration-[120ms] hover:-translate-y-0.5 hover:shadow-[0_9px_20px_rgba(39,35,32,0.11)] lg:gap-4 lg:px-[18px] lg:py-4"
@@ -146,7 +148,7 @@ export function GameHistory({ counts, history }: GameHistoryProps) {
         <div className="px-5 py-[30px] text-center text-[14px] text-ink-mute">
           No games in this category yet.
           <Link href="/play" className="mt-1.5 block font-mono text-[12px] text-rosy-deep">
-            Go play a round →
+            Go play a match →
           </Link>
         </div>
       )}

@@ -6,7 +6,6 @@ import {
   type GradedMove,
   type MoveClassKey,
   type Persona,
-  type VersusMode,
 } from "@/app/lib/game/service";
 import {
   matchSocketUrl,
@@ -59,18 +58,16 @@ function toPersona(p: WirePersona): Persona {
 }
 
 /**
- * Drives the Match screen off the solo PvE backend over a WebSocket: the persona,
- * move grading, persona replies, and the server-authoritative per-move clock all
- * come from the server. `mode` only affects presentation (the backend is solo PvE
- * regardless; ranked PvH is a later layer).
+ * Drives the solo/practice Match screen off the solo PvE backend over a WebSocket: the
+ * persona, move grading, persona replies, and the server-authoritative clock all come
+ * from the server. Real PvP lives in `usePvpGame` (its own socket + protocol).
  */
-export function useMatchGame(mode: VersusMode) {
+export function useMatchGame() {
   const [persona, setPersona] = useState<Persona | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [typing, setTyping] = useState(false);
   const [interest, setInterest] = useState(BASE_INTEREST);
   const [yourAcc, setYourAcc] = useState(0);
-  const [oppAcc, setOppAcc] = useState(0);
   const [verdict, setVerdict] = useState<VerdictState | null>(null);
   const [flagged, setFlagged] = useState(false);
   const [ready, setReady] = useState(false);
@@ -85,7 +82,6 @@ export function useMatchGame(mode: VersusMode) {
   const socketRef = useRef<WebSocket | null>(null);
   const budgetRef = useRef(30); // base game clock (s), set from the server
   const moveCountRef = useRef(0);
-  const oppCountRef = useRef(0);
   const pendingYouRef = useRef<number | null>(null);
   const overRef = useRef(false); // game finished/flagged — silences reconnect noise
   const interestRef = useRef(BASE_INTEREST); // latest interest, for the finish snapshot
@@ -100,13 +96,13 @@ export function useMatchGame(mode: VersusMode) {
   );
 
   const handleFlag = useCallback(() => {
-    // Local clock hit zero: end the round in the UI. The server is authoritative and
+    // Local clock hit zero: end the game in the UI. The server is authoritative and
     // will finalize the timeout (with rating) the next time this user connects.
     overRef.current = true;
     setTyping(false);
     setFlagged((f) => {
       if (f) return f;
-      appendMessage({ side: "system", text: "(you ran out of time — the round is over ⏱)" });
+      appendMessage({ side: "system", text: "(you ran out of time — the game is over ⏱)" });
       return true;
     });
   }, [appendMessage]);
@@ -118,18 +114,11 @@ export function useMatchGame(mode: VersusMode) {
     interestRef.current = interest;
   }, [interest]);
 
-  const scoreAccuracy = useCallback(
-    (classKey: MoveClassKey) => {
-      moveCountRef.current += 1;
-      const quality = MOVE_CLASSES[classKey].quality;
-      setYourAcc((prev) => (prev * (moveCountRef.current - 1) + quality) / moveCountRef.current);
-      // Solo has no real opponent; keep a plausible cosmetic figure for the strip.
-      oppCountRef.current += 1;
-      const oppQuality = mode === "ranked" ? 70 + Math.random() * 20 : 60 + Math.random() * 18;
-      setOppAcc((prev) => (prev * (oppCountRef.current - 1) + oppQuality) / oppCountRef.current);
-    },
-    [mode],
-  );
+  const scoreAccuracy = useCallback((classKey: MoveClassKey) => {
+    moveCountRef.current += 1;
+    const quality = MOVE_CLASSES[classKey].quality;
+    setYourAcc((prev) => (prev * (moveCountRef.current - 1) + quality) / moveCountRef.current);
+  }, []);
 
   const rebuildFromMoves = useCallback(
     (moves: WireMove[]) => {
@@ -154,11 +143,9 @@ export function useMatchGame(mode: VersusMode) {
         return { id: nextId(), side: "match" as const, text: mv.content };
       });
       moveCountRef.current = count;
-      oppCountRef.current = count;
       setMessages(rebuilt);
       setInterest(running);
       setYourAcc(count ? accSum / count : 0);
-      setOppAcc(count ? 68 : 0);
     },
     [nextId],
   );
@@ -169,14 +156,12 @@ export function useMatchGame(mode: VersusMode) {
         case "new_game": {
           budgetRef.current = Math.max(1, Math.round(msg.time / 1000));
           moveCountRef.current = 0;
-          oppCountRef.current = 0;
           pendingYouRef.current = null;
           overRef.current = false;
           setPersona(toPersona(msg.persona));
           setMessages([{ id: nextId(), side: "match", text: msg.persona.opening_line }]);
           setInterest(BASE_INTEREST);
           setYourAcc(0);
-          setOppAcc(0);
           setFlagged(false);
           setTyping(false);
           // Hold the clock across the intro; `beginPlay` starts it when the animation completes.
@@ -332,7 +317,6 @@ export function useMatchGame(mode: VersusMode) {
     typing,
     interest,
     yourAcc,
-    oppAcc,
     verdict,
     flagged,
     ready,

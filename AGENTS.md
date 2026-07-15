@@ -125,11 +125,61 @@ active game per user, reconnect-safe. `main.py` → `app/ws.py`.
   must stay clean (typed protocol + PydanticAI). `backend/.env` (gitignored) holds the
   service-role key + OpenRouter key; see `backend/.env.example`.
 
+### Ranked PvP (`app/pvp.py` + `app/match_ws.py`, endpoint `/ws/match`)
+
+Player-vs-player per SPEC §2.2: both players get the **same persona + opening line** and each
+plays their own parallel conversation, in **move-by-move lockstep** (side `a` always first: `a`
+submits exchange N, then `b`, then N+1). A match is a **single contest** — there are no rounds.
+Grading is live per move (same engine as solo), so there is **no scoring queue/worker**.
+
+- **Transport (`app/match_ws.py`):** `GET /ws/match?token=` — same auth (4401) and the same
+  global `ConnectionManager` as solo (one socket per user across both endpoints, 4000 replace).
+  On connect the server resumes an active match (`match_state`); otherwise the client sends one
+  intent — `queue`{time_control} · `create_invite`{time_control} · `join_invite`{code} — then
+  `move`/`cancel` frames. Intents error `active_game` while a solo game is live. The socket ends
+  with the match (`match_finish` closes it; the idle opponent's socket is closed by the session).
+- **Two ways in:** **vs stranger** — `MatchmakingService` pairs same time_control + gender +
+  seeking (SPEC §2.7) under one in-process asyncio.Lock (single-process invariant; the
+  `matchmaking_queue` row status is the future multi-process CAS seam). Queue writes are
+  **service-mediated** — clients have no INSERT on `matchmaking_queue`; the backend snapshots
+  real profile values itself. Rows whose socket died are swept as stale on sight. **Vs friend** —
+  `InviteService` mints `match_invites.code` (`secrets.token_urlsafe`), shared as `/join/<code>`;
+  codes resolve only over the WS (no client lookup path → not enumerable), the invite lives
+  exactly as long as the creator's waiting socket, matches are **unrated**, and the persona
+  gender = the creator's `seeking`.
+- **Coordination (`app/pvp.py`):** a module-level `MatchRegistry` maps a live match to its
+  `MatchSession` (both sides' send/close callbacks, one lock, one timeout task) and rebuilds a
+  session from the DB after a backend restart. The **session, not the connection, owns the
+  clock**: disconnecting doesn't pause it, and the timeout finish is pushed to whoever is
+  attached. Lockstep state persists on `pvp_matches` (`turn_side`, `turn_deadline`,
+  `player_{a,b}_bank_ms`); per-player **Fischer** clocks with pools mapped in config
+  (bullet 20+3 / rapid 40+5 / classical 60+8; `PVP_*` env knobs) and the solo-style intro grace
+  on side `a`'s first turn. `turn_deadline` is **cleared while the engine grades** (SPEC §2.6 —
+  LLM latency is never charged) and re-set when the turn passes.
+- **End conditions:** `is_blocked` → instant loss for the mover; `is_date_landed` → instant win;
+  deadline → `timeout` loss (proactive timer, like solo); side `b` completing
+  `matches.max_exchanges` → `scored`, higher mean move quality (accuracy) wins, exact tie =
+  draw (`winner_side` null). Rated matches move `player_ratings.ranked_elo` by standard Elo
+  (K=`PVP_ELO_K`=32, draw 0.5, floor 0) + `ranked_wins/losses` + `rating_history(kind='ranked')`
+  + the elo before/after snapshot on `pvp_matches`; unrated matches touch nothing.
+- **Opponent visibility:** mid-match the opponent's frames (`opp_move`, `match_state.opp_moves`)
+  carry classification/swing but **`content: null`** — the `pvp_live_transcript` setting (a
+  future premium reveal) is the gate; the wire always has the field. The full transcript rides
+  `match_finish`, matching the `match_moves` RLS (own side anytime; opponent's side only once
+  the match is over). `match_moves` mirrors solo `moves` two-dimensionally: `(match_id, side,
+  position, speaker You|Match, content, evals)`.
+- **Protocol additions (`app/protocol.py`):** client→ `queue`/`create_invite`/`join_invite`/
+  `cancel` (+ shared `move`); server→ `queued` · `cancelled` · `invite_created`{code} ·
+  `match_found`{your_side, rated, persona, opponent, clock snapshot} · `match_state` (reconnect)
+  · shared `response` (own graded turn) · `opp_move`{move, reply} · `turn`{you|opponent,
+  time_left} · `match_finish`{result win|loss|draw, both accuracies, rating_delta, both full
+  transcripts, opponent}.
+
 ### Post-game analysis (`app/analysis/`, separate worker)
 
 Deep "game review" (chess.com style) for a finished game, decoupled from live play via a durable
 queue. Source-independent by design: **one** result-table pair regardless of source (solo now;
-PvP rounds / screenshot uploads later), so there is no per-mode analysis table.
+PvP sides / screenshot uploads later), so there is no per-mode analysis table.
 
 - **Queue:** pgmq queue `game_analysis`. pgmq isn't PostgREST-exposed, so the migration installs
   `security definer` wrappers `public.pgmq_send/read/archive/delete` (EXECUTE granted to
@@ -145,6 +195,15 @@ PvP rounds / screenshot uploads later), so there is no per-mode analysis table.
     the message, and **returns the pre-generated analysis id**.
   - **Dev/service-role:** `enqueue_game_analysis(db, game_id, force=?)` in `app/analysis/service.py`
     (`scripts/enqueue_analysis.py` / `task enqueue-analysis`) mirrors it in Python.
+  - **PvP:** `public.request_match_analysis(match_id)` (participants of a `completed` match,
+    rated or friendly) enqueues **both sides** — one job per side, idempotent on
+    `game_analysis:match:<match_id>:<side>` — so the review screen's side switch always has a
+    fully annotated opposing board. The caller's side job carries their `user_id` (drives the
+    bell); the opposing side's job is minted with `user_id = null` (no surprise notification)
+    and *adopted* when that player requests later. Returns the caller's side's analysis id.
+    The worker loads one side via `load_match_transcript(db, match_id, side)` (same
+    `Transcript` shape; `move_id` stays null — that FK references `moves` only) and persists
+    `game_analyses(match_id, side)`.
   The worker inserts `game_analyses` with that id (`_persist_analysis(..., analysis_id)`).
 - **Fire-and-forget + notifications.** Requesting a review does not block the player: the RPC
   queues it and returns. The main screen's notifications bell watches for the result over realtime.
@@ -170,7 +229,7 @@ PvP rounds / screenshot uploads later), so there is no per-mode analysis table.
   → job `failed` + archived (poison message parked in `pgmq.a_game_analysis`); success writes
   `game_analyses` + `game_analysis_moves` and archives.
 - **Tables:** `game_analyses` (title/description/tags/model/prompt_version/raw_response, nullable
-  `game_id`/`round_id` XOR source) + `game_analysis_moves` (per You move:
+  `game_id`/`match_id` XOR source + nullable `side` for match sources) + `game_analysis_moves` (per You move:
   `eval_before/eval_after` + generated `eval_delta` + comment + a `content` snapshot and nullable
   `move_id`; the rank is derived from `eval_delta`, never stored) + `game_analysis_move_reveals`
   (the paid best line, gated by `can_reveal_analysis` → the same per-game/match unlock as live
@@ -215,17 +274,51 @@ It reads `game_analyses`/`game_analysis_moves` (+ the reveals) plus the source
 deriving each rank from `eval_delta` via `classifySwing` (`app/lib/game/types.ts`).
 `components/ui/LoadingScene.tsx`
 (ported from `mocks/MateDate Loading.html`) is kept but **currently unused** (no `/analyzing`
-route). Both `mode=ranked|bot` currently use the solo backend (ranked PvH is a later layer) — mode
-only affects UI labels. `app/lib/game/service.ts` remains as the shared type re-export; its
+route). `app/lib/game/service.ts` remains as the shared type re-export; its
 client-side grading is no longer called.
+
+**PvP frontend:** `/match` branches on `mode` — `bot` keeps the solo screen above;
+`ranked`/`friend` render `app/match/PvpMatchScreen.tsx` on `app/match/usePvpGame.ts` +
+`app/lib/game/pvpLive.ts` (`NEXT_PUBLIC_BACKEND_WS_MATCH_URL`, default
+`ws://127.0.0.1:8000/ws/match`). Query contract: `?mode=ranked&tc=` queues,
+`?mode=friend&tc=` creates an invite (`components/PvpWaiting.tsx` shows the copyable
+`/join/<code>` link; `app/join/[code]/page.tsx` is the landing that hands the code back to
+`/match?mode=friend&code=`), searching shows a cancelable overlay until `match_found` plays the
+`MatchIntro` face-off with the real human opponent (avatar/elo; "Friendly" when unrated). During
+play `components/OpponentPanel.tsx` renders everything the player may see of the opponent —
+status, clock, glyph row, eval bar, accuracies — never content (`OppMoveOut.content` is null
+until the finish); the composer locks outside your turn ("Waiting for <opponent>…"). On
+`match_finish` the hook stashes a `PvpResult` for `components/PvpResultModal.tsx` (W/L/D, both
+accuracies, ±elo or "friendly", and the opponent-transcript reveal — plus a "Deep analysis"
+button that fires the `request_match_analysis` RPC). Profile history fills the `ranked`
+category from `pvp_matches` + embedded `matches` (result from `winner_side` vs own side;
+friend matches labeled "friendly") and links completed match reviews. The `/analysis/[id]`
+review screen handles match sources: `review.ts` loads the side's `match_moves` thread +
+per-side accuracy/elo from `pvp_matches`, and a **Board switch** (You | Opponent) navigates
+to the other side's analysis (each side is its own `game_analyses` row, found by
+`(match_id, side)`). Matches WITHOUT a deep review open **`/analysis/match/[matchId]`**
+(`loadReviewByMatch`, `?board=a|b`, defaults to your own side) — a live-eval replay with a
+request-review card, the match twin of `/analysis/game/[gameId]`; the board switch falls back
+to the other side's live replay when its analysis doesn't exist yet. Profile history routes
+ranked rows there when no completed review is linked.
+
+**Session guard:** every route except `/`, `/onboarding`, and `/join/*` requires a Supabase
+session. One source of truth — `app/lib/auth/sessionGuard.ts` (`isPublicPath` /
+`onboardingPath` / `safeNext`) — enforced twice: server-side in
+`app/lib/supabase/middleware.ts` (via `proxy.ts`, covers full loads AND client navigations'
+RSC fetches) and client-side by `app/providers/SessionGate.tsx` (inside AppProviders; catches
+a session dying on an already-rendered page). Signed-out visitors land on
+`/onboarding?next=<original destination>`; the Done screen pushes `next` (validated,
+internal paths only) after signup or the anonymous Skip — this is how a sessionless friend
+clicking a `/join/<code>` link still ends up in the match after onboarding.
 
 Onboarding (`/onboarding`) does real Supabase signup (or `signInAnonymously` on "Skip"), persisting
 quiz answers to `profiles` — including the player's `gender` and who they're `seeking` (the
 Identity step). Those drive gender matching (SPEC §2.7): solo/VS-AI serves a persona whose gender =
 the player's `seeking` (`pick_persona(gender=…)` in `app/personas.py`, from `profiles.seeking`),
 puzzles the same, and ranked PvP pairs same-gender players who seek the same gender (the persona is
-that sought gender). `matchmaking_queue` snapshots gender/seeking (RLS-pinned to the real profile)
-so pairing filters without a join.
+that sought gender). `matchmaking_queue` snapshots gender/seeking server-side (queueing is
+service-mediated over the WS — clients have no INSERT) so pairing filters without a join.
 
 ## Testing / verification checklist
 
@@ -234,4 +327,9 @@ so pairing filters without a join.
   `SoloGameService` or the WS against local Supabase (bad token→4401, play→`response`, cap→`finish
   scored`, creepy line→`response`+`finish blocked`, date ask e.g. "coffee saturday?"→`response`+
   `finish date_landed`, reconnect→`game_state`, second socket→4000, clock expiry→`finish timeout`).
+- PvP: `uv run python -m scripts.pvp_smoke` (backend on :8000 with `FAKE_ENGINE=true`, local
+  Supabase up) drives two real WS clients end-to-end: pairing isolation (tc/gender/seeking),
+  lockstep (`not_your_turn`), content-gated `opp_move`, all four end states pushed to the idle
+  opponent + both sockets closing, reconnect → gated `match_state`, invite create/join/bad-code/
+  self-join/cancel, and no rating rows on unrated matches.
 - Frontend: `cd frontend && yarn tsc --noEmit && yarn lint && yarn build` all clean.

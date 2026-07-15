@@ -91,6 +91,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "mypy" },
+    { name = "websockets" },
 ]
 
 [package.metadata]
@@ -102,7 +103,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "mypy", specifier = ">=2.2.0" }]
+dev = [
+    { name = "mypy", specifier = ">=2.2.0" },
+    { name = "websockets", specifier = ">=15.0.1" },
+]
 
 [[package]]
 name = "certifi"

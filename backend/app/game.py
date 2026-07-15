@@ -49,15 +49,15 @@ from .database_types import (
     PublicSoloGamesUpdate,
 )
 from .engine import Engine
-from .grading import START_EVAL, classify, swing_from_delta
-from .personas import HIDDEN_HINT, Persona, get_persona_by_id, pick_persona
+from .grading import accuracy_from_qualities, classify, resolve_eval_after, swing_from_delta
+from .moves_common import END_REASON_LABELS, last_eval, move_out, persona_out, transcript_text
+from .personas import Persona, get_persona_by_id, pick_persona
 from .protocol import (
     ErrorMsg,
     FinishMsg,
     GameStateMsg,
     MoveOut,
     NewGameMsg,
-    PersonaOut,
     ResponseMsg,
 )
 
@@ -174,12 +174,11 @@ class SoloGameService:
         # The eval bounds are mating squares (SPEC §3): only the verdict flags may put a move
         # on 0/100, so a merely-enthusiastic score can't accidentally end the game. The label
         # below still derives from the number, never from the flags directly.
-        if turn.verdict.is_blocked:
-            eval_after = 0.0
-        elif turn.verdict.is_date_landed:
-            eval_after = 100.0
-        else:
-            eval_after = max(1.0, min(99.0, turn.verdict.eval_after))
+        eval_after = resolve_eval_after(
+            turn.verdict.eval_after,
+            is_blocked=turn.verdict.is_blocked,
+            is_date_landed=turn.verdict.is_date_landed,
+        )
         eval_delta = round(eval_after - eval_before, 2)
         swing = swing_from_delta(eval_delta)
         grade = classify(swing, eval_after)
@@ -279,7 +278,7 @@ class SoloGameService:
         # reports the base bank, so the player sees (and gets) the full base once the intro ends.
         deadline = _now() + timedelta(seconds=base_seconds + self._settings.solo_intro_grace_seconds)
         await self._insert_game(user_id, persona, base_seconds, increment_seconds, deadline)
-        return NewGameMsg(persona=_persona_out(persona), time=base_seconds * 1000)
+        return NewGameMsg(persona=persona_out(persona), time=base_seconds * 1000)
 
     async def _game_state(self, game: _ActiveGame) -> GameStateMsg:
         persona = await get_persona_by_id(self._db, str(game.solo.persona_id))
@@ -287,7 +286,7 @@ class SoloGameService:
         deadline = game.solo.turn_deadline
         time_left = max(0, int((deadline - _now()).total_seconds() * 1000)) if deadline else 0
         return GameStateMsg(
-            persona=_persona_out(persona),
+            persona=persona_out(persona),
             moves=[_move_out(m) for m in moves],
             time=game.solo.base_seconds * 1000,
             time_left=time_left,
@@ -307,14 +306,14 @@ class SoloGameService:
         denom = len(qualities)
         if end_reason == "timeout":
             denom = max(denom, self._settings.solo_max_exchanges)
-        accuracy = round(sum(qualities) / denom, 2) if denom else 0.0
+        accuracy = accuracy_from_qualities(qualities, denom)
         # Landing the date is the best possible result — it always pays the full cap (SPEC §3).
         if end_reason == "date_landed":
             rating_delta = 25
         else:
             rating_delta = max(-25, min(25, round((accuracy - 50) / 2)))
         title = f"{accuracy:.0f}% accuracy vs {persona.name}"
-        label = _END_REASON_LABELS.get(end_reason, end_reason.capitalize())
+        label = END_REASON_LABELS.get(end_reason, end_reason.capitalize())
         description = (
             f"{label} after {len(you_moves)} messages — "
             f"elo {'+' if rating_delta >= 0 else ''}{rating_delta}."
@@ -507,46 +506,16 @@ class SoloGameService:
         await self._db.table("rating_history").insert(_json_row(history)).execute()
 
 
-# -- pure mappers -----------------------------------------------------------
-
-# End reasons whose enum value doesn't read well through a bare .capitalize().
-_END_REASON_LABELS: dict[str, str] = {"date_landed": "Date landed"}
-
-
-def _persona_out(persona: Persona) -> PersonaOut:
-    return PersonaOut(
-        slug=persona.slug,
-        name=persona.name,
-        hint=HIDDEN_HINT,
-        opening_line=persona.opening_line,
-        suggested_messages=persona.suggested_messages,
-    )
+# -- pure mappers (shared with the PvP service, adapted to the `moves` row shape) ----
 
 
 def _move_out(move: PublicMoves) -> MoveOut:
-    if move.side == "You":
-        swing = swing_from_delta(move.eval_delta or 0.0)
-        return MoveOut(
-            position=move.position,
-            side="You",
-            content=move.content,
-            classification=classify(swing, move.eval_after).class_key,
-            swing=swing,
-        )
-    return MoveOut(position=move.position, side="Match", content=move.content)
+    return move_out(move.position, move.side, move.content, move.eval_delta, move.eval_after)
 
 
 def _last_eval(moves: list[PublicMoves]) -> float:
-    deltas = [m.eval_delta for m in moves if m.side == "You" and m.eval_delta is not None]
-    if not deltas:
-        return START_EVAL
-    # eval_after isn't tracked separately; reconstruct from the running deltas off the baseline.
-    return max(0.0, min(100.0, START_EVAL + sum(deltas)))
+    return last_eval(m.eval_delta for m in moves if m.side == "You" and m.eval_delta is not None)
 
 
 def _transcript(moves: list[PublicMoves], persona_name: str) -> str:
-    lines = []
-    for move in moves:
-        who = "You" if move.side == "You" else persona_name
-        lines.append(f"{who}: {move.content}")
-    return "\n".join(lines)
+    return transcript_text(((m.side, m.content) for m in moves), persona_name)

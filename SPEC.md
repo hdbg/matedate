@@ -24,10 +24,12 @@ MateDate grades flirting like a chess engine. Every message in a dating conversa
 The user flirts directly with an AI persona that responds in character; the engine scores the user's side against the best-move line. Always instant (no matchmaking), safest configuration (no stranger, nothing to redact, no third-party consent), and the best onboarding. Home of **daily puzzles** and **boss personas**. This is the default experience a new user hits; human PvP is the competitive layer on top.
 
 ### 2.2 Ranked mode — PvH (player vs. human)
-Two players are matched and given the **same AI persona, same scenario, same opening line**. Turn-based, best-of-N exchanges. After each round the engine scores both players' messages and awards the round to whoever moved the persona's hidden interest meter further. Winner takes ELO on a global ladder with tiers.
+Two players are matched and given the **same AI persona, same scenario, same opening line**. Each plays their **own parallel conversation** with the persona (up to the same exchange cap as solo), in **move-by-move lockstep**: player A submits their Nth message, then player B submits theirs, then exchange N+1 — so only the on-move player's clock ever runs. A match is a **single contest** (no rounds/best-of): a landed date is an instant win, a block an instant loss, a flag a loss on time; if both sides play out the cap, the higher accuracy wins (an exact tie is a draw). Winner takes ELO on a global ladder with tiers.
 - **Fairness = shareability:** identical persona/prompt for both makes results arguable, and arguable results get shared.
 - **Hidden persona "type"** (into hiking / dark humor / dry wit) that players must *read* — creates a real skill ceiling and rating curve.
 - Players only ever flirt with the AI, never each other → **zero** harassment/minor-safety surface.
+- **Mid-match opponent visibility:** status, clock, running eval bar, and move-quality glyphs only — never the opponent's words (the second mover could copy them). The full opposing transcript is revealed when the match ends. (The wire/schema support a live full-transcript view as a future premium reveal, shipped gated off.)
+- **Two ways in:** **vs stranger** — the matchmaking queue (§2.7 pools, rated); **vs friend** — a shareable link carrying an unguessable invite code (only the link-holder can join; unrated; the persona matches the inviter's preference).
 
 ### 2.3 Practice mode — disclosed AI opponents + solo fallback
 Instant, unlimited matches against **AI opponents that are badged as AI** ("🤖 RizzBot-1400"). Does not affect ranked ELO (or affects a separate casual rating). This is the honest liquidity solution.
@@ -35,7 +37,7 @@ Instant, unlimited matches against **AI opponents that are badged as AI** ("🤖
 ### 2.4 Matchmaking liquidity — how "always instant" works without lying
 The thin-liquidity problem (not enough live humans at launch) is solved three honest ways, never with undisclosed bots:
 1. **Solo fallback (open):** no human available → drop into a scored AI-date round framed as "Practice / Solo challenge." Instant, true, free to build (it's mode 2.1).
-2. **Ghost / replay duels (labeled):** compete against **recorded past rounds** of real users on the same persona/scenario ("beat StrangerX's earlier line"). Real human competition, time-shifted, needs zero concurrent users. Clearly labeled as a past attempt.
+2. **Ghost / replay duels (labeled):** compete against **recorded past matches** of real users on the same persona/scenario ("beat StrangerX's earlier line"). Real human competition, time-shifted, needs zero concurrent users. Clearly labeled as a past attempt.
 3. **Disclosed AI opponents (badged):** as in 2.3.
 
 **Hard rule:** any non-human opponent is visibly labeled. Ranked-ELO effects apply only to human/ghost matches so the ladder stays legitimate.
@@ -46,12 +48,12 @@ The thin-liquidity problem (not enough live humans at launch) is solved three ho
 User submits a real conversation screenshot (with a both-parties-agreed attestation) → gets a shareable, anonymized game-review card. Pipeline detailed in §5. This is interactive/synchronous, not a background job (see §5.1 for why).
 
 ### 2.6 Time controls & flaking prevention
-Ranked matches are clocked, chess-style, so players can't stall or abandon mid-match ("flaking"). Each mode sets a per-move budget:
-- **Bullet — 20s/move**
-- **Rapid — 40s/move**
-- **Classical — 60s/move**
+Ranked matches are clocked, chess-style, so players can't stall or abandon mid-match ("flaking"). Each player gets their own **Fischer bank** (the same clock solo uses: a base bank that depletes across turns, plus an increment banked per submitted move — quick answers are rewarded). The pools map to (base + increment):
+- **Bullet — 20s + 3s/move**
+- **Rapid — 40s + 5s/move**
+- **Classical — 60s + 8s/move**
 
-When it becomes a player's turn, their move clock starts. Submitting before the deadline advances play; letting the clock hit zero **forfeits the match automatically** — the opponent wins on time (`end_reason = timeout`), exactly like a flag fall in chess. Players pair only with others who queued for the **same time control** (separate pools), and the chosen control is snapshotted on the match so both sides play identical conditions — preserving the "same persona, same scenario, same clock" fairness that makes results arguable and shareable. Ghost/replay duels inherit the recorded attempt's control. A timeout is a loss and counts for ranked ELO; repeated flaking can later feed the §3 anti-abuse rate-limits.
+When it becomes a player's turn, their bank counts down. Submitting before it empties advances play; letting it hit zero **forfeits the match automatically** — the opponent wins on time (`end_reason = timeout`), exactly like a flag fall in chess. Players pair only with others who queued for the **same time control** (separate pools), and the chosen control's numbers are snapshotted on the match so both sides play identical conditions — preserving the "same persona, same scenario, same clock" fairness that makes results arguable and shareable. Ghost/replay duels inherit the recorded attempt's control. A timeout is a loss and counts for ranked ELO; repeated flaking can later feed the §3 anti-abuse rate-limits.
 
 **The clock only runs during a player's own decision time — never during system or opponent time.** As in chess, at most one player's clock runs at a time, and it counts down only while that player is on the clock deciding their move. The clock **stops the instant the player submits**, and stays stopped through everything outside their control: LLM grading of the submitted move, persona-reply generation, and the opponent's turn. It **resumes (or the opponent's starts) only when it is again that player's turn to act**. So neither engine latency nor the other player's thinking can burn a player's time — a player can only ever flag on their *own* deliberation. The server is authoritative on all clock start/stop/resume transitions (clients never self-report elapsed time); the UI reflects this by showing the clock as paused/idle whenever it isn't the local player's turn.
 
@@ -85,10 +87,10 @@ Preference is **server-authoritative** for pairing, like the clock and grading: 
 - **Checkmate** is the one **bidirectional, game-ending** class — the same glyph `#`, opposite signs (the §3.1 apex tier shares the name deliberately):
   - **Checkmate for (win):** the player lands the date — the persona explicitly agrees to go out. The engine verdict flags it (the positive twin of `is_blocked`) and the eval clamps to 100, so the label still derives from the number, never from the model. Ends the game pre-emptively as a **win** (`end_reason = date_landed`, working name) before the exchange cap; counts as quality 100 and should carry the largest positive rating delta — it's the best possible result.
   - **Checkmate against (loss):** the persona blocks/unmatches (the existing `is_blocked` path). Eval clamps to 0; the move is classified Checkmate (loss), not Blunder, and the game ends as today (`end_reason = blocked`) — parting response first, then the finish.
-  - **In ranked PvH:** a checkmate ends that player's line instantly — mate-for wins the round outright, mate-against loses it outright, regardless of the opponent's accuracy.
+  - **In ranked PvH:** a checkmate ends the match instantly — mate-for wins it outright, mate-against loses it outright, regardless of the opponent's accuracy.
 - **Accuracy %** = how close the player's moves were to the engine's best-move line across the conversation.
 - **Best move** = the engine's top suggested line at each turn (the paid reveal — see §7.2).
-- **ELO:** standard Elo. PvH — both players score vs. the same persona; higher round-accuracy wins the round; rounds decide the match; match result updates Elo (K≈32 early, decaying). Screenshot mode — award a provisional rating from accuracy so solo users get a number to chase/share.
+- **ELO:** standard Elo. PvH — both players score vs. the same persona; checkmates/timeouts decide instantly, otherwise higher match accuracy wins (exact tie = draw, score 0.5); the match result updates Elo (K≈32 early, decaying; friend-invite matches are unrated). Screenshot mode — award a provisional rating from accuracy so solo users get a number to chase/share.
 - **Puzzles:** curated single-turn positions with a known best move; grade the guess by eval delta.
 - **Anti-abuse:** rate-limit; detect copy-pasted/AI-generated inputs for ranked; cap Elo swings.
 
@@ -142,7 +144,7 @@ the brand's mate pun exactly where the prestige is. Each tier splits into divisi
 | **Frontend** | **Next.js (React)** | Distribution is web links shared into TikTok/Reddit/iMessage → needs fast SSR first paint in in-app browsers, real OG/link-preview images, and SEO. Flutter Web (CanvasKit) is bad at all three and ships a heavy engine before first paint. |
 | **Share-card rendering** | **`@vercel/og` / Satori** | Renders the game-review card to a real PNG server-side at a stable URL — serves both the downloadable share asset *and* the link-preview image. |
 | **DB / Auth / Realtime** | **Supabase** (Postgres + Auth + RLS + Realtime) | Postgres for ratings/accounts/match history; Auth for account + 18+ gate; RLS so users see only their own data; Realtime for async-PvP result push. |
-| **Work queue** | **pgmq / Supabase Queues** | Durable pull queue (visibility timeouts, acks, retries) for PvP scoring jobs. Postgres-native — no extra infra. |
+| **Work queue** | **pgmq / Supabase Queues** | Durable pull queue (visibility timeouts, acks, retries) for post-game deep-analysis jobs. Postgres-native — no extra infra. |
 | **Analysis service** | **Python / FastAPI** | Houses image preprocessing (if Python-only), Presidio redaction, LLM orchestration, scoring/ELO. Single-language, fast iteration, richest AI + Presidio ecosystem. |
 | **Image preprocessing** | **Python (OpenCV + PaddleOCR/EasyOCR)** *or* keep the **existing Rust stage** behind a typed boundary | See §4.1. |
 | **Payments** | **Stripe** primary + **backup high-risk MID** + **crypto fallback (NOWPayments)** | Web checkout keeps ~25–30 margin points vs. app stores; multi-processor protects against freezes (§8.4). |
@@ -176,20 +178,20 @@ Interactive (user is waiting; there's a human-in-the-loop confirm step) **and** 
 ```
 If scoring feels slow, **stream** the response — keep it synchronous so the image stays ephemeral.
 
-### 5.2 Mode 1 (ranked PvP) — durable queue + Realtime push
-Genuinely multi-party and time-decoupled (A moves now, B later, both need notifying):
+### 5.2 Mode 1 (ranked PvP) — live lockstep over WebSockets
+PvP grading is live, exactly like solo: every submitted move is scored by the engine inside the turn, so there is **no scoring queue**. Both players hold an authenticated WebSocket to the FastAPI backend (`/ws/match`); the server coordinates the lockstep in memory (DB as source of truth for reconnects):
 
 ```
-1. POST /move → FastAPI writes the move row
-2. If the move completes the round (both players in):
-   → enqueue a scoring job on pgmq (visibility timeout + ack + retry)
-3. Python worker polls pgmq (pgmq.read), scores the round,
-   writes the result row, acks/deletes the message
-4. Both players' browsers are subscribed via Supabase Realtime to the match
-   → the result-row write pushes the update to them automatically
+1. WS: player submits their move (only on their turn; their clock stops on accept)
+2. FastAPI runs the engine on that player's conversation, writes the move + reply
+   + engine_responses rows, and fans out: the mover gets the graded response, the
+   opponent gets a content-gated "opp moved" frame, both get the turn hand-off
+3. Terminal moves (block / date landed / flag / cap reached) finish the match in
+   the same turn: accuracies + Elo are written and both sockets get the finish
+   (with the full opponent-transcript reveal) before closing
 ```
-- Worker polls **the queue**; clients subscribe to **Realtime**. The Python side never subscribes to Realtime.
-- **MVP simplification:** you may score inline in the round-completing request and let the DB write fan out via Realtime; add the pgmq worker only when concurrency/spikes justify it. When you do, reach for pgmq, not Realtime.
+- The pgmq queue serves the **post-game deep analysis** worker (chess.com-style game review), not live PvP.
+- The matchmaking queue table and invite codes are service-mediated over the same socket — clients never insert/read them directly.
 
 ### 5.3 Data-retention rule (applies everywhere)
 Raw screenshots live only in memory during the request and are dropped. Supabase stores structured data only — ratings, match history, and (optionally) the *cleaned, redacted* transcript. Never route raw uploads into Supabase Storage. Avatar/face regions are cropped at the image stage (Presidio only touches text, never faces).

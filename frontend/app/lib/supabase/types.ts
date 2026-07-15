@@ -122,6 +122,7 @@ export interface AnalysisJobRow {
   status: "queued" | "processing" | "completed" | "failed" | "cancelled";
   user_id: string | null;
   game_id: string | null;
+  match_id: string | null;
   analysis_id: string | null;
   last_error: string | null;
   created_at: string;
@@ -129,12 +130,15 @@ export interface AnalysisJobRow {
   finished_at: string | null;
 }
 
-/** A finished game's deep-review header. Written by the analysis worker; owner-readable. */
+/** A finished game's deep-review header. Written by the analysis worker; readable by the
+ * source game's owner / the source match's participants. For match sources, `side` says
+ * whose conversation was analyzed (each side of a PvP match gets its own analysis). */
 export interface GameAnalysisRow {
   id: string;
   job_id: string | null;
   game_id: string | null;
-  round_id: string | null;
+  match_id: string | null;
+  side: "a" | "b" | null;
   title: string;
   description: string;
   tags: string[];
@@ -165,6 +169,47 @@ export interface GameAnalysisMoveRevealRow {
   analysis_move_id: string;
   analysis_id: string;
   best_line: string;
+}
+
+export type MatchEndReason =
+  | "scored"
+  | "timeout"
+  | "resignation"
+  | "abandoned"
+  | "blocked"
+  | "date_landed";
+
+/** Shared parent of a versus match (participant-readable). One contest, no rounds. */
+export interface MatchRow {
+  id: string;
+  mode: "pvp" | "ai" | "ghost";
+  persona_id: string;
+  status: "active" | "completed" | "abandoned";
+  time_control: "bullet" | "rapid" | "classical";
+  base_seconds: number;
+  increment_seconds: number;
+  max_exchanges: number;
+  /** False on friend-invite matches — no ranked ELO at stake. */
+  rated: boolean;
+  opening_line: string;
+  /** Null until decided; stays null on a draw. */
+  winner_side: "a" | "b" | null;
+  end_reason: MatchEndReason | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+/** PvP sides + result snapshot (participant-readable; lockstep state is backend-only). */
+export interface PvpMatchRow {
+  match_id: string;
+  player_a: string;
+  player_b: string;
+  player_a_accuracy: number | null;
+  player_b_accuracy: number | null;
+  player_a_elo_before: number | null;
+  player_a_elo_after: number | null;
+  player_b_elo_before: number | null;
+  player_b_elo_after: number | null;
 }
 
 export interface Database {

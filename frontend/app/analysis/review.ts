@@ -5,6 +5,8 @@ import type {
   GameAnalysisMoveRow,
   GameAnalysisRow,
   GameRow,
+  MatchRow,
+  PvpMatchRow,
   SoloGameRow,
   PersonaRow,
 } from "@/app/lib/supabase/types";
@@ -33,6 +35,18 @@ export interface ReviewThreadItem {
   move: ReviewMove | null; // present on graded You bubbles
 }
 
+/** PvP source context: which side of which match this review annotates. */
+export interface ReviewMatchContext {
+  matchId: string;
+  side: "a" | "b";
+  /** Whether the viewed side is the signed-in player's own board. */
+  isYou: boolean;
+  rated: boolean;
+  /** Where the side switch navigates: the other side's analysis when one exists, else its
+   * live-eval replay (`/analysis/match/<id>?board=<side>` — always available post-match). */
+  otherHref: string;
+}
+
 export interface ReviewData {
   title: string;
   description: string;
@@ -49,6 +63,8 @@ export interface ReviewData {
   hasAnalysis: boolean;
   /** Source game, when there is one — lets the replay screen request a deep review. */
   gameId: string | null;
+  /** PvP source, when the analysis annotates one side of a match — drives the side switch. */
+  match: ReviewMatchContext | null;
 }
 
 interface MoveRow {
@@ -109,10 +125,13 @@ export async function loadReview(analysisId: string): Promise<ReviewData | null>
     });
   }
 
-  // Source-game context (may be absent for non-game sources).
-  const source = analysis.game_id
-    ? await loadGameContext(supabase, analysis.game_id)
-    : { game: null, solo: null, persona: null, moves: [] as MoveRow[] };
+  // Source context: a game, or one side of a PvP match (absent for future sourceless kinds).
+  const source: SourceContext =
+    analysis.game_id != null
+      ? await loadGameSource(supabase, analysis.game_id)
+      : analysis.match_id != null && analysis.side != null
+        ? await loadMatchSource(supabase, analysis.match_id, analysis.side)
+        : EMPTY_SOURCE;
 
   const rows: MoveRow[] =
     source.moves.length > 0
@@ -132,16 +151,204 @@ export async function loadReview(analysisId: string): Promise<ReviewData | null>
     title: analysis.title,
     description: analysis.description,
     tags: analysis.tags ?? [],
-    accuracy: source.game?.accuracy ?? null,
-    ratingDelta: source.solo?.rating_delta ?? null,
-    personaName: source.persona?.name ?? null,
-    endReason: source.game?.end_reason ?? null,
-    dateISO: source.game?.created_at ?? analysis.created_at,
+    accuracy: source.accuracy,
+    ratingDelta: source.ratingDelta,
+    personaName: source.personaName,
+    endReason: source.endReason,
+    dateISO: source.dateISO ?? analysis.created_at,
     thread,
     youMoves,
     finalEval: finalEval(youMoves),
     hasAnalysis: true,
     gameId: analysis.game_id,
+    match: source.match,
+  };
+}
+
+/** What a review needs from its source, whatever kind of source it is. */
+interface SourceContext {
+  accuracy: number | null;
+  ratingDelta: number | null;
+  personaName: string | null;
+  endReason: string | null;
+  dateISO: string | null;
+  moves: MoveRow[];
+  match: ReviewMatchContext | null;
+}
+
+const EMPTY_SOURCE: SourceContext = {
+  accuracy: null,
+  ratingDelta: null,
+  personaName: null,
+  endReason: null,
+  dateISO: null,
+  moves: [],
+  match: null,
+};
+
+async function loadGameSource(supabase: SupabaseClient, gameId: string): Promise<SourceContext> {
+  const source = await loadGameContext(supabase, gameId);
+  return {
+    accuracy: source.game?.accuracy ?? null,
+    ratingDelta: source.solo?.rating_delta ?? null,
+    personaName: source.persona?.name ?? null,
+    endReason: source.game?.end_reason ?? null,
+    dateISO: source.game?.created_at ?? null,
+    moves: source.moves,
+    match: null,
+  };
+}
+
+/** One side of a finished PvP match: that side's conversation (RLS opens the opponent's side
+ * once the match is over), the per-side accuracy/elo snapshot, and the other side's analysis
+ * id so the review screen can switch boards. */
+async function loadMatchSource(
+  supabase: SupabaseClient,
+  matchId: string,
+  side: "a" | "b",
+): Promise<SourceContext> {
+  const otherSide = side === "a" ? "b" : "a";
+  const [{ data: matchRow }, { data: pvpRow }, { data: mv }, { data: otherRow }, { data: auth }] =
+    await Promise.all([
+      supabase.from("matches").select("*").eq("id", matchId).maybeSingle(),
+      supabase.from("pvp_matches").select("*").eq("match_id", matchId).maybeSingle(),
+      supabase
+        .from("match_moves")
+        .select("position, speaker, content, eval_after, eval_delta")
+        .eq("match_id", matchId)
+        .eq("side", side)
+        .order("position"),
+      supabase
+        .from("game_analyses")
+        .select("id")
+        .eq("match_id", matchId)
+        .eq("side", otherSide)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase.auth.getUser(),
+    ]);
+  const match = (matchRow ?? null) as MatchRow | null;
+  const pvp = (pvpRow ?? null) as PvpMatchRow | null;
+
+  let personaName: string | null = null;
+  if (match?.persona_id) {
+    const { data: p } = await supabase
+      .from("personas")
+      .select("name")
+      .eq("id", match.persona_id)
+      .maybeSingle();
+    personaName = (p as Pick<PersonaRow, "name"> | null)?.name ?? null;
+  }
+
+  const sideUserId = side === "a" ? pvp?.player_a : pvp?.player_b;
+  const accuracy = (side === "a" ? pvp?.player_a_accuracy : pvp?.player_b_accuracy) ?? null;
+  const eloBefore = (side === "a" ? pvp?.player_a_elo_before : pvp?.player_b_elo_before) ?? null;
+  const eloAfter = (side === "a" ? pvp?.player_a_elo_after : pvp?.player_b_elo_after) ?? null;
+  const rated = match?.rated ?? true;
+
+  const moves: MoveRow[] = (
+    (mv ?? []) as { position: number; speaker: "You" | "Match"; content: string; eval_after: number | null; eval_delta: number | null }[]
+  ).map((m) => ({
+    position: m.position,
+    side: m.speaker,
+    content: m.content,
+    eval_after: m.eval_after,
+    eval_delta: m.eval_delta,
+  }));
+
+  const otherAnalysisId = (otherRow as Pick<GameAnalysisRow, "id"> | null)?.id ?? null;
+  return {
+    accuracy,
+    ratingDelta: rated && eloBefore != null && eloAfter != null ? eloAfter - eloBefore : null,
+    personaName,
+    endReason: match?.end_reason ?? null,
+    dateISO: match?.completed_at ?? match?.created_at ?? null,
+    moves,
+    match: {
+      matchId,
+      side,
+      isYou: !!auth.user?.id && sideUserId === auth.user.id,
+      rated,
+      otherHref: otherAnalysisId
+        ? `/analysis/${otherAnalysisId}`
+        : `/analysis/match/${matchId}?board=${otherSide}`,
+    },
+  };
+}
+
+/**
+ * Load the review screen for one board of a finished PvP match, whether or not a deep review
+ * exists yet — the match twin of `loadReviewByGame`. `board` defaults to the signed-in
+ * player's own side. With a deep review of that side it delegates to `loadReview`; without
+ * one it replays the live move evals (ranks only, no comments/best lines) with a
+ * request-review card. Null when the match isn't visible (RLS) or not completed.
+ */
+export async function loadReviewByMatch(
+  matchId: string,
+  board?: "a" | "b" | null,
+): Promise<ReviewData | null> {
+  const supabase = createClient();
+
+  const [{ data: matchRow }, { data: pvpRow }, { data: auth }] = await Promise.all([
+    supabase.from("matches").select("id, status").eq("id", matchId).maybeSingle(),
+    supabase.from("pvp_matches").select("player_a, player_b").eq("match_id", matchId).maybeSingle(),
+    supabase.auth.getUser(),
+  ]);
+  const match = (matchRow ?? null) as Pick<MatchRow, "id" | "status"> | null;
+  const pvp = (pvpRow ?? null) as Pick<PvpMatchRow, "player_a" | "player_b"> | null;
+  if (!match || match.status !== "completed" || !pvp) return null;
+
+  const mySide: "a" | "b" = pvp.player_b === auth.user?.id ? "b" : "a";
+  const side = board ?? mySide;
+
+  const { data: analysisRow } = await supabase
+    .from("game_analyses")
+    .select("id")
+    .eq("match_id", matchId)
+    .eq("side", side)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const analysisId = (analysisRow as Pick<GameAnalysisRow, "id"> | null)?.id;
+  if (analysisId) return loadReview(analysisId);
+
+  const source = await loadMatchSource(supabase, matchId, side);
+
+  // Grade the board's moves off their live evals — same rules as the solo replay: `isTop`
+  // is forced so the panel never renders a best-line box (there's no line to reveal yet).
+  const verdictByPosition = new Map<number, Omit<ReviewMove, "threadIndex">>();
+  for (const m of source.moves) {
+    if (m.side !== "You") continue;
+    verdictByPosition.set(m.position, {
+      position: m.position,
+      classKey: classifyEvalDelta(m.eval_delta, m.eval_after),
+      swing: (m.eval_delta ?? 0) / 10,
+      evalAfter: m.eval_after ?? DEFAULT_EVAL,
+      comment: "",
+      isTop: true,
+      bestLine: null,
+      bestLineLocked: false,
+    });
+  }
+  const { thread, youMoves } = buildThread(source.moves, verdictByPosition);
+  const rated = source.match?.rated ?? true;
+
+  return {
+    title: `${rated ? "Ranked" : "Friendly"} match replay`,
+    description: "Request a deep review for move-by-move coaching on both boards.",
+    tags: [],
+    accuracy: source.accuracy,
+    ratingDelta: source.ratingDelta,
+    personaName: source.personaName,
+    endReason: source.endReason,
+    dateISO: source.dateISO ?? new Date().toISOString(),
+    thread,
+    youMoves,
+    finalEval: finalEval(youMoves),
+    hasAnalysis: false,
+    gameId: null,
+    match: source.match,
   };
 }
 
@@ -206,6 +413,7 @@ export async function loadReviewByGame(gameId: string): Promise<ReviewData | nul
     finalEval: finalEval(youMoves),
     hasAnalysis: false,
     gameId,
+    match: null,
   };
 }
 

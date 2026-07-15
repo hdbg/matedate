@@ -19,13 +19,12 @@ const OPPONENTS: Record<VersusMode, Opponent> = {
 interface CompetitiveStripProps {
   mode: VersusMode;
   yourAcc: number;
-  oppAcc: number;
 }
 
-/** You-vs-opponent accuracy strip with round dots; discloses bot matches. */
-export function CompetitiveStrip({ mode, yourAcc, oppAcc }: CompetitiveStripProps) {
+/** You-vs-opponent accuracy strip; discloses bot matches. (Real PvP uses OpponentPanel.) */
+export function CompetitiveStrip({ mode, yourAcc }: CompetitiveStripProps) {
   const opp = OPPONENTS[mode];
-  const centerLabel = mode === "ranked" ? "Round 1 of 3 · ELO" : "Round 1 of 3 · casual";
+  const centerLabel = mode === "ranked" ? "ELO" : "casual";
 
   return (
     <div className="mt-3 px-[18px]">
@@ -41,20 +40,12 @@ export function CompetitiveStrip({ mode, yourAcc, oppAcc }: CompetitiveStripProp
         </div>
 
         <div className="flex flex-shrink-0 flex-col items-center gap-1">
-          <div className="flex gap-1">
-            <span className="h-[7px] w-[7px] rounded-full bg-ink shadow-[0_0_0_3px_rgba(39,35,32,0.12)]" />
-            <span className="h-[7px] w-[7px] rounded-full bg-ink/[0.18]" />
-            <span className="h-[7px] w-[7px] rounded-full bg-ink/[0.18]" />
-          </div>
           <div className="font-mono text-[8px] font-bold uppercase tracking-[0.1em] text-ink-mute">
             {centerLabel}
           </div>
         </div>
 
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
-          <div className="font-mono text-[14px] font-bold leading-none text-ink-soft">
-            {accuracyLabel(oppAcc)}
-          </div>
           <div className="min-w-0 truncate text-right text-[12px] font-bold leading-[1.1]">
             {opp.name}
           </div>

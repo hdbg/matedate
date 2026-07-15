@@ -1,6 +1,0 @@
-DROP INDEX IF EXISTS idx_moves_game_id;
-DROP INDEX IF EXISTS idx_games_user_id;
-
-DROP TABLE IF EXISTS moves;
-DROP TABLE IF EXISTS games;
-DROP TABLE IF EXISTS users;

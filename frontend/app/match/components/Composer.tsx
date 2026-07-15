@@ -6,12 +6,21 @@ import { cn } from "@/app/lib/utils";
 interface ComposerProps {
   suggestions: string[];
   disabled: boolean;
+  /** Input hint while disabled/enabled; PvP swaps in turn-aware copy. */
+  placeholder?: string;
   onSuggestion: (text: string) => void;
   onSend: (text: string) => void;
   onPeek: () => void;
 }
 
-export function Composer({ suggestions, disabled, onSuggestion, onSend, onPeek }: ComposerProps) {
+export function Composer({
+  suggestions,
+  disabled,
+  placeholder,
+  onSuggestion,
+  onSend,
+  onPeek,
+}: ComposerProps) {
   const [value, setValue] = useState("");
 
   const submit = () => {
@@ -47,7 +56,7 @@ export function Composer({ suggestions, disabled, onSuggestion, onSend, onPeek }
             disabled={disabled}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
-            placeholder={disabled ? "Round over" : "Type your move…"}
+            placeholder={placeholder ?? (disabled ? "Game over" : "Type your move…")}
             autoComplete="off"
             className="flex-1 bg-transparent py-[9px] text-[15px] text-ink outline-none disabled:cursor-not-allowed"
           />

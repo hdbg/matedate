@@ -24,11 +24,18 @@ export default function PlayPage() {
   const { activeGame } = useLiveGame();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [chosenTC, setChosenTC] = useState<TimeControl>("bullet");
+  // The time-control sheet serves both PvP entries: ranked matchmaking and friend challenges.
+  const [sheetTarget, setSheetTarget] = useState<"ranked" | "friend">("ranked");
 
-  const startRanked = useCallback(() => {
+  const openSheet = useCallback((target: "ranked" | "friend") => {
+    setSheetTarget(target);
+    setSheetOpen(true);
+  }, []);
+
+  const startMatch = useCallback(() => {
     setSheetOpen(false);
-    router.push(`/match?mode=ranked&tc=${chosenTC}`);
-  }, [chosenTC, router]);
+    router.push(`/match?mode=${sheetTarget}&tc=${chosenTC}`);
+  }, [chosenTC, sheetTarget, router]);
 
   // A game is already live: block new starts and offer a resume link instead (the backend resumes
   // it on reconnect). The screenshot/puzzle rows aren't games, so they stay enabled. All live games
@@ -64,9 +71,17 @@ export default function PlayPage() {
               iconClassName="bg-rosy-tint text-rosy-deep"
               name="Ranked PvP"
               badge={<ModeBadge className="bg-rosy-tint text-rosy-deep">ELO</ModeBadge>}
-              description="Same persona, same clock. Higher accuracy wins the round."
-              meta={{ value: "Gold II", label: "tier" }}
-              onClick={() => setSheetOpen(true)}
+              description="Same persona, same clock. Higher accuracy wins the match."
+              onClick={() => openSheet("ranked")}
+              disabled={blocked}
+            />
+            <ModeRow
+              icon="🔗"
+              iconClassName="bg-gold/[0.25] text-ink"
+              name="Challenge a friend"
+              badge={<ModeBadge className="bg-cream-2 text-ink-soft">Friendly</ModeBadge>}
+              description="Get a private link, send it to anyone. Unrated — bragging rights only."
+              onClick={() => openSheet("friend")}
               disabled={blocked}
             />
             <ModeRow
@@ -114,7 +129,7 @@ export default function PlayPage() {
         chosen={chosenTC}
         onPick={setChosenTC}
         onClose={() => setSheetOpen(false)}
-        onFind={startRanked}
+        onFind={startMatch}
       />
     </>
   );
