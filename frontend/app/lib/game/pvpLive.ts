@@ -78,8 +78,14 @@ export type PvpServerMessage =
     }
   | { type: "error"; code: string; message: string };
 
+// Derived from the solo WS base (`NEXT_PUBLIC_BACKEND_WS_URL`) by appending `/match`, so a
+// single env var configures both endpoints and they can't drift. An explicit
+// `NEXT_PUBLIC_BACKEND_WS_MATCH_URL` still overrides if the two ever need to diverge.
 const WS_MATCH_URL =
-  process.env.NEXT_PUBLIC_BACKEND_WS_MATCH_URL ?? "ws://127.0.0.1:8000/ws/match";
+  process.env.NEXT_PUBLIC_BACKEND_WS_MATCH_URL ??
+  (process.env.NEXT_PUBLIC_BACKEND_WS_URL
+    ? `${process.env.NEXT_PUBLIC_BACKEND_WS_URL}/match`
+    : "ws://127.0.0.1:8000/ws/match");
 
 export function pvpSocketUrl(token: string): string {
   const sep = WS_MATCH_URL.includes("?") ? "&" : "?";
