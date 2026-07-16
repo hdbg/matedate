@@ -16,8 +16,22 @@ import {
   type WirePersona,
 } from "@/app/lib/game/live";
 import { useMatchClock } from "./useMatchClock";
+import { playSound, preloadSounds } from "@/app/lib/sound";
 
 export type MessageSide = "you" | "match" | "system";
+
+/**
+ * Solo win/loss for the finish sting. A landed date is the clean win; a block/timeout/resignation
+ * is the clean loss. A game that simply "wrapped" (`scored`) has no checkmate, so we fall back to
+ * the rating swing: a non-negative delta reads as a win, otherwise a loss.
+ */
+function isSoloWin(endReason: string, ratingDelta: number): boolean {
+  if (endReason === "date_landed") return true;
+  if (endReason === "blocked" || endReason === "timeout" || endReason === "resignation") {
+    return false;
+  }
+  return ratingDelta >= 0;
+}
 
 export interface Message {
   id: number;
@@ -107,8 +121,13 @@ export function useMatchGame() {
     });
   }, [appendMessage]);
 
-  const clock = useMatchClock(handleFlag);
+  const clock = useMatchClock(handleFlag, () => playSound("lowTime"));
   const { start: startClock, stop: stopClock, set: setClock } = clock;
+
+  // Warm the sound clips as soon as the screen mounts, so nothing downloads lazily mid-game.
+  useEffect(() => {
+    preloadSounds();
+  }, []);
 
   useEffect(() => {
     interestRef.current = interest;
@@ -193,6 +212,7 @@ export function useMatchGame() {
           setInterest((v) => clamp(v + graded.swing * 7));
           scoreAccuracy(graded.classKey);
           setTyping(false);
+          playSound("capture");
           appendMessage({ side: "match", text: msg.content });
           // Fischer clock: resume from the server-reported bank (leftover + increment), not a
           // fresh full budget — a quick answer carries its saved time into the next turn.
@@ -205,6 +225,7 @@ export function useMatchGame() {
           setTyping(false);
           setFlagged(true);
           setYourAcc(msg.accuracy);
+          playSound(isSoloWin(msg.end_reason, msg.rating_delta) ? "victory" : "defeat");
           setResult({
             gameId: msg.game_id,
             endReason: msg.end_reason,
@@ -289,6 +310,7 @@ export function useMatchGame() {
       const youId = appendMessage({ side: "you", text: trimmed });
       pendingYouRef.current = youId;
       setTyping(true);
+      playSound("move");
       sendMove(socket, trimmed);
     },
     [flagged, typing, appendMessage, stopClock],

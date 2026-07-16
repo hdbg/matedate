@@ -20,6 +20,7 @@ import {
   type WireOpponent,
 } from "@/app/lib/game/pvpLive";
 import { useMatchClock } from "./useMatchClock";
+import { playSound, preloadSounds } from "@/app/lib/sound";
 import type { Message } from "./useMatchGame";
 
 /** What this socket is here to do, derived from the /match query params. */
@@ -137,10 +138,15 @@ export function usePvpGame(action: PvpAction) {
     appendMessage({ side: "system", text: "(you ran out of time — flag falls ⏱)" });
   }, [appendMessage]);
 
-  const yourClock = useMatchClock(handleFlag);
+  const yourClock = useMatchClock(handleFlag, () => playSound("lowTime"));
   const oppClock = useMatchClock(() => {});
   const { start: startYour, stop: stopYour, set: setYour } = yourClock;
   const { start: startOpp, stop: stopOpp, set: setOpp } = oppClock;
+
+  // Warm the sound clips as soon as the screen mounts, so nothing downloads lazily mid-match.
+  useEffect(() => {
+    preloadSounds();
+  }, []);
 
   useEffect(() => {
     interestRef.current = interest;
@@ -301,6 +307,7 @@ export function usePvpGame(action: PvpAction) {
           setInterest((v) => clamp(v + graded.swing * 7));
           scoreYourMove(graded.classKey);
           setTyping(false);
+          playSound("capture");
           appendMessage({ side: "match", text: msg.content });
           // Your bank at rest for the next turn (leftover + increment); the clock itself
           // restarts when the server's `turn` frame says it's you again.
@@ -331,6 +338,8 @@ export function usePvpGame(action: PvpAction) {
           setYourAcc(msg.your_accuracy);
           setOppAcc(msg.opp_accuracy);
           setPhase("finished");
+          if (msg.result === "win") playSound("victory");
+          else if (msg.result === "loss") playSound("defeat");
           setResult({
             matchId: msg.match_id,
             result: msg.result,
@@ -461,6 +470,7 @@ export function usePvpGame(action: PvpAction) {
       const youId = appendMessage({ side: "you", text: trimmed });
       pendingYouRef.current = youId;
       setTyping(true);
+      playSound("move");
       sendMove(socket, trimmed);
     },
     [flagged, typing, turn, appendMessage, stopYour],

@@ -10,12 +10,19 @@ import {
   type VersusMode,
 } from "@/app/lib/game/service";
 import { tierFor } from "@/app/lib/game/tiers";
+import { playSound } from "@/app/lib/sound";
 
 /**
  * How long the intro holds before play begins. Kept in sync with the server's first-turn grace
  * (`solo_intro_grace_seconds`, backend/app/config.py) so the animation is genuinely off-clock.
  */
 export const INTRO_MS = 5000;
+
+/**
+ * When the two fighters collide — the flash + stage shake both fire at 1.5s (`.intro-flash` /
+ * `.intro-stage` in globals.css). The NewChallenge sound is played on that beat.
+ */
+const IMPACT_MS = 1500;
 
 /** Cross-fade out into the match board so the hand-off isn't an abrupt cut. */
 const EXIT_MS = 350;
@@ -87,6 +94,14 @@ export function MatchIntro({
     setExiting(true);
     setTimeout(onDone, EXIT_MS);
   }, [onDone]);
+
+  // Play the clash sound on the impact beat — unless the player skipped past it first.
+  useEffect(() => {
+    const clash = setTimeout(() => {
+      if (!finishedRef.current) playSound("newChallenge");
+    }, IMPACT_MS);
+    return () => clearTimeout(clash);
+  }, []);
 
   useEffect(() => {
     const done = setTimeout(finish, Math.max(0, INTRO_MS - EXIT_MS));
