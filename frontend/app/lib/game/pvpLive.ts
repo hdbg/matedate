@@ -75,6 +75,8 @@ export type PvpServerMessage =
       opponent: WireOpponent;
       title: string;
       description: string;
+      rating: number; // your post-match ranked elo (unchanged on unrated); prev = rating - delta
+      archetype_id: string; // pre-generated game_archetypes.id for YOUR side — awaited over realtime
     }
   | { type: "error"; code: string; message: string };
 

@@ -53,6 +53,26 @@ class Settings(BaseSettings):
     analysis_max_attempts: int = 3
     analysis_poll_seconds: float = 2.0
 
+    # Archetype classification (SPEC §9.1) — the shareable-card identity. A CHEAP "lower-tier"
+    # model only picks the play-style, writes the flavor line, and selects the meme moment; the
+    # tier + legendary triggers are derived deterministically server-side. Runs async through its
+    # own game_archetype pgmq queue (drained by the same worker as game_analysis, concurrently).
+    # `archetype_timeout_seconds` bounds the single model call before the deterministic fallback.
+    archetype_model: str = "anthropic/claude-haiku-4-5"
+    archetype_prompt_version: str = "v1"
+    archetype_timeout_seconds: float = 20.0
+    archetype_visibility_timeout_seconds: int = 60
+    archetype_max_attempts: int = 3
+    archetype_poll_seconds: float = 2.0
+    # Legendary thresholds (SPEC §9.1 "starting points" — tune against real data to keep them rare).
+    archetype_brilliancy_swing: float = 4.0  # a !!-move swing this big → The Brilliancy
+    archetype_comeback_low: float = 20.0  # interior eval dipping below this → near-dead
+    archetype_comeback_recover: float = 70.0  # …then final eval at/above this (or a win) → Comeback
+    archetype_scholars_max_messages: int = 4  # positive close within this many You-messages
+    archetype_scholars_min_accuracy: float = 80.0
+    archetype_massacre_max_accuracy: float = 10.0  # accuracy below this → The Massacre
+    archetype_massacre_blunder_ratio: float = 0.8  # …or this share of moves are Blunders
+
     # Dev/test escape hatch: when true, skip the real LLM and use a deterministic
     # heuristic engine so the full WebSocket flow can be exercised without a live key.
     fake_engine: bool = False

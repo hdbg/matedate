@@ -287,6 +287,53 @@ High chargeback rates (Visa/Mastercard ceiling ≈ **1%** of transactions) escal
   with no chess.com-specific vocabulary.
 - Have an IP attorney glance at final badges + tier names before launch (chess.com is known to enforce).
 
+### 9.1 Archetype Classification System
+
+The card assigns one of 20 fixed identities (16 core + 4 legendary). Identities are **fixed and collectable** (drives recognition, memes, "what'd you get?" sharing); only the one-line flavor text under the title is LLM-generated per conversation. Never free-generate the title — a fixed pantheon is the shareable asset. After a game finishes, the LLM analyzes the conversation and assigns the archetype + a very short reasoning line to the player.
+
+All classification signals (accuracy, eval swings, per-move classifications like Blunder / `!!`) are the **server-authoritative** values from the scoring engine (§3) — the archetype logic consumes them, never re-derives them.
+
+**Classification axes**
+- **Accuracy tier** (conversation accuracy %): Low (0–39) · Shaky (40–59) · Solid (60–79) · High (80–100)
+- **Play style** (dominant signal from eval-swing variance, message effort/length, initiative/escalation score, humor/absurdity):
+  - **Bold** — high effort + high initiative + high *directed* swing magnitude
+  - **Smooth** — high effort + low swing variance + consistently positive evals
+  - **Dry** — low effort + low initiative + small swings
+  - **Chaotic** — high humor/absurdity + high swing variance
+
+4 styles × 4 tiers = 16-cell grid.
+
+**Core grid (16)**
+
+| | Low (0–39) | Shaky (40–59) | Solid (60–79) | High (80–100) |
+|---|---|---|---|---|
+| **Bold** | All Gas No Brakes | Loose Cannon | The Gambler | The Closer |
+| **Smooth** | Certified Cornball | The Overthinker | The Diplomat | Smooth Operator |
+| **Dry** | Ghosted Loading… | One-Word Wonder | The Minimalist | The Enigma |
+| **Chaotic** | The Trainwreck | Feral Texter | Certified Menace | Chaos Charmer |
+
+Tone rule: Low column is funny-brutal but **never cruel** (self-deprecating share material); High column is aspirational flex. Different emotions, both shareable.
+
+**Legendaries (4)** — rare, override the grid, gold styling
+
+| Legendary | Trigger | Chess logic |
+|---|---|---|
+| **Scholar's Mate** | Positive close (number/date/accepted escalation) in ≤4 messages, accuracy ≥80% | The famous 4-move mate |
+| **The Comeback** | Eval dropped below ~20 (near-dead) then recovered to win / eval ≥70 | Endgame miracle |
+| **The Brilliancy** | Contains a `!!` move with eval swing ≥ +4.0 (risky line that looked like a blunder) | The brilliant sacrifice |
+| **The Massacre** | Accuracy <10% and/or ≥80% of moves are Blunders | Total board wipe (comedy share) |
+
+**Resolution rules**
+- Legendary always beats core grid.
+- Multiple legendaries fire → priority: Brilliancy → Scholar's Mate → Comeback → Massacre.
+- **Collection mechanic:** track unlocked identities ("7 / 20"); show legendaries as locked gold silhouettes to chase (retention hook).
+- **Fixed title, dynamic flavor line** (LLM writes the personalized sentence referencing what they actually said).
+
+**Tuning notes**
+- All thresholds (≤4 msgs, +4.0 swing, <10% accuracy) are starting points — tune against real data to keep legendaries rare; rarity is the whole value.
+- Style-signal weights need calibration on real conversations; classification picks the *dominant* signal from mixtures.
+- Monitor archetype distribution; tighten any identity firing too often (if everyone's a Chaos Charmer, the identity stops meaning anything).
+
 ---
 
 ## 10. Virality & Growth

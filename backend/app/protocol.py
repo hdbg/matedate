@@ -66,6 +66,7 @@ class MoveOut(BaseModel):
     content: str
     classification: MoveClassKey | None = None  # only on graded "You" moves
     swing: float | None = None
+    eval_after: float | None = None  # 0-100 interest after this move (You moves) — drives the card eval graph
 
 
 class OpponentOut(BaseModel):
@@ -129,6 +130,8 @@ class FinishMsg(BaseModel):
     title: str
     description: str
     game_id: str  # the finished game, so the client can request a deep review via RPC
+    rating: int  # post-finish rizz rating (elo); previous = rating - rating_delta
+    archetype_id: str  # pre-generated game_archetypes.id — the client awaits this row over realtime
 
 
 class ErrorMsg(BaseModel):
@@ -231,3 +234,5 @@ class MatchFinishMsg(BaseModel):
     opponent: OpponentOut
     title: str
     description: str
+    rating: int  # your post-match ranked elo (unchanged on unrated); previous = rating - rating_delta
+    archetype_id: str  # pre-generated game_archetypes.id for YOUR side — awaited over realtime

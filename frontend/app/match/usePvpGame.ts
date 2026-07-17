@@ -54,11 +54,13 @@ export interface PvpResult {
   yourAccuracy: number;
   oppAccuracy: number;
   ratingDelta: number;
+  rating: number; // post-match ranked elo; previous = rating - ratingDelta
   rated: boolean;
   interest: number;
   yourMoves: WireMove[];
   oppMoves: WireMove[]; // full content — the post-match reveal
   opponent: PvpOpponent;
+  archetypeId: string; // YOUR side's game_archetypes row to await for the card identity
 }
 
 const BASE_INTEREST = 58;
@@ -349,6 +351,7 @@ export function usePvpGame(action: PvpAction) {
             yourAccuracy: msg.your_accuracy,
             oppAccuracy: msg.opp_accuracy,
             ratingDelta: msg.rating_delta,
+            rating: msg.rating,
             rated,
             interest: interestRef.current,
             yourMoves: msg.your_moves,
@@ -359,6 +362,7 @@ export function usePvpGame(action: PvpAction) {
               avatarPath: null,
               rankedElo: null,
             }),
+            archetypeId: msg.archetype_id,
           });
           socketRef.current?.close(1000, "match over");
           break;

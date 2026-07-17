@@ -4,7 +4,7 @@ version: "3"
 
 tasks:
   dev:
-    desc: Start local Supabase, the backend, the analysis worker, and the frontend.
+    desc: Start local Supabase, the backend, the analysis/archetype worker, and the frontend.
     deps: [backend, worker, frontend]
 
   gen-types:
@@ -35,11 +35,12 @@ tasks:
       - uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
   worker:
-    desc: Run the post-game analysis worker (game_analysis pgmq consumer) against local Supabase.
+    desc: Run the post-game worker (game_analysis + game_archetype pgmq consumers) against local Supabase.
     deps: [supabase]
     dir: backend
-    # Reads backend/.env. Idles cheaply polling the queue; with FAKE_ENGINE / no OpenRouter key
-    # it runs the deterministic fake analysis engine.
+    # Reads backend/.env. One process drains both queues concurrently (deep analysis + the fast
+    # archetype pass, each its own submodule). Idles cheaply polling; with FAKE_ENGINE / no
+    # OpenRouter key it runs the deterministic fake engines.
     cmds:
       - uv run python worker.py
 

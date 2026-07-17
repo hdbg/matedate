@@ -62,6 +62,7 @@ from .database_types import (
 )
 from .db import json_row as _json_row
 from .engine import Engine
+from .archetype.service import enqueue_match_archetype
 from .grading import (
     MoveClassKey,
     accuracy_from_qualities,
@@ -456,6 +457,18 @@ class MatchSession:
         self.match.status = "completed"
         self.pvp.turn_deadline = None
 
+        # Post-match rizz rating per side (ranked elo; unchanged on unrated, since rating_delta=0).
+        rating: dict[PublicMatchSide, int] = {
+            side: max(0, players[side].ranked_elo + rating_delta[side]) for side in _SIDES
+        }
+        # Fire the archetype pass for BOTH sides onto the queue; each player awaits their own row.
+        archetype_ids: dict[PublicMatchSide, uuid.UUID] = {}
+        for side in _SIDES:
+            side_user = self.pvp.player_a if side == "a" else self.pvp.player_b
+            archetype_ids[side] = await enqueue_match_archetype(
+                self._db, uuid.UUID(self.match_id), side, side_user
+            )
+
         label = END_REASON_LABELS.get(end_reason, end_reason.capitalize())
 
         def msg_for(side: PublicMatchSide) -> MatchFinishMsg:
@@ -486,6 +499,8 @@ class MatchSession:
                 opponent=self._opponent_out(players[other]),
                 title=title,
                 description=description,
+                rating=rating[side],
+                archetype_id=str(archetype_ids[side]),
             )
 
         for side in _SIDES:

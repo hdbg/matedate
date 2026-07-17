@@ -236,6 +236,44 @@ PvP sides / screenshot uploads later), so there is no per-mode analysis table.
   best moves). Owner-read RLS; service_role writes.
   Re-analysis is allowed (no `unique(game_id)`); the current analysis is the latest `created_at`.
 
+### Archetype classification (`app/archetype/`, SPEC §9.1)
+
+The shareable-card identity: after a game/match finishes, a cheap model assigns one of **20 fixed
+identities** (16-cell tier×style grid + 4 legendaries), a one-line flavor sentence, and picks the
+**meme moment** (≤4 message positions). Runs async on its own pgmq queue `game_archetype`, drained
+by the **same worker process** as `game_analysis` (`backend/worker.py` runs both `run_loop`s
+concurrently — the fast archetype pass shouldn't wait behind a slow deep review). Fires
+automatically at finish (not a client RPC): solo `game.py::_finish` → `enqueue_game_archetype`;
+PvP `pvp.py::_finish` → `enqueue_match_archetype` for **both sides** (each player awaits their own).
+
+- **Hybrid classification (`classify.py` + `engine.py`):** the backend derives the **accuracy
+  tier** + the **4 legendary triggers** deterministically (thresholds are `ARCHETYPE_*` config
+  knobs; win/block read off the eval mating squares, so it's source-independent). The model
+  (`ARCHETYPE_MODEL`, default a Haiku-class slug) only returns the **play-style** (1 of 4, which
+  with the tier indexes the grid via `vocab.py`), the **flavor**, and the **meme window** (a
+  `meme_start` position + a downstream count, which the server expands into the consecutive
+  `meme_positions` it stores) — it never names an archetype. Priority when several legendaries fire: **Brilliancy → Scholar's
+  Mate → Comeback → Massacre** (Brilliancy is a mid-game `!!` line, not the closing move). On any
+  model failure/timeout (`archetype_timeout_seconds`) a **deterministic fallback** is persisted, so
+  a `game_archetypes` row ALWAYS lands and the client's loader never hangs. `FakeArchetypeEngine`
+  under `FAKE_ENGINE`/no key. Enqueue mints `game_archetypes.id` up front (like the analysis RPC).
+- **Wire:** the finish frame carries no archetype content — it adds `archetype_id` (the row to
+  await), `rating` (post-finish elo for the card's "prev + Δ"), and `eval_after` on each `MoveOut`
+  (drives the card eval graph). The client awaits the `game_archetypes` INSERT over realtime.
+- **Tables:** `game_archetypes` (archetype enum / is_legendary / tier / style / flavor_reason /
+  meme_positions / model / raw_response, nullable `game_id`/`match_id` XOR + `side`; `unique(game_id)`
+  and `unique(match_id, side)`) + `archetype_jobs` (lifecycle/idempotency, `replica identity full`
+  for the loader's `failed` safety-net UPDATE). Owner/participant-read RLS; service_role writes.
+  Frontend: `app/lib/game/archetypes.ts` maps the enum key → display title + legendary flag (the
+  backend deals only in keys, like `MoveClassKey`); `useArchetype` awaits the row and the card slot
+  shows the inline `LoadingScene` until it arrives. The exportable card is one component
+  (`app/match/components/ShareCard.tsx`) reused by the after-game modal, the PvP result modal, and
+  the profile "Share Card" flow (`ShareCardModal` + `useArchetypeBySource` + `shareCardData.ts`,
+  opened from a ⋮ menu on each history row — PvP rows let the viewer flip sides). The CTA band is
+  captured into the shared PNG only (`useShareCard`'s `capturing` flag), never shown in the modal.
+- **Backfill:** `20260718000000_archetype_backfill.sql` enqueues an archetype job (idempotent) for
+  every pre-existing completed solo game + PvP match side, so historical cards exist too.
+
 ### Security invariants (do not violate)
 
 - Grading, the clock, and rating are **server-authoritative** — never trust client-reported time

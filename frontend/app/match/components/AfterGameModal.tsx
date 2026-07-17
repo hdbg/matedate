@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { toPng } from "html-to-image";
-import { Logo, LogoMark } from "@/app/components/ui/Logo";
-import { MoveIcon } from "@/app/components/ui/MoveIcon";
-import { formatSwing, type MoveClassKey } from "@/app/lib/game/service";
-import type { WireMove } from "@/app/lib/game/live";
+import { useEffect } from "react";
+import { LogoMark } from "@/app/components/ui/Logo";
+import { LoadingScene } from "@/app/components/ui/LoadingScene";
+import { ARCHETYPES } from "@/app/lib/game/archetypes";
+import { isSoloWin, soloResultBadge } from "@/app/lib/game/cardHelpers";
+import { useArchetype } from "@/app/lib/game/useArchetype";
 import type { GameResult } from "../useMatchGame";
+import { ShareCard } from "./ShareCard";
+import { useShareCard } from "./useShareCard";
 
 /** State of the "Deep analysis" request. It's fire-and-forget: once `requested`, the review runs
  * in the background and the main screen's notifications bell announces the result. */
@@ -38,11 +40,6 @@ function verdictLine(reason: string): string {
   }
 }
 
-/** The last few exchanges, newest last — a compact recap for the share card. */
-function recapMoves(moves: WireMove[]): WireMove[] {
-  return moves.slice(-4);
-}
-
 /** Deep-analysis button copy for each request phase. */
 const ANALYSIS_COPY: Record<AnalysisStatus, { label: string; sub: string }> = {
   idle: { label: "Deep analysis", sub: "Replay every move" },
@@ -66,58 +63,17 @@ export function AfterGameModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const { archetype, status: archetypeStatus } = useArchetype(result.archetypeId);
+  const analyzing = archetypeStatus === "loading";
+
   const accuracy = Math.round(result.accuracy);
-  const interest = Math.round(result.interest);
-  const deltaSign = result.ratingDelta >= 0 ? "+" : "";
-  const deltaColor = result.ratingDelta >= 0 ? "var(--m-good)" : "var(--m-blunder)";
-  const recap = recapMoves(result.moves);
+  const win = isSoloWin(result.endReason, result.ratingDelta);
+  const archetypeTitle = archetype ? ARCHETYPES[archetype.key].title : result.title;
   const analysis = ANALYSIS_COPY[analysisStatus];
   const analysisBusy = analysisStatus === "pending" || analysisStatus === "requested";
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [exporting, setExporting] = useState(false);
-
-  const shareText = (text: string) => {
-    if (typeof navigator !== "undefined" && navigator.share) {
-      void navigator.share({ title: "MateDate", text }).catch(() => {});
-    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
-      void navigator.clipboard.writeText(text).catch(() => {});
-    }
-  };
-
-  /** Render the card to a PNG and hand it to the share sheet (or download it). Text fallback
-   * if the export fails. Uses html-to-image: Tailwind v4 emits color-mix()/oklch, which the
-   * html2canvas family can't parse. */
-  const share = async () => {
-    const node = cardRef.current;
-    const text = `${result.title} — ${accuracy}% accuracy on MateDate`;
-    if (!node || exporting) {
-      shareText(text);
-      return;
-    }
-    setExporting(true);
-    try {
-      // Safari can paint the first pass before fonts/images are inlined — render twice, keep
-      // the second.
-      const opts = { pixelRatio: 2, cacheBust: true };
-      await toPng(node, opts);
-      const dataUrl = await toPng(node, opts);
-      const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], "matedate-result.png", { type: "image/png" });
-      if (typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ title: "MateDate", text, files: [file] });
-      } else {
-        const a = document.createElement("a");
-        a.href = dataUrl;
-        a.download = "matedate-result.png";
-        a.click();
-      }
-    } catch (err) {
-      // A dismissed share sheet isn't a failure; anything else falls back to sharing text.
-      if (!(err instanceof DOMException && err.name === "AbortError")) shareText(text);
-    } finally {
-      setExporting(false);
-    }
-  };
+  const { cardRef, exporting, capturing, share } = useShareCard(
+    () => `${archetypeTitle} — ${accuracy}% accuracy on MateDate`,
+  );
 
   return (
     <div
@@ -161,56 +117,32 @@ export function AfterGameModal({
           <p className="m-0 text-[14px] text-ink-soft">{result.description}</p>
         </div>
 
-        {/* share card */}
-        <div ref={cardRef} className="overflow-hidden rounded-[22px] bg-ink text-king shadow-[var(--sh-3)]">
-          <div className="flex items-center justify-between px-[17px] pb-[11px] pt-[15px]">
-            <Logo markSize={22} wordmarkClassName="text-[18px] tracking-[-0.03em]" />
-            <div className="text-right">
-              <div className="text-[24px] font-extrabold leading-none tracking-[-0.03em]">
-                {accuracy}%
-              </div>
-              <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-ink-mute">
-                Accuracy
-              </div>
-            </div>
-          </div>
-          <div className="mx-[17px] flex h-2 bg-[#100e0c] shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]">
-            <div className="h-full bg-rosy" style={{ width: `${interest}%` }} />
-          </div>
-          <div className="flex flex-col gap-2 bg-[#332e2a] px-[17px] py-[15px]">
-            {recap.map((mv) => (
-              <RecapBubble key={mv.position} move={mv} />
-            ))}
-            <div className="mt-0.5 rounded-[12px] border-[1.5px] border-dashed border-rosy bg-rosy/[0.14] px-3 py-2.5 text-center">
-              <div className="font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-rosy">
-                🔒 Best move · unlock
-              </div>
-              <div className="mt-[3px] select-none text-[13px] font-bold blur-[5px]">
-                audition me sunday — I&apos;m cooking shakshuka
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center justify-between px-[17px] py-3">
-            <div className="flex items-center gap-2 text-[17px] font-extrabold">
-              <span aria-hidden>♟</span> elo
-              <span className="font-mono text-[13px] font-bold" style={{ color: deltaColor }}>
-                {deltaSign}
-                {result.ratingDelta}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.1em] text-ink-mute">
-              🛡 Anonymized
-            </div>
-          </div>
-        </div>
+        {/* share card — while the archetype classifies, the card slot shows the loader */}
+        {analyzing ? (
+          <LoadingScene inline status="Analyzing your match" />
+        ) : (
+          <ShareCard
+            ref={cardRef}
+            accuracy={result.accuracy}
+            accuracySub="Accuracy"
+            archetype={archetype}
+            moves={result.moves}
+            ratingLabel="Rizz Rating"
+            ratingValue={result.rating}
+            ratingDelta={result.ratingDelta}
+            resultLabel={soloResultBadge(result.endReason, win)}
+            resultColor={win ? "var(--m-good)" : "var(--m-blunder)"}
+            capturing={capturing}
+          />
+        )}
 
         {/* share affordance */}
         <div className="mt-3 text-center">
           <button
             type="button"
-            disabled={exporting}
+            disabled={exporting || analyzing}
             onClick={() => void share()}
-            className="inline-flex cursor-pointer items-center gap-1.5 border-none bg-none p-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-ink-mute hover:text-rosy-deep disabled:cursor-default"
+            className="inline-flex cursor-pointer items-center gap-1.5 border-none bg-none p-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-ink-mute hover:text-rosy-deep disabled:cursor-default disabled:opacity-50"
           >
             {exporting ? "⏳ Exporting…" : "↗ Share this card"}
           </button>
@@ -251,28 +183,6 @@ export function AfterGameModal({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function RecapBubble({ move }: { move: WireMove }) {
-  if (move.side === "Match") {
-    return (
-      <div className="relative max-w-[80%] self-start rounded-[16px] rounded-bl-[5px] bg-[#4a443c] px-3 py-2.5 text-[13px] leading-[1.35] text-king">
-        {move.content}
-      </div>
-    );
-  }
-  const cls = move.classification as MoveClassKey | null | undefined;
-  return (
-    <div className="relative max-w-[80%] self-end rounded-[16px] rounded-br-[5px] bg-rosy px-3 py-2.5 text-[13px] leading-[1.35] text-white">
-      {move.content}
-      {cls && (
-        <span className="absolute right-1.5 top-[-9px] inline-flex items-center gap-[4px] rounded-full bg-white py-[2px] pl-[2px] pr-[7px] font-mono text-[10px] font-bold text-ink shadow-[var(--sh-1)]">
-          <MoveIcon classKey={cls} size={15} />
-          {formatSwing(move.swing ?? 0)}
-        </span>
-      )}
     </div>
   );
 }

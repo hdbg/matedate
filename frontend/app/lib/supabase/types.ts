@@ -171,6 +171,44 @@ export interface GameAnalysisMoveRevealRow {
   best_line: string;
 }
 
+/** The shareable-card identity (SPEC §9.1). Written by the archetype worker; readable by the
+ * source game's owner / the source match's participants (own side). For match sources, `side`
+ * says whose conversation was classified. `archetype` is the stable key; the display title +
+ * legendary flag live in `app/lib/game/archetypes.ts`. */
+export interface GameArchetypeRow {
+  id: string;
+  job_id: string | null;
+  game_id: string | null;
+  match_id: string | null;
+  side: "a" | "b" | null;
+  archetype: string;
+  is_legendary: boolean;
+  tier: "low" | "shaky" | "solid" | "high";
+  style: "bold" | "smooth" | "dry" | "chaotic";
+  flavor_reason: string;
+  meme_positions: number[];
+  model: string;
+  prompt_version: string;
+  latency_ms: number | null;
+  created_at: string;
+}
+
+/** Lifecycle row for an archetype job — the loader watches for a terminal `failed` as a safety
+ * net (the row itself usually arrives via `game_archetypes`). */
+export interface ArchetypeJobRow {
+  id: string;
+  status: "queued" | "processing" | "completed" | "failed" | "cancelled";
+  user_id: string | null;
+  game_id: string | null;
+  match_id: string | null;
+  side: "a" | "b" | null;
+  archetype_id: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+  finished_at: string | null;
+}
+
 export type MatchEndReason =
   | "scored"
   | "timeout"

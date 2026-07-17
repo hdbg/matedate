@@ -36,6 +36,8 @@ export interface HistoryItem {
   flatLabel: string | null;
   /** Completed deep review to open on click, if one exists. */
   analysisId: string | null;
+  /** For ranked rows: the viewer's own side of the match (drives the Share Card side chooser). */
+  ownSide?: "a" | "b";
 }
 
 export interface ProfileData {
@@ -327,6 +329,7 @@ function toPvpHistoryItem(
     delta: match.rated && eloBefore != null && eloAfter != null ? eloAfter - eloBefore : null,
     flatLabel: match.rated ? "—" : "friendly",
     analysisId,
+    ownSide: side,
   };
 }
 

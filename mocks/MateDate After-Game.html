@@ -62,13 +62,41 @@
   /* -------- share card (from design system) -------- */
   .sharecard{ border-radius:22px; overflow:hidden; box-shadow:var(--sh-3); background:var(--ink); color:var(--king); }
   .sc-head{ padding:15px 17px 11px; display:flex; align-items:center; justify-content:space-between; }
-  .sc-brand{ font-weight:800; letter-spacing:-.03em; font-size:18px; }
+  .sc-brand{ font-weight:800; letter-spacing:-.03em; font-size:18px; display:flex; align-items:center; gap:7px; }
+  .sc-brand .ic{ position:relative; display:inline-flex; }
+  .sc-brand .ic img{ height:22px; transform:rotate(11deg); transform-origin:bottom center; }
+  .sc-brand .ic .bang{ position:absolute; top:-5px; right:-9px; color:var(--rosy); font-weight:800; font-size:13px; letter-spacing:-.04em; text-shadow:0 0 10px rgba(214,83,106,.6); }
   .sc-brand .b{ color:var(--rosy); }
   .sc-acc{ text-align:right; }
   .sc-acc .n{ font-weight:800; font-size:24px; letter-spacing:-.03em; line-height:1; }
   .sc-acc .l{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.14em; color:var(--ink-mute); text-transform:uppercase; }
-  .sc-evalbar{ height:8px; margin:0 17px; display:flex; background:#100e0c; box-shadow:inset 0 1px 2px rgba(0,0,0,.5); }
-  .sc-evalbar .you{ background:var(--rosy); height:100%; }
+
+  /* archetype title — the postable identity */
+  .sc-title{ position:relative; padding:2px 17px 13px; text-align:center; }
+  .sc-title .k{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-mute); }
+  .sc-title h2{ margin:4px 0 0; font-weight:800; letter-spacing:-.035em; font-size:25px; line-height:1.02; color:var(--king); }
+  .sc-title h2 em{ font-style:normal; color:var(--rosy); }
+  .sc-title .why{ margin:6px auto 0; max-width:30ch; font-size:11.5px; line-height:1.35; color:var(--ink-mute); }
+
+  /* legendary archetype — rare, gilded treatment */
+  .sharecard{ --gold:#e3b23c; --gold-hi:#f6d878; }
+  .sc-title.legendary{ background:radial-gradient(120% 90% at 50% 0%, rgba(227,178,60,.18), transparent 70%); }
+  .sc-title.legendary .k{ color:var(--gold-hi); letter-spacing:.28em; display:inline-flex; align-items:center; gap:7px; }
+  .sc-title.legendary .k::before, .sc-title.legendary .k::after{ content:"◆"; font-size:7px; color:var(--gold); }
+  .sc-title.legendary h2{ background:linear-gradient(100deg, var(--gold-hi), var(--gold) 45%, #fff 55%, var(--gold-hi)); -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent; text-shadow:0 0 22px rgba(227,178,60,.35); }
+  .sc-title.legendary h2 em{ background:inherit; -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent; }
+  .sc-title.legendary .why{ color:rgba(246,216,120,.75); }
+
+  /* mini eval graph (advantage over the conversation) */
+  .sc-graph{ position:relative; height:48px; margin:0 17px 2px; background:#100e0c; border-radius:9px; overflow:hidden; box-shadow:inset 0 1px 3px rgba(0,0,0,.55); }
+  .sc-graph svg{ display:block; width:100%; height:100%; }
+  .sc-graph .glab{ position:absolute; top:5px; font-family:'Space Mono',monospace; font-size:8px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; }
+  .sc-graph .glab.l{ left:9px; color:var(--ink-mute); }
+  .sc-graph .glab.r{ right:9px; color:var(--rosy); }
+  .sc-graph .gdot{ position:absolute; width:9px; height:9px; border-radius:50%; transform:translate(-50%,-50%); border:2px solid #100e0c; box-shadow:0 0 6px rgba(0,0,0,.4); }
+  .sc-graph .gdot.bril{ background:var(--m-brilliant); }
+  .sc-graph .gdot.blun{ background:var(--m-blunder); }
+
   .sc-body{ background:#332e2a; padding:15px 17px; display:flex; flex-direction:column; gap:8px; }
   .bubble{ max-width:80%; padding:9px 12px; border-radius:16px; font-size:13px; line-height:1.35; position:relative; }
   .bubble.match{ align-self:flex-start; background:#4a443c; color:var(--king); border-bottom-left-radius:5px; }
@@ -79,10 +107,17 @@
   .sc-locked{ background:rgba(214,83,106,.14); border:1.5px dashed var(--rosy); border-radius:12px; padding:10px 12px; text-align:center; margin-top:2px; }
   .sc-locked .l1{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--rosy); font-weight:700; }
   .sc-locked .l2{ filter:blur(5px); font-weight:700; margin-top:3px; font-size:13px; user-select:none; }
-  .sc-foot{ padding:12px 17px; display:flex; align-items:center; justify-content:space-between; }
-  .sc-rating{ display:flex; align-items:center; gap:8px; font-weight:800; font-size:17px; }
+  .sc-foot{ padding:12px 17px 10px; display:flex; align-items:center; justify-content:space-between; }
+  .sc-rating{ display:flex; align-items:baseline; gap:7px; }
+  .sc-rating .rl{ font-family:'Space Mono',monospace; font-size:9px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-mute); }
+  .sc-rating .rv{ font-weight:800; font-size:18px; letter-spacing:-.02em; }
   .sc-delta{ color:var(--m-good); font-family:'Space Mono',monospace; font-size:13px; font-weight:700; }
-  .sc-badge{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.1em; color:var(--ink-mute); text-transform:uppercase; display:flex; align-items:center; gap:5px; }
+  .sc-result{ font-family:'Space Mono',monospace; font-size:9px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--m-good); border:1px solid rgba(95,154,85,.5); border-radius:999px; padding:4px 9px; }
+  /* bottom CTA band — the viral hook */
+  .sc-cta{ display:flex; align-items:center; justify-content:center; gap:7px; padding:12px 17px; background:var(--rosy); color:#fff; text-decoration:none; font-family:'Space Mono',monospace; font-weight:700; font-size:12px; letter-spacing:.04em; }
+  .sc-cta:hover{ background:var(--rosy-deep); color:#fff; }
+  .sc-cta .u{ letter-spacing:.02em; }
+  .sc-cta .ar{ font-size:14px; }
 
   /* tiny share affordance under the card */
   .sharelink{ text-align:center; margin:12px 0 0; }
@@ -141,10 +176,24 @@
     <!-- share card -->
     <div class="sharecard">
       <div class="sc-head">
-        <div class="sc-brand">Mate<span class="b">Date</span></div>
+        <div class="sc-brand"><span class="ic"><img src="assets/white-king.svg" alt="" /><span class="bang">!!</span></span>Mate<span class="b">Date</span></div>
         <div class="sc-acc"><div class="n">84%</div><div class="l">Accuracy</div></div>
       </div>
-      <div class="sc-evalbar"><div class="you" style="width:71%"></div></div>
+      <div class="sc-title legendary">
+        <div class="k">Legendary</div>
+        <h2>The <em>Chaos Charmer</em></h2>
+        <p class="why">Turned an “idk lol” blunder into a checkmate close.</p>
+      </div>
+      <div class="sc-graph">
+        <span class="glab l">Eval</span><span class="glab r">You 71</span>
+        <svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+          <line x1="0" y1="20" x2="100" y2="20" stroke="rgba(241,232,217,.16)" stroke-width="1" stroke-dasharray="2 3" vector-effect="non-scaling-stroke"/>
+          <path d="M0,20 L20,16.8 L40,7.2 L60,24 L80,15.2 L100,11.6 L100,40 L0,40 Z" fill="rgba(214,83,106,.22)"/>
+          <path d="M0,20 L20,16.8 L40,7.2 L60,24 L80,15.2 L100,11.6" fill="none" stroke="var(--rosy)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <span class="gdot bril" style="left:40%;top:18%" title="Brilliant"></span>
+        <span class="gdot blun" style="left:60%;top:60%" title="Blunder"></span>
+      </div>
       <div class="sc-body">
         <div class="bubble match">you'll "die on a hill about breakfast foods" — defend that 🍳</div>
         <div class="bubble you">cereal is a soup and I'll take that to court ⚖️<span class="mvtag" style="background:var(--m-brilliant)">!! +2.4</span></div>
@@ -155,9 +204,10 @@
         </div>
       </div>
       <div class="sc-foot">
-        <div class="sc-rating">♟ 1487 <span class="sc-delta">+18</span></div>
-        <div class="sc-badge">🛡 Anonymized</div>
+        <div class="sc-rating"><span class="rl">Rizz Rating</span> <span class="rv">1487</span> <span class="sc-delta">▲18</span></div>
+        <div class="sc-result">♟ Checkmate · Won</div>
       </div>
+      <a class="sc-cta" href="https://matedate.gg">Score yours <span class="ar">→</span> <span class="u">matedate.gg</span></a>
     </div>
 
     <div class="sharelink"><button>↗ Share this card</button></div>

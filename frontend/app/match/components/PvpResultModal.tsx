@@ -2,10 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { LogoMark } from "@/app/components/ui/Logo";
+import { LoadingScene } from "@/app/components/ui/LoadingScene";
 import { MoveIcon } from "@/app/components/ui/MoveIcon";
 import { formatSwing, type MoveClassKey } from "@/app/lib/game/service";
+import { ARCHETYPES } from "@/app/lib/game/archetypes";
+import { useArchetype } from "@/app/lib/game/useArchetype";
 import type { WireMove } from "@/app/lib/game/live";
 import type { PvpResult } from "../usePvpGame";
+import { ShareCard } from "./ShareCard";
+import { useShareCard } from "./useShareCard";
 
 /** State of the "Deep analysis" request — fire-and-forget, same contract as the solo modal:
  * once `requested`, both boards are analyzed in the background and the main screen's
@@ -68,10 +73,21 @@ export function PvpResultModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const { archetype, status: archetypeStatus } = useArchetype(result.archetypeId);
+  const analyzing = archetypeStatus === "loading";
+
   const badge = RESULT_BADGE[result.result];
   const oppName = result.opponent.displayName || result.opponent.username || "Opponent";
-  const deltaSign = result.ratingDelta >= 0 ? "+" : "";
-  const deltaColor = result.ratingDelta >= 0 ? "var(--m-good)" : "var(--m-blunder)";
+  const { cardRef, exporting, capturing, share } = useShareCard(
+    () =>
+      `${archetype ? ARCHETYPES[archetype.key].title : result.title} — ${badge.label} on MateDate`,
+  );
+  const resultColor =
+    result.result === "win"
+      ? "var(--m-good)"
+      : result.result === "loss"
+        ? "var(--m-blunder)"
+        : "var(--ink-mute)";
 
   return (
     <div
@@ -115,48 +131,39 @@ export function PvpResultModal({
           <p className="m-0 text-[14px] text-ink-soft">{result.description}</p>
         </div>
 
-        {/* the scoreline */}
-        <div className="overflow-hidden rounded-[18px] bg-ink text-king shadow-[var(--sh-3)]">
-          <div className="grid grid-cols-3 items-center px-[17px] py-[14px] text-center">
-            <div>
-              <div className="text-[24px] font-extrabold leading-none tracking-[-0.03em]">
-                {Math.round(result.yourAccuracy)}%
-              </div>
-              <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-ink-mute">
-                You
-              </div>
-            </div>
-            <div className="font-mono text-[12px] font-bold uppercase tracking-[0.14em] text-ink-mute">
-              accuracy
-            </div>
-            <div>
-              <div className="text-[24px] font-extrabold leading-none tracking-[-0.03em] text-ink-soft">
-                {Math.round(result.oppAccuracy)}%
-              </div>
-              <div className="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.14em] text-ink-mute">
-                {oppName}
-              </div>
-            </div>
+        {/* share card — while the archetype classifies, the card slot shows the loader */}
+        {analyzing ? (
+          <LoadingScene inline status="Analyzing your match" />
+        ) : (
+          <ShareCard
+            ref={cardRef}
+            accuracy={result.yourAccuracy}
+            accuracySub={`You · vs ${Math.round(result.oppAccuracy)}%`}
+            archetype={archetype}
+            moves={result.yourMoves}
+            ratingLabel="Ranked Elo"
+            ratingValue={result.rated ? result.rating : null}
+            ratingDelta={result.ratingDelta}
+            unratedLabel="Friendly · unrated"
+            resultLabel={`⚔️ ${badge.label}`}
+            resultColor={resultColor}
+            capturing={capturing}
+          />
+        )}
+
+        {/* share affordance */}
+        {!analyzing && (
+          <div className="mt-3 text-center">
+            <button
+              type="button"
+              disabled={exporting}
+              onClick={() => void share()}
+              className="inline-flex cursor-pointer items-center gap-1.5 border-none bg-none p-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-ink-mute hover:text-rosy-deep disabled:cursor-default disabled:opacity-50"
+            >
+              {exporting ? "⏳ Exporting…" : "↗ Share this card"}
+            </button>
           </div>
-          <div className="flex items-center justify-between border-t border-king/[0.08] px-[17px] py-3">
-            <div className="flex items-center gap-2 text-[17px] font-extrabold">
-              <span aria-hidden>♟</span> elo
-              {result.rated ? (
-                <span className="font-mono text-[13px] font-bold" style={{ color: deltaColor }}>
-                  {deltaSign}
-                  {result.ratingDelta}
-                </span>
-              ) : (
-                <span className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute">
-                  friendly · unrated
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.1em] text-ink-mute">
-              ⚔️ Same persona, same clock
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* opponent transcript — the post-match reveal */}
         <div className="mt-3 overflow-hidden rounded-[18px] border border-ink/[0.08] bg-cream">

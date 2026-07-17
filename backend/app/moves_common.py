@@ -43,6 +43,7 @@ def move_out(
             content=content,
             classification=classify(swing, eval_after).class_key,
             swing=swing,
+            eval_after=eval_after,
         )
     return MoveOut(position=position, side="Match", content=content)
 

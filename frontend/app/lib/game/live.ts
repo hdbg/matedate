@@ -24,6 +24,7 @@ export interface WireMove {
   content: string;
   classification?: MoveClassKey | null;
   swing?: number | null;
+  eval_after?: number | null; // 0-100 interest after this move (You moves) — drives the eval graph
 }
 
 export type ServerMessage =
@@ -52,6 +53,8 @@ export type ServerMessage =
       title: string;
       description: string;
       game_id: string;
+      rating: number; // post-finish rizz rating (elo); previous = rating - rating_delta
+      archetype_id: string; // pre-generated game_archetypes.id — await this row over realtime
     }
   | { type: "error"; code: string; message: string };
 

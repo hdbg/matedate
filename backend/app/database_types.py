@@ -71,170 +71,158 @@ PublicJobKind: TypeAlias = Literal["screenshot", "game_analysis"]
 
 PublicUnlockSource: TypeAlias = Literal["subscription", "credit", "referral", "admin"]
 
-class PublicProfiles(BaseModel):
-    age_verified_at: Optional[datetime.datetime] = Field(alias="age_verified_at")
-    avatar_path: Optional[str] = Field(alias="avatar_path")
+PublicArchetype: TypeAlias = Literal["all_gas_no_brakes", "loose_cannon", "the_gambler", "the_closer", "certified_cornball", "the_overthinker", "the_diplomat", "smooth_operator", "ghosted_loading", "one_word_wonder", "the_minimalist", "the_enigma", "the_trainwreck", "feral_texter", "certified_menace", "chaos_charmer", "scholars_mate", "the_comeback", "the_brilliancy", "the_massacre"]
+
+PublicArchetypeTier: TypeAlias = Literal["low", "shaky", "solid", "high"]
+
+PublicArchetypeStyle: TypeAlias = Literal["bold", "smooth", "dry", "chaotic"]
+
+class PublicAnalysisJobs(BaseModel):
+    analysis_id: Optional[uuid.UUID] = Field(alias="analysis_id")
+    attempts: int = Field(alias="attempts")
     created_at: datetime.datetime = Field(alias="created_at")
-    date_of_birth: Optional[datetime.date] = Field(alias="date_of_birth")
-    dating_goal: Optional[PublicDatingGoal] = Field(alias="dating_goal")
-    display_name: Optional[str] = Field(alias="display_name")
-    gender: Optional[PublicGender] = Field(alias="gender")
+    finished_at: Optional[datetime.datetime] = Field(alias="finished_at")
+    game_id: Optional[uuid.UUID] = Field(alias="game_id")
     id: uuid.UUID = Field(alias="id")
-    referral_code: Optional[str] = Field(alias="referral_code")
-    referred_by: Optional[uuid.UUID] = Field(alias="referred_by")
-    seeking: Optional[PublicGender] = Field(alias="seeking")
-    texting_style: List[PublicTextingStyle] = Field(alias="texting_style")
+    idempotency_key: Optional[str] = Field(alias="idempotency_key")
+    kind: PublicJobKind = Field(alias="kind")
+    last_error: Optional[str] = Field(alias="last_error")
+    match_id: Optional[uuid.UUID] = Field(alias="match_id")
+    queue_msg_id: Optional[int] = Field(alias="queue_msg_id")
+    started_at: Optional[datetime.datetime] = Field(alias="started_at")
+    status: PublicJobStatus = Field(alias="status")
     updated_at: datetime.datetime = Field(alias="updated_at")
-    username: Optional[str] = Field(alias="username")
+    user_id: Optional[uuid.UUID] = Field(alias="user_id")
 
-class PublicProfilesInsert(TypedDict):
-    age_verified_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="age_verified_at")]]
-    avatar_path: NotRequired[Annotated[Optional[str], Field(alias="avatar_path")]]
+class PublicAnalysisJobsInsert(TypedDict):
+    analysis_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="analysis_id")]]
+    attempts: NotRequired[Annotated[int, Field(alias="attempts")]]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    date_of_birth: NotRequired[Annotated[Optional[datetime.date], Field(alias="date_of_birth")]]
-    dating_goal: NotRequired[Annotated[Optional[PublicDatingGoal], Field(alias="dating_goal")]]
-    display_name: NotRequired[Annotated[Optional[str], Field(alias="display_name")]]
-    gender: NotRequired[Annotated[Optional[PublicGender], Field(alias="gender")]]
-    id: Annotated[uuid.UUID, Field(alias="id")]
-    referral_code: NotRequired[Annotated[Optional[str], Field(alias="referral_code")]]
-    referred_by: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="referred_by")]]
-    seeking: NotRequired[Annotated[Optional[PublicGender], Field(alias="seeking")]]
-    texting_style: NotRequired[Annotated[List[PublicTextingStyle], Field(alias="texting_style")]]
-    updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
-    username: NotRequired[Annotated[Optional[str], Field(alias="username")]]
-
-class PublicProfilesUpdate(TypedDict):
-    age_verified_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="age_verified_at")]]
-    avatar_path: NotRequired[Annotated[Optional[str], Field(alias="avatar_path")]]
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    date_of_birth: NotRequired[Annotated[Optional[datetime.date], Field(alias="date_of_birth")]]
-    dating_goal: NotRequired[Annotated[Optional[PublicDatingGoal], Field(alias="dating_goal")]]
-    display_name: NotRequired[Annotated[Optional[str], Field(alias="display_name")]]
-    gender: NotRequired[Annotated[Optional[PublicGender], Field(alias="gender")]]
+    finished_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="finished_at")]]
+    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
     id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    referral_code: NotRequired[Annotated[Optional[str], Field(alias="referral_code")]]
-    referred_by: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="referred_by")]]
-    seeking: NotRequired[Annotated[Optional[PublicGender], Field(alias="seeking")]]
-    texting_style: NotRequired[Annotated[List[PublicTextingStyle], Field(alias="texting_style")]]
+    idempotency_key: NotRequired[Annotated[Optional[str], Field(alias="idempotency_key")]]
+    kind: Annotated[PublicJobKind, Field(alias="kind")]
+    last_error: NotRequired[Annotated[Optional[str], Field(alias="last_error")]]
+    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
+    queue_msg_id: NotRequired[Annotated[Optional[int], Field(alias="queue_msg_id")]]
+    started_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="started_at")]]
+    status: NotRequired[Annotated[PublicJobStatus, Field(alias="status")]]
     updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
-    username: NotRequired[Annotated[Optional[str], Field(alias="username")]]
+    user_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="user_id")]]
 
-class PublicPlayerRatings(BaseModel):
-    casual_rating: int = Field(alias="casual_rating")
-    elo_rating: int = Field(alias="elo_rating")
-    ranked_elo: int = Field(alias="ranked_elo")
-    ranked_losses: int = Field(alias="ranked_losses")
-    ranked_tier: Optional[str] = Field(alias="ranked_tier")
-    ranked_wins: int = Field(alias="ranked_wins")
-    updated_at: datetime.datetime = Field(alias="updated_at")
-    user_id: uuid.UUID = Field(alias="user_id")
-
-class PublicPlayerRatingsInsert(TypedDict):
-    casual_rating: NotRequired[Annotated[int, Field(alias="casual_rating")]]
-    elo_rating: NotRequired[Annotated[int, Field(alias="elo_rating")]]
-    ranked_elo: NotRequired[Annotated[int, Field(alias="ranked_elo")]]
-    ranked_losses: NotRequired[Annotated[int, Field(alias="ranked_losses")]]
-    ranked_tier: NotRequired[Annotated[Optional[str], Field(alias="ranked_tier")]]
-    ranked_wins: NotRequired[Annotated[int, Field(alias="ranked_wins")]]
-    updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
-    user_id: Annotated[uuid.UUID, Field(alias="user_id")]
-
-class PublicPlayerRatingsUpdate(TypedDict):
-    casual_rating: NotRequired[Annotated[int, Field(alias="casual_rating")]]
-    elo_rating: NotRequired[Annotated[int, Field(alias="elo_rating")]]
-    ranked_elo: NotRequired[Annotated[int, Field(alias="ranked_elo")]]
-    ranked_losses: NotRequired[Annotated[int, Field(alias="ranked_losses")]]
-    ranked_tier: NotRequired[Annotated[Optional[str], Field(alias="ranked_tier")]]
-    ranked_wins: NotRequired[Annotated[int, Field(alias="ranked_wins")]]
-    updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
-    user_id: NotRequired[Annotated[uuid.UUID, Field(alias="user_id")]]
-
-class PublicRatingHistory(BaseModel):
-    created_at: datetime.datetime = Field(alias="created_at")
-    delta: int = Field(alias="delta")
-    id: int = Field(alias="id")
-    kind: PublicRatingKind = Field(alias="kind")
-    rating_after: int = Field(alias="rating_after")
-    rating_before: int = Field(alias="rating_before")
-    source_id: Optional[uuid.UUID] = Field(alias="source_id")
-    source_kind: Optional[str] = Field(alias="source_kind")
-    user_id: uuid.UUID = Field(alias="user_id")
-
-class PublicRatingHistoryInsert(TypedDict):
+class PublicAnalysisJobsUpdate(TypedDict):
+    analysis_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="analysis_id")]]
+    attempts: NotRequired[Annotated[int, Field(alias="attempts")]]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    delta: Annotated[int, Field(alias="delta")]
-    id: NotRequired[Annotated[int, Field(alias="id")]]
-    kind: Annotated[PublicRatingKind, Field(alias="kind")]
-    rating_after: Annotated[int, Field(alias="rating_after")]
-    rating_before: Annotated[int, Field(alias="rating_before")]
-    source_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="source_id")]]
-    source_kind: NotRequired[Annotated[Optional[str], Field(alias="source_kind")]]
-    user_id: Annotated[uuid.UUID, Field(alias="user_id")]
+    finished_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="finished_at")]]
+    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    idempotency_key: NotRequired[Annotated[Optional[str], Field(alias="idempotency_key")]]
+    kind: NotRequired[Annotated[PublicJobKind, Field(alias="kind")]]
+    last_error: NotRequired[Annotated[Optional[str], Field(alias="last_error")]]
+    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
+    queue_msg_id: NotRequired[Annotated[Optional[int], Field(alias="queue_msg_id")]]
+    started_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="started_at")]]
+    status: NotRequired[Annotated[PublicJobStatus, Field(alias="status")]]
+    updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
+    user_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="user_id")]]
 
-class PublicRatingHistoryUpdate(TypedDict):
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    delta: NotRequired[Annotated[int, Field(alias="delta")]]
-    id: NotRequired[Annotated[int, Field(alias="id")]]
-    kind: NotRequired[Annotated[PublicRatingKind, Field(alias="kind")]]
-    rating_after: NotRequired[Annotated[int, Field(alias="rating_after")]]
-    rating_before: NotRequired[Annotated[int, Field(alias="rating_before")]]
-    source_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="source_id")]]
-    source_kind: NotRequired[Annotated[Optional[str], Field(alias="source_kind")]]
-    user_id: NotRequired[Annotated[uuid.UUID, Field(alias="user_id")]]
-
-class PublicPersonas(BaseModel):
+class PublicMatchMoves(BaseModel):
+    content: str = Field(alias="content")
     created_at: datetime.datetime = Field(alias="created_at")
-    description: Optional[str] = Field(alias="description")
-    difficulty: int = Field(alias="difficulty")
-    gender: PublicGender = Field(alias="gender")
+    eval_after: Optional[float] = Field(alias="eval_after")
+    eval_before: Optional[float] = Field(alias="eval_before")
+    eval_delta: Optional[float] = Field(alias="eval_delta")
     id: uuid.UUID = Field(alias="id")
-    is_active: bool = Field(alias="is_active")
-    is_boss: bool = Field(alias="is_boss")
-    name: str = Field(alias="name")
-    opening_line: str = Field(alias="opening_line")
-    slug: str = Field(alias="slug")
-    suggested_messages: List[str] = Field(alias="suggested_messages")
+    match_id: uuid.UUID = Field(alias="match_id")
+    position: int = Field(alias="position")
+    side: PublicMatchSide = Field(alias="side")
+    speaker: PublicMessageSide = Field(alias="speaker")
 
-class PublicPersonasInsert(TypedDict):
+class PublicMatchMovesInsert(TypedDict):
+    content: Annotated[str, Field(alias="content")]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    description: NotRequired[Annotated[Optional[str], Field(alias="description")]]
-    difficulty: NotRequired[Annotated[int, Field(alias="difficulty")]]
-    gender: Annotated[PublicGender, Field(alias="gender")]
+    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
+    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
+    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
     id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    is_active: NotRequired[Annotated[bool, Field(alias="is_active")]]
-    is_boss: NotRequired[Annotated[bool, Field(alias="is_boss")]]
-    name: Annotated[str, Field(alias="name")]
-    opening_line: Annotated[str, Field(alias="opening_line")]
-    slug: Annotated[str, Field(alias="slug")]
-    suggested_messages: NotRequired[Annotated[List[str], Field(alias="suggested_messages")]]
+    match_id: Annotated[uuid.UUID, Field(alias="match_id")]
+    position: Annotated[int, Field(alias="position")]
+    side: Annotated[PublicMatchSide, Field(alias="side")]
+    speaker: Annotated[PublicMessageSide, Field(alias="speaker")]
 
-class PublicPersonasUpdate(TypedDict):
+class PublicMatchMovesUpdate(TypedDict):
+    content: NotRequired[Annotated[str, Field(alias="content")]]
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    description: NotRequired[Annotated[Optional[str], Field(alias="description")]]
-    difficulty: NotRequired[Annotated[int, Field(alias="difficulty")]]
-    gender: NotRequired[Annotated[PublicGender, Field(alias="gender")]]
+    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
+    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
+    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
     id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    is_active: NotRequired[Annotated[bool, Field(alias="is_active")]]
-    is_boss: NotRequired[Annotated[bool, Field(alias="is_boss")]]
-    name: NotRequired[Annotated[str, Field(alias="name")]]
-    opening_line: NotRequired[Annotated[str, Field(alias="opening_line")]]
-    slug: NotRequired[Annotated[str, Field(alias="slug")]]
-    suggested_messages: NotRequired[Annotated[List[str], Field(alias="suggested_messages")]]
+    match_id: NotRequired[Annotated[uuid.UUID, Field(alias="match_id")]]
+    position: NotRequired[Annotated[int, Field(alias="position")]]
+    side: NotRequired[Annotated[PublicMatchSide, Field(alias="side")]]
+    speaker: NotRequired[Annotated[PublicMessageSide, Field(alias="speaker")]]
 
-class PublicPersonaSecrets(BaseModel):
-    hidden_type: Optional[str] = Field(alias="hidden_type")
-    persona_id: uuid.UUID = Field(alias="persona_id")
-    system_prompt: str = Field(alias="system_prompt")
+class PublicGameAnalyses(BaseModel):
+    created_at: datetime.datetime = Field(alias="created_at")
+    description: str = Field(alias="description")
+    game_id: Optional[uuid.UUID] = Field(alias="game_id")
+    id: uuid.UUID = Field(alias="id")
+    job_id: Optional[uuid.UUID] = Field(alias="job_id")
+    latency_ms: Optional[int] = Field(alias="latency_ms")
+    match_id: Optional[uuid.UUID] = Field(alias="match_id")
+    model: str = Field(alias="model")
+    prompt_version: str = Field(alias="prompt_version")
+    raw_response: Json[Any] = Field(alias="raw_response")
+    side: Optional[PublicMatchSide] = Field(alias="side")
+    tags: List[str] = Field(alias="tags")
+    title: str = Field(alias="title")
 
-class PublicPersonaSecretsInsert(TypedDict):
-    hidden_type: NotRequired[Annotated[Optional[str], Field(alias="hidden_type")]]
-    persona_id: Annotated[uuid.UUID, Field(alias="persona_id")]
-    system_prompt: Annotated[str, Field(alias="system_prompt")]
+class PublicGameAnalysesInsert(TypedDict):
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    description: Annotated[str, Field(alias="description")]
+    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    job_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="job_id")]]
+    latency_ms: NotRequired[Annotated[Optional[int], Field(alias="latency_ms")]]
+    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
+    model: Annotated[str, Field(alias="model")]
+    prompt_version: Annotated[str, Field(alias="prompt_version")]
+    raw_response: Annotated[Json[Any], Field(alias="raw_response")]
+    side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="side")]]
+    tags: NotRequired[Annotated[List[str], Field(alias="tags")]]
+    title: Annotated[str, Field(alias="title")]
 
-class PublicPersonaSecretsUpdate(TypedDict):
-    hidden_type: NotRequired[Annotated[Optional[str], Field(alias="hidden_type")]]
-    persona_id: NotRequired[Annotated[uuid.UUID, Field(alias="persona_id")]]
-    system_prompt: NotRequired[Annotated[str, Field(alias="system_prompt")]]
+class PublicGameAnalysesUpdate(TypedDict):
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    description: NotRequired[Annotated[str, Field(alias="description")]]
+    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    job_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="job_id")]]
+    latency_ms: NotRequired[Annotated[Optional[int], Field(alias="latency_ms")]]
+    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
+    model: NotRequired[Annotated[str, Field(alias="model")]]
+    prompt_version: NotRequired[Annotated[str, Field(alias="prompt_version")]]
+    raw_response: NotRequired[Annotated[Json[Any], Field(alias="raw_response")]]
+    side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="side")]]
+    tags: NotRequired[Annotated[List[str], Field(alias="tags")]]
+    title: NotRequired[Annotated[str, Field(alias="title")]]
+
+class PublicPuzzleSolutions(BaseModel):
+    best_eval_delta: Optional[float] = Field(alias="best_eval_delta")
+    best_move: str = Field(alias="best_move")
+    puzzle_id: uuid.UUID = Field(alias="puzzle_id")
+
+class PublicPuzzleSolutionsInsert(TypedDict):
+    best_eval_delta: NotRequired[Annotated[Optional[float], Field(alias="best_eval_delta")]]
+    best_move: Annotated[str, Field(alias="best_move")]
+    puzzle_id: Annotated[uuid.UUID, Field(alias="puzzle_id")]
+
+class PublicPuzzleSolutionsUpdate(TypedDict):
+    best_eval_delta: NotRequired[Annotated[Optional[float], Field(alias="best_eval_delta")]]
+    best_move: NotRequired[Annotated[str, Field(alias="best_move")]]
+    puzzle_id: NotRequired[Annotated[uuid.UUID, Field(alias="puzzle_id")]]
 
 class PublicMatchmakingQueue(BaseModel):
     enqueued_at: datetime.datetime = Field(alias="enqueued_at")
@@ -270,6 +258,234 @@ class PublicMatchmakingQueueUpdate(TypedDict):
     seeking: NotRequired[Annotated[PublicGender, Field(alias="seeking")]]
     status: NotRequired[Annotated[PublicJobStatus, Field(alias="status")]]
     time_control: NotRequired[Annotated[PublicTimeControl, Field(alias="time_control")]]
+    user_id: NotRequired[Annotated[uuid.UUID, Field(alias="user_id")]]
+
+class PublicGhostMatches(BaseModel):
+    ghost_player: Optional[uuid.UUID] = Field(alias="ghost_player")
+    match_id: uuid.UUID = Field(alias="match_id")
+    player: uuid.UUID = Field(alias="player")
+    player_elo_after: Optional[int] = Field(alias="player_elo_after")
+    player_elo_before: Optional[int] = Field(alias="player_elo_before")
+    source_match_id: uuid.UUID = Field(alias="source_match_id")
+
+class PublicGhostMatchesInsert(TypedDict):
+    ghost_player: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="ghost_player")]]
+    match_id: Annotated[uuid.UUID, Field(alias="match_id")]
+    player: Annotated[uuid.UUID, Field(alias="player")]
+    player_elo_after: NotRequired[Annotated[Optional[int], Field(alias="player_elo_after")]]
+    player_elo_before: NotRequired[Annotated[Optional[int], Field(alias="player_elo_before")]]
+    source_match_id: Annotated[uuid.UUID, Field(alias="source_match_id")]
+
+class PublicGhostMatchesUpdate(TypedDict):
+    ghost_player: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="ghost_player")]]
+    match_id: NotRequired[Annotated[uuid.UUID, Field(alias="match_id")]]
+    player: NotRequired[Annotated[uuid.UUID, Field(alias="player")]]
+    player_elo_after: NotRequired[Annotated[Optional[int], Field(alias="player_elo_after")]]
+    player_elo_before: NotRequired[Annotated[Optional[int], Field(alias="player_elo_before")]]
+    source_match_id: NotRequired[Annotated[uuid.UUID, Field(alias="source_match_id")]]
+
+class PublicMatchInvites(BaseModel):
+    code: str = Field(alias="code")
+    created_at: datetime.datetime = Field(alias="created_at")
+    creator: uuid.UUID = Field(alias="creator")
+    id: uuid.UUID = Field(alias="id")
+    match_id: Optional[uuid.UUID] = Field(alias="match_id")
+    matched_at: Optional[datetime.datetime] = Field(alias="matched_at")
+    status: PublicJobStatus = Field(alias="status")
+    time_control: PublicTimeControl = Field(alias="time_control")
+
+class PublicMatchInvitesInsert(TypedDict):
+    code: Annotated[str, Field(alias="code")]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    creator: Annotated[uuid.UUID, Field(alias="creator")]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
+    matched_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="matched_at")]]
+    status: NotRequired[Annotated[PublicJobStatus, Field(alias="status")]]
+    time_control: NotRequired[Annotated[PublicTimeControl, Field(alias="time_control")]]
+
+class PublicMatchInvitesUpdate(TypedDict):
+    code: NotRequired[Annotated[str, Field(alias="code")]]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    creator: NotRequired[Annotated[uuid.UUID, Field(alias="creator")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
+    matched_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="matched_at")]]
+    status: NotRequired[Annotated[PublicJobStatus, Field(alias="status")]]
+    time_control: NotRequired[Annotated[PublicTimeControl, Field(alias="time_control")]]
+
+class PublicGames(BaseModel):
+    accuracy: Optional[float] = Field(alias="accuracy")
+    created_at: datetime.datetime = Field(alias="created_at")
+    description: Optional[str] = Field(alias="description")
+    end_reason: Optional[PublicMatchEndReason] = Field(alias="end_reason")
+    ended_at: Optional[datetime.datetime] = Field(alias="ended_at")
+    id: uuid.UUID = Field(alias="id")
+    mode: PublicGameMode = Field(alias="mode")
+    share_slug: Optional[str] = Field(alias="share_slug")
+    status: PublicGameStatus = Field(alias="status")
+    title: Optional[str] = Field(alias="title")
+    user_id: Optional[uuid.UUID] = Field(alias="user_id")
+
+class PublicGamesInsert(TypedDict):
+    accuracy: NotRequired[Annotated[Optional[float], Field(alias="accuracy")]]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    description: NotRequired[Annotated[Optional[str], Field(alias="description")]]
+    end_reason: NotRequired[Annotated[Optional[PublicMatchEndReason], Field(alias="end_reason")]]
+    ended_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="ended_at")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    mode: Annotated[PublicGameMode, Field(alias="mode")]
+    share_slug: NotRequired[Annotated[Optional[str], Field(alias="share_slug")]]
+    status: NotRequired[Annotated[PublicGameStatus, Field(alias="status")]]
+    title: NotRequired[Annotated[Optional[str], Field(alias="title")]]
+    user_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="user_id")]]
+
+class PublicGamesUpdate(TypedDict):
+    accuracy: NotRequired[Annotated[Optional[float], Field(alias="accuracy")]]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    description: NotRequired[Annotated[Optional[str], Field(alias="description")]]
+    end_reason: NotRequired[Annotated[Optional[PublicMatchEndReason], Field(alias="end_reason")]]
+    ended_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="ended_at")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    mode: NotRequired[Annotated[PublicGameMode, Field(alias="mode")]]
+    share_slug: NotRequired[Annotated[Optional[str], Field(alias="share_slug")]]
+    status: NotRequired[Annotated[PublicGameStatus, Field(alias="status")]]
+    title: NotRequired[Annotated[Optional[str], Field(alias="title")]]
+    user_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="user_id")]]
+
+class PublicEngineResponses(BaseModel):
+    created_at: datetime.datetime = Field(alias="created_at")
+    game_id: Optional[uuid.UUID] = Field(alias="game_id")
+    id: uuid.UUID = Field(alias="id")
+    latency_ms: Optional[int] = Field(alias="latency_ms")
+    match_id: Optional[uuid.UUID] = Field(alias="match_id")
+    model: str = Field(alias="model")
+    prompt_version: Optional[str] = Field(alias="prompt_version")
+    raw_response: Json[Any] = Field(alias="raw_response")
+    side: Optional[PublicMatchSide] = Field(alias="side")
+
+class PublicEngineResponsesInsert(TypedDict):
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    latency_ms: NotRequired[Annotated[Optional[int], Field(alias="latency_ms")]]
+    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
+    model: Annotated[str, Field(alias="model")]
+    prompt_version: NotRequired[Annotated[Optional[str], Field(alias="prompt_version")]]
+    raw_response: Annotated[Json[Any], Field(alias="raw_response")]
+    side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="side")]]
+
+class PublicEngineResponsesUpdate(TypedDict):
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    latency_ms: NotRequired[Annotated[Optional[int], Field(alias="latency_ms")]]
+    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
+    model: NotRequired[Annotated[str, Field(alias="model")]]
+    prompt_version: NotRequired[Annotated[Optional[str], Field(alias="prompt_version")]]
+    raw_response: NotRequired[Annotated[Json[Any], Field(alias="raw_response")]]
+    side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="side")]]
+
+class PublicGameAnalysisMoveReveals(BaseModel):
+    analysis_id: uuid.UUID = Field(alias="analysis_id")
+    analysis_move_id: uuid.UUID = Field(alias="analysis_move_id")
+    best_line: str = Field(alias="best_line")
+
+class PublicGameAnalysisMoveRevealsInsert(TypedDict):
+    analysis_id: Annotated[uuid.UUID, Field(alias="analysis_id")]
+    analysis_move_id: Annotated[uuid.UUID, Field(alias="analysis_move_id")]
+    best_line: Annotated[str, Field(alias="best_line")]
+
+class PublicGameAnalysisMoveRevealsUpdate(TypedDict):
+    analysis_id: NotRequired[Annotated[uuid.UUID, Field(alias="analysis_id")]]
+    analysis_move_id: NotRequired[Annotated[uuid.UUID, Field(alias="analysis_move_id")]]
+    best_line: NotRequired[Annotated[str, Field(alias="best_line")]]
+
+class PublicGameRevealUnlocks(BaseModel):
+    game_id: uuid.UUID = Field(alias="game_id")
+    source: PublicUnlockSource = Field(alias="source")
+    unlocked_at: datetime.datetime = Field(alias="unlocked_at")
+    user_id: uuid.UUID = Field(alias="user_id")
+
+class PublicGameRevealUnlocksInsert(TypedDict):
+    game_id: Annotated[uuid.UUID, Field(alias="game_id")]
+    source: NotRequired[Annotated[PublicUnlockSource, Field(alias="source")]]
+    unlocked_at: NotRequired[Annotated[datetime.datetime, Field(alias="unlocked_at")]]
+    user_id: Annotated[uuid.UUID, Field(alias="user_id")]
+
+class PublicGameRevealUnlocksUpdate(TypedDict):
+    game_id: NotRequired[Annotated[uuid.UUID, Field(alias="game_id")]]
+    source: NotRequired[Annotated[PublicUnlockSource, Field(alias="source")]]
+    unlocked_at: NotRequired[Annotated[datetime.datetime, Field(alias="unlocked_at")]]
+    user_id: NotRequired[Annotated[uuid.UUID, Field(alias="user_id")]]
+
+class PublicGameAnalysisMoves(BaseModel):
+    analysis_id: uuid.UUID = Field(alias="analysis_id")
+    comment: str = Field(alias="comment")
+    content: str = Field(alias="content")
+    created_at: datetime.datetime = Field(alias="created_at")
+    eval_after: Optional[float] = Field(alias="eval_after")
+    eval_before: Optional[float] = Field(alias="eval_before")
+    eval_delta: Optional[float] = Field(alias="eval_delta")
+    id: uuid.UUID = Field(alias="id")
+    move_id: Optional[uuid.UUID] = Field(alias="move_id")
+    position: int = Field(alias="position")
+    side: PublicMessageSide = Field(alias="side")
+
+class PublicGameAnalysisMovesInsert(TypedDict):
+    analysis_id: Annotated[uuid.UUID, Field(alias="analysis_id")]
+    comment: Annotated[str, Field(alias="comment")]
+    content: Annotated[str, Field(alias="content")]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
+    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
+    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    move_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="move_id")]]
+    position: Annotated[int, Field(alias="position")]
+    side: NotRequired[Annotated[PublicMessageSide, Field(alias="side")]]
+
+class PublicGameAnalysisMovesUpdate(TypedDict):
+    analysis_id: NotRequired[Annotated[uuid.UUID, Field(alias="analysis_id")]]
+    comment: NotRequired[Annotated[str, Field(alias="comment")]]
+    content: NotRequired[Annotated[str, Field(alias="content")]]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
+    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
+    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    move_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="move_id")]]
+    position: NotRequired[Annotated[int, Field(alias="position")]]
+    side: NotRequired[Annotated[PublicMessageSide, Field(alias="side")]]
+
+class PublicPlayerRatings(BaseModel):
+    casual_rating: int = Field(alias="casual_rating")
+    elo_rating: int = Field(alias="elo_rating")
+    ranked_elo: int = Field(alias="ranked_elo")
+    ranked_losses: int = Field(alias="ranked_losses")
+    ranked_tier: Optional[str] = Field(alias="ranked_tier")
+    ranked_wins: int = Field(alias="ranked_wins")
+    updated_at: datetime.datetime = Field(alias="updated_at")
+    user_id: uuid.UUID = Field(alias="user_id")
+
+class PublicPlayerRatingsInsert(TypedDict):
+    casual_rating: NotRequired[Annotated[int, Field(alias="casual_rating")]]
+    elo_rating: NotRequired[Annotated[int, Field(alias="elo_rating")]]
+    ranked_elo: NotRequired[Annotated[int, Field(alias="ranked_elo")]]
+    ranked_losses: NotRequired[Annotated[int, Field(alias="ranked_losses")]]
+    ranked_tier: NotRequired[Annotated[Optional[str], Field(alias="ranked_tier")]]
+    ranked_wins: NotRequired[Annotated[int, Field(alias="ranked_wins")]]
+    updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
+    user_id: Annotated[uuid.UUID, Field(alias="user_id")]
+
+class PublicPlayerRatingsUpdate(TypedDict):
+    casual_rating: NotRequired[Annotated[int, Field(alias="casual_rating")]]
+    elo_rating: NotRequired[Annotated[int, Field(alias="elo_rating")]]
+    ranked_elo: NotRequired[Annotated[int, Field(alias="ranked_elo")]]
+    ranked_losses: NotRequired[Annotated[int, Field(alias="ranked_losses")]]
+    ranked_tier: NotRequired[Annotated[Optional[str], Field(alias="ranked_tier")]]
+    ranked_wins: NotRequired[Annotated[int, Field(alias="ranked_wins")]]
+    updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
     user_id: NotRequired[Annotated[uuid.UUID, Field(alias="user_id")]]
 
 class PublicMatches(BaseModel):
@@ -319,6 +535,372 @@ class PublicMatchesUpdate(TypedDict):
     status: NotRequired[Annotated[PublicMatchStatus, Field(alias="status")]]
     time_control: NotRequired[Annotated[PublicTimeControl, Field(alias="time_control")]]
     winner_side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="winner_side")]]
+
+class PublicMoveReveals(BaseModel):
+    best_move: str = Field(alias="best_move")
+    game_id: uuid.UUID = Field(alias="game_id")
+    move_id: uuid.UUID = Field(alias="move_id")
+
+class PublicMoveRevealsInsert(TypedDict):
+    best_move: Annotated[str, Field(alias="best_move")]
+    game_id: Annotated[uuid.UUID, Field(alias="game_id")]
+    move_id: Annotated[uuid.UUID, Field(alias="move_id")]
+
+class PublicMoveRevealsUpdate(TypedDict):
+    best_move: NotRequired[Annotated[str, Field(alias="best_move")]]
+    game_id: NotRequired[Annotated[uuid.UUID, Field(alias="game_id")]]
+    move_id: NotRequired[Annotated[uuid.UUID, Field(alias="move_id")]]
+
+class PublicScreenshotGames(BaseModel):
+    attested_consent: bool = Field(alias="attested_consent")
+    game_id: uuid.UUID = Field(alias="game_id")
+    provisional_rating: Optional[int] = Field(alias="provisional_rating")
+    transcript_hash: Optional[str] = Field(alias="transcript_hash")
+
+class PublicScreenshotGamesInsert(TypedDict):
+    attested_consent: NotRequired[Annotated[bool, Field(alias="attested_consent")]]
+    game_id: Annotated[uuid.UUID, Field(alias="game_id")]
+    provisional_rating: NotRequired[Annotated[Optional[int], Field(alias="provisional_rating")]]
+    transcript_hash: NotRequired[Annotated[Optional[str], Field(alias="transcript_hash")]]
+
+class PublicScreenshotGamesUpdate(TypedDict):
+    attested_consent: NotRequired[Annotated[bool, Field(alias="attested_consent")]]
+    game_id: NotRequired[Annotated[uuid.UUID, Field(alias="game_id")]]
+    provisional_rating: NotRequired[Annotated[Optional[int], Field(alias="provisional_rating")]]
+    transcript_hash: NotRequired[Annotated[Optional[str], Field(alias="transcript_hash")]]
+
+class PublicPersonaSecrets(BaseModel):
+    hidden_type: Optional[str] = Field(alias="hidden_type")
+    persona_id: uuid.UUID = Field(alias="persona_id")
+    system_prompt: str = Field(alias="system_prompt")
+
+class PublicPersonaSecretsInsert(TypedDict):
+    hidden_type: NotRequired[Annotated[Optional[str], Field(alias="hidden_type")]]
+    persona_id: Annotated[uuid.UUID, Field(alias="persona_id")]
+    system_prompt: Annotated[str, Field(alias="system_prompt")]
+
+class PublicPersonaSecretsUpdate(TypedDict):
+    hidden_type: NotRequired[Annotated[Optional[str], Field(alias="hidden_type")]]
+    persona_id: NotRequired[Annotated[uuid.UUID, Field(alias="persona_id")]]
+    system_prompt: NotRequired[Annotated[str, Field(alias="system_prompt")]]
+
+class PublicMoves(BaseModel):
+    content: str = Field(alias="content")
+    created_at: datetime.datetime = Field(alias="created_at")
+    eval_after: Optional[float] = Field(alias="eval_after")
+    eval_before: Optional[float] = Field(alias="eval_before")
+    eval_delta: Optional[float] = Field(alias="eval_delta")
+    game_id: uuid.UUID = Field(alias="game_id")
+    id: uuid.UUID = Field(alias="id")
+    position: int = Field(alias="position")
+    side: PublicMessageSide = Field(alias="side")
+
+class PublicMovesInsert(TypedDict):
+    content: Annotated[str, Field(alias="content")]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
+    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
+    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
+    game_id: Annotated[uuid.UUID, Field(alias="game_id")]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    position: Annotated[int, Field(alias="position")]
+    side: Annotated[PublicMessageSide, Field(alias="side")]
+
+class PublicMovesUpdate(TypedDict):
+    content: NotRequired[Annotated[str, Field(alias="content")]]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
+    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
+    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
+    game_id: NotRequired[Annotated[uuid.UUID, Field(alias="game_id")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    position: NotRequired[Annotated[int, Field(alias="position")]]
+    side: NotRequired[Annotated[PublicMessageSide, Field(alias="side")]]
+
+class PublicMatchMoveReveals(BaseModel):
+    best_move: str = Field(alias="best_move")
+    match_id: uuid.UUID = Field(alias="match_id")
+    match_move_id: uuid.UUID = Field(alias="match_move_id")
+
+class PublicMatchMoveRevealsInsert(TypedDict):
+    best_move: Annotated[str, Field(alias="best_move")]
+    match_id: Annotated[uuid.UUID, Field(alias="match_id")]
+    match_move_id: Annotated[uuid.UUID, Field(alias="match_move_id")]
+
+class PublicMatchMoveRevealsUpdate(TypedDict):
+    best_move: NotRequired[Annotated[str, Field(alias="best_move")]]
+    match_id: NotRequired[Annotated[uuid.UUID, Field(alias="match_id")]]
+    match_move_id: NotRequired[Annotated[uuid.UUID, Field(alias="match_move_id")]]
+
+class PublicArchetypeJobs(BaseModel):
+    archetype_id: Optional[uuid.UUID] = Field(alias="archetype_id")
+    attempts: int = Field(alias="attempts")
+    created_at: datetime.datetime = Field(alias="created_at")
+    finished_at: Optional[datetime.datetime] = Field(alias="finished_at")
+    game_id: Optional[uuid.UUID] = Field(alias="game_id")
+    id: uuid.UUID = Field(alias="id")
+    idempotency_key: Optional[str] = Field(alias="idempotency_key")
+    last_error: Optional[str] = Field(alias="last_error")
+    match_id: Optional[uuid.UUID] = Field(alias="match_id")
+    queue_msg_id: Optional[int] = Field(alias="queue_msg_id")
+    side: Optional[PublicMatchSide] = Field(alias="side")
+    started_at: Optional[datetime.datetime] = Field(alias="started_at")
+    status: PublicJobStatus = Field(alias="status")
+    updated_at: datetime.datetime = Field(alias="updated_at")
+    user_id: Optional[uuid.UUID] = Field(alias="user_id")
+
+class PublicArchetypeJobsInsert(TypedDict):
+    archetype_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="archetype_id")]]
+    attempts: NotRequired[Annotated[int, Field(alias="attempts")]]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    finished_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="finished_at")]]
+    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    idempotency_key: NotRequired[Annotated[Optional[str], Field(alias="idempotency_key")]]
+    last_error: NotRequired[Annotated[Optional[str], Field(alias="last_error")]]
+    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
+    queue_msg_id: NotRequired[Annotated[Optional[int], Field(alias="queue_msg_id")]]
+    side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="side")]]
+    started_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="started_at")]]
+    status: NotRequired[Annotated[PublicJobStatus, Field(alias="status")]]
+    updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
+    user_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="user_id")]]
+
+class PublicArchetypeJobsUpdate(TypedDict):
+    archetype_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="archetype_id")]]
+    attempts: NotRequired[Annotated[int, Field(alias="attempts")]]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    finished_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="finished_at")]]
+    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    idempotency_key: NotRequired[Annotated[Optional[str], Field(alias="idempotency_key")]]
+    last_error: NotRequired[Annotated[Optional[str], Field(alias="last_error")]]
+    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
+    queue_msg_id: NotRequired[Annotated[Optional[int], Field(alias="queue_msg_id")]]
+    side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="side")]]
+    started_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="started_at")]]
+    status: NotRequired[Annotated[PublicJobStatus, Field(alias="status")]]
+    updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
+    user_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="user_id")]]
+
+class PublicSoloGames(BaseModel):
+    base_seconds: int = Field(alias="base_seconds")
+    exchanges: int = Field(alias="exchanges")
+    game_id: uuid.UUID = Field(alias="game_id")
+    increment_seconds: int = Field(alias="increment_seconds")
+    is_practice: bool = Field(alias="is_practice")
+    persona_id: Optional[uuid.UUID] = Field(alias="persona_id")
+    rating_delta: int = Field(alias="rating_delta")
+    turn_deadline: Optional[datetime.datetime] = Field(alias="turn_deadline")
+
+class PublicSoloGamesInsert(TypedDict):
+    base_seconds: NotRequired[Annotated[int, Field(alias="base_seconds")]]
+    exchanges: NotRequired[Annotated[int, Field(alias="exchanges")]]
+    game_id: Annotated[uuid.UUID, Field(alias="game_id")]
+    increment_seconds: NotRequired[Annotated[int, Field(alias="increment_seconds")]]
+    is_practice: NotRequired[Annotated[bool, Field(alias="is_practice")]]
+    persona_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="persona_id")]]
+    rating_delta: NotRequired[Annotated[int, Field(alias="rating_delta")]]
+    turn_deadline: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="turn_deadline")]]
+
+class PublicSoloGamesUpdate(TypedDict):
+    base_seconds: NotRequired[Annotated[int, Field(alias="base_seconds")]]
+    exchanges: NotRequired[Annotated[int, Field(alias="exchanges")]]
+    game_id: NotRequired[Annotated[uuid.UUID, Field(alias="game_id")]]
+    increment_seconds: NotRequired[Annotated[int, Field(alias="increment_seconds")]]
+    is_practice: NotRequired[Annotated[bool, Field(alias="is_practice")]]
+    persona_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="persona_id")]]
+    rating_delta: NotRequired[Annotated[int, Field(alias="rating_delta")]]
+    turn_deadline: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="turn_deadline")]]
+
+class PublicProfiles(BaseModel):
+    age_verified_at: Optional[datetime.datetime] = Field(alias="age_verified_at")
+    avatar_path: Optional[str] = Field(alias="avatar_path")
+    created_at: datetime.datetime = Field(alias="created_at")
+    date_of_birth: Optional[datetime.date] = Field(alias="date_of_birth")
+    dating_goal: Optional[PublicDatingGoal] = Field(alias="dating_goal")
+    display_name: Optional[str] = Field(alias="display_name")
+    gender: Optional[PublicGender] = Field(alias="gender")
+    id: uuid.UUID = Field(alias="id")
+    referral_code: Optional[str] = Field(alias="referral_code")
+    referred_by: Optional[uuid.UUID] = Field(alias="referred_by")
+    seeking: Optional[PublicGender] = Field(alias="seeking")
+    texting_style: List[PublicTextingStyle] = Field(alias="texting_style")
+    updated_at: datetime.datetime = Field(alias="updated_at")
+    username: Optional[str] = Field(alias="username")
+
+class PublicProfilesInsert(TypedDict):
+    age_verified_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="age_verified_at")]]
+    avatar_path: NotRequired[Annotated[Optional[str], Field(alias="avatar_path")]]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    date_of_birth: NotRequired[Annotated[Optional[datetime.date], Field(alias="date_of_birth")]]
+    dating_goal: NotRequired[Annotated[Optional[PublicDatingGoal], Field(alias="dating_goal")]]
+    display_name: NotRequired[Annotated[Optional[str], Field(alias="display_name")]]
+    gender: NotRequired[Annotated[Optional[PublicGender], Field(alias="gender")]]
+    id: Annotated[uuid.UUID, Field(alias="id")]
+    referral_code: NotRequired[Annotated[Optional[str], Field(alias="referral_code")]]
+    referred_by: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="referred_by")]]
+    seeking: NotRequired[Annotated[Optional[PublicGender], Field(alias="seeking")]]
+    texting_style: NotRequired[Annotated[List[PublicTextingStyle], Field(alias="texting_style")]]
+    updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
+    username: NotRequired[Annotated[Optional[str], Field(alias="username")]]
+
+class PublicProfilesUpdate(TypedDict):
+    age_verified_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="age_verified_at")]]
+    avatar_path: NotRequired[Annotated[Optional[str], Field(alias="avatar_path")]]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    date_of_birth: NotRequired[Annotated[Optional[datetime.date], Field(alias="date_of_birth")]]
+    dating_goal: NotRequired[Annotated[Optional[PublicDatingGoal], Field(alias="dating_goal")]]
+    display_name: NotRequired[Annotated[Optional[str], Field(alias="display_name")]]
+    gender: NotRequired[Annotated[Optional[PublicGender], Field(alias="gender")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    referral_code: NotRequired[Annotated[Optional[str], Field(alias="referral_code")]]
+    referred_by: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="referred_by")]]
+    seeking: NotRequired[Annotated[Optional[PublicGender], Field(alias="seeking")]]
+    texting_style: NotRequired[Annotated[List[PublicTextingStyle], Field(alias="texting_style")]]
+    updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
+    username: NotRequired[Annotated[Optional[str], Field(alias="username")]]
+
+class PublicGameArchetypes(BaseModel):
+    archetype: PublicArchetype = Field(alias="archetype")
+    created_at: datetime.datetime = Field(alias="created_at")
+    flavor_reason: str = Field(alias="flavor_reason")
+    game_id: Optional[uuid.UUID] = Field(alias="game_id")
+    id: uuid.UUID = Field(alias="id")
+    is_legendary: bool = Field(alias="is_legendary")
+    job_id: Optional[uuid.UUID] = Field(alias="job_id")
+    latency_ms: Optional[int] = Field(alias="latency_ms")
+    match_id: Optional[uuid.UUID] = Field(alias="match_id")
+    meme_positions: List[int] = Field(alias="meme_positions")
+    model: str = Field(alias="model")
+    prompt_version: str = Field(alias="prompt_version")
+    raw_response: Json[Any] = Field(alias="raw_response")
+    side: Optional[PublicMatchSide] = Field(alias="side")
+    style: PublicArchetypeStyle = Field(alias="style")
+    tier: PublicArchetypeTier = Field(alias="tier")
+
+class PublicGameArchetypesInsert(TypedDict):
+    archetype: Annotated[PublicArchetype, Field(alias="archetype")]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    flavor_reason: Annotated[str, Field(alias="flavor_reason")]
+    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    is_legendary: NotRequired[Annotated[bool, Field(alias="is_legendary")]]
+    job_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="job_id")]]
+    latency_ms: NotRequired[Annotated[Optional[int], Field(alias="latency_ms")]]
+    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
+    meme_positions: NotRequired[Annotated[List[int], Field(alias="meme_positions")]]
+    model: Annotated[str, Field(alias="model")]
+    prompt_version: Annotated[str, Field(alias="prompt_version")]
+    raw_response: Annotated[Json[Any], Field(alias="raw_response")]
+    side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="side")]]
+    style: Annotated[PublicArchetypeStyle, Field(alias="style")]
+    tier: Annotated[PublicArchetypeTier, Field(alias="tier")]
+
+class PublicGameArchetypesUpdate(TypedDict):
+    archetype: NotRequired[Annotated[PublicArchetype, Field(alias="archetype")]]
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    flavor_reason: NotRequired[Annotated[str, Field(alias="flavor_reason")]]
+    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    is_legendary: NotRequired[Annotated[bool, Field(alias="is_legendary")]]
+    job_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="job_id")]]
+    latency_ms: NotRequired[Annotated[Optional[int], Field(alias="latency_ms")]]
+    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
+    meme_positions: NotRequired[Annotated[List[int], Field(alias="meme_positions")]]
+    model: NotRequired[Annotated[str, Field(alias="model")]]
+    prompt_version: NotRequired[Annotated[str, Field(alias="prompt_version")]]
+    raw_response: NotRequired[Annotated[Json[Any], Field(alias="raw_response")]]
+    side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="side")]]
+    style: NotRequired[Annotated[PublicArchetypeStyle, Field(alias="style")]]
+    tier: NotRequired[Annotated[PublicArchetypeTier, Field(alias="tier")]]
+
+class PublicPuzzles(BaseModel):
+    created_at: datetime.datetime = Field(alias="created_at")
+    difficulty: int = Field(alias="difficulty")
+    gender: PublicGender = Field(alias="gender")
+    id: uuid.UUID = Field(alias="id")
+    is_active: bool = Field(alias="is_active")
+    persona_id: Optional[uuid.UUID] = Field(alias="persona_id")
+    prompt: str = Field(alias="prompt")
+    slug: str = Field(alias="slug")
+
+class PublicPuzzlesInsert(TypedDict):
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    difficulty: NotRequired[Annotated[int, Field(alias="difficulty")]]
+    gender: Annotated[PublicGender, Field(alias="gender")]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    is_active: NotRequired[Annotated[bool, Field(alias="is_active")]]
+    persona_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="persona_id")]]
+    prompt: Annotated[str, Field(alias="prompt")]
+    slug: Annotated[str, Field(alias="slug")]
+
+class PublicPuzzlesUpdate(TypedDict):
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    difficulty: NotRequired[Annotated[int, Field(alias="difficulty")]]
+    gender: NotRequired[Annotated[PublicGender, Field(alias="gender")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    is_active: NotRequired[Annotated[bool, Field(alias="is_active")]]
+    persona_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="persona_id")]]
+    prompt: NotRequired[Annotated[str, Field(alias="prompt")]]
+    slug: NotRequired[Annotated[str, Field(alias="slug")]]
+
+class PublicPersonas(BaseModel):
+    created_at: datetime.datetime = Field(alias="created_at")
+    description: Optional[str] = Field(alias="description")
+    difficulty: int = Field(alias="difficulty")
+    gender: PublicGender = Field(alias="gender")
+    id: uuid.UUID = Field(alias="id")
+    is_active: bool = Field(alias="is_active")
+    is_boss: bool = Field(alias="is_boss")
+    name: str = Field(alias="name")
+    opening_line: str = Field(alias="opening_line")
+    slug: str = Field(alias="slug")
+    suggested_messages: List[str] = Field(alias="suggested_messages")
+
+class PublicPersonasInsert(TypedDict):
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    description: NotRequired[Annotated[Optional[str], Field(alias="description")]]
+    difficulty: NotRequired[Annotated[int, Field(alias="difficulty")]]
+    gender: Annotated[PublicGender, Field(alias="gender")]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    is_active: NotRequired[Annotated[bool, Field(alias="is_active")]]
+    is_boss: NotRequired[Annotated[bool, Field(alias="is_boss")]]
+    name: Annotated[str, Field(alias="name")]
+    opening_line: Annotated[str, Field(alias="opening_line")]
+    slug: Annotated[str, Field(alias="slug")]
+    suggested_messages: NotRequired[Annotated[List[str], Field(alias="suggested_messages")]]
+
+class PublicPersonasUpdate(TypedDict):
+    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
+    description: NotRequired[Annotated[Optional[str], Field(alias="description")]]
+    difficulty: NotRequired[Annotated[int, Field(alias="difficulty")]]
+    gender: NotRequired[Annotated[PublicGender, Field(alias="gender")]]
+    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
+    is_active: NotRequired[Annotated[bool, Field(alias="is_active")]]
+    is_boss: NotRequired[Annotated[bool, Field(alias="is_boss")]]
+    name: NotRequired[Annotated[str, Field(alias="name")]]
+    opening_line: NotRequired[Annotated[str, Field(alias="opening_line")]]
+    slug: NotRequired[Annotated[str, Field(alias="slug")]]
+    suggested_messages: NotRequired[Annotated[List[str], Field(alias="suggested_messages")]]
+
+class PublicMatchRevealUnlocks(BaseModel):
+    match_id: uuid.UUID = Field(alias="match_id")
+    source: PublicUnlockSource = Field(alias="source")
+    unlocked_at: datetime.datetime = Field(alias="unlocked_at")
+    user_id: uuid.UUID = Field(alias="user_id")
+
+class PublicMatchRevealUnlocksInsert(TypedDict):
+    match_id: Annotated[uuid.UUID, Field(alias="match_id")]
+    source: NotRequired[Annotated[PublicUnlockSource, Field(alias="source")]]
+    unlocked_at: NotRequired[Annotated[datetime.datetime, Field(alias="unlocked_at")]]
+    user_id: Annotated[uuid.UUID, Field(alias="user_id")]
+
+class PublicMatchRevealUnlocksUpdate(TypedDict):
+    match_id: NotRequired[Annotated[uuid.UUID, Field(alias="match_id")]]
+    source: NotRequired[Annotated[PublicUnlockSource, Field(alias="source")]]
+    unlocked_at: NotRequired[Annotated[datetime.datetime, Field(alias="unlocked_at")]]
+    user_id: NotRequired[Annotated[uuid.UUID, Field(alias="user_id")]]
 
 class PublicPvpMatches(BaseModel):
     match_id: uuid.UUID = Field(alias="match_id")
@@ -389,278 +971,38 @@ class PublicAiMatchesUpdate(TypedDict):
     player_casual_after: NotRequired[Annotated[Optional[int], Field(alias="player_casual_after")]]
     player_casual_before: NotRequired[Annotated[Optional[int], Field(alias="player_casual_before")]]
 
-class PublicGhostMatches(BaseModel):
-    ghost_player: Optional[uuid.UUID] = Field(alias="ghost_player")
-    match_id: uuid.UUID = Field(alias="match_id")
-    player: uuid.UUID = Field(alias="player")
-    player_elo_after: Optional[int] = Field(alias="player_elo_after")
-    player_elo_before: Optional[int] = Field(alias="player_elo_before")
-    source_match_id: uuid.UUID = Field(alias="source_match_id")
-
-class PublicGhostMatchesInsert(TypedDict):
-    ghost_player: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="ghost_player")]]
-    match_id: Annotated[uuid.UUID, Field(alias="match_id")]
-    player: Annotated[uuid.UUID, Field(alias="player")]
-    player_elo_after: NotRequired[Annotated[Optional[int], Field(alias="player_elo_after")]]
-    player_elo_before: NotRequired[Annotated[Optional[int], Field(alias="player_elo_before")]]
-    source_match_id: Annotated[uuid.UUID, Field(alias="source_match_id")]
-
-class PublicGhostMatchesUpdate(TypedDict):
-    ghost_player: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="ghost_player")]]
-    match_id: NotRequired[Annotated[uuid.UUID, Field(alias="match_id")]]
-    player: NotRequired[Annotated[uuid.UUID, Field(alias="player")]]
-    player_elo_after: NotRequired[Annotated[Optional[int], Field(alias="player_elo_after")]]
-    player_elo_before: NotRequired[Annotated[Optional[int], Field(alias="player_elo_before")]]
-    source_match_id: NotRequired[Annotated[uuid.UUID, Field(alias="source_match_id")]]
-
-class PublicMatchInvites(BaseModel):
-    code: str = Field(alias="code")
+class PublicRatingHistory(BaseModel):
     created_at: datetime.datetime = Field(alias="created_at")
-    creator: uuid.UUID = Field(alias="creator")
-    id: uuid.UUID = Field(alias="id")
-    match_id: Optional[uuid.UUID] = Field(alias="match_id")
-    matched_at: Optional[datetime.datetime] = Field(alias="matched_at")
-    status: PublicJobStatus = Field(alias="status")
-    time_control: PublicTimeControl = Field(alias="time_control")
+    delta: int = Field(alias="delta")
+    id: int = Field(alias="id")
+    kind: PublicRatingKind = Field(alias="kind")
+    rating_after: int = Field(alias="rating_after")
+    rating_before: int = Field(alias="rating_before")
+    source_id: Optional[uuid.UUID] = Field(alias="source_id")
+    source_kind: Optional[str] = Field(alias="source_kind")
+    user_id: uuid.UUID = Field(alias="user_id")
 
-class PublicMatchInvitesInsert(TypedDict):
-    code: Annotated[str, Field(alias="code")]
+class PublicRatingHistoryInsert(TypedDict):
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    creator: Annotated[uuid.UUID, Field(alias="creator")]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
-    matched_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="matched_at")]]
-    status: NotRequired[Annotated[PublicJobStatus, Field(alias="status")]]
-    time_control: NotRequired[Annotated[PublicTimeControl, Field(alias="time_control")]]
+    delta: Annotated[int, Field(alias="delta")]
+    id: NotRequired[Annotated[int, Field(alias="id")]]
+    kind: Annotated[PublicRatingKind, Field(alias="kind")]
+    rating_after: Annotated[int, Field(alias="rating_after")]
+    rating_before: Annotated[int, Field(alias="rating_before")]
+    source_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="source_id")]]
+    source_kind: NotRequired[Annotated[Optional[str], Field(alias="source_kind")]]
+    user_id: Annotated[uuid.UUID, Field(alias="user_id")]
 
-class PublicMatchInvitesUpdate(TypedDict):
-    code: NotRequired[Annotated[str, Field(alias="code")]]
+class PublicRatingHistoryUpdate(TypedDict):
     created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    creator: NotRequired[Annotated[uuid.UUID, Field(alias="creator")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
-    matched_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="matched_at")]]
-    status: NotRequired[Annotated[PublicJobStatus, Field(alias="status")]]
-    time_control: NotRequired[Annotated[PublicTimeControl, Field(alias="time_control")]]
-
-class PublicMatchMoves(BaseModel):
-    content: str = Field(alias="content")
-    created_at: datetime.datetime = Field(alias="created_at")
-    eval_after: Optional[float] = Field(alias="eval_after")
-    eval_before: Optional[float] = Field(alias="eval_before")
-    eval_delta: Optional[float] = Field(alias="eval_delta")
-    id: uuid.UUID = Field(alias="id")
-    match_id: uuid.UUID = Field(alias="match_id")
-    position: int = Field(alias="position")
-    side: PublicMatchSide = Field(alias="side")
-    speaker: PublicMessageSide = Field(alias="speaker")
-
-class PublicMatchMovesInsert(TypedDict):
-    content: Annotated[str, Field(alias="content")]
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
-    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
-    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    match_id: Annotated[uuid.UUID, Field(alias="match_id")]
-    position: Annotated[int, Field(alias="position")]
-    side: Annotated[PublicMatchSide, Field(alias="side")]
-    speaker: Annotated[PublicMessageSide, Field(alias="speaker")]
-
-class PublicMatchMovesUpdate(TypedDict):
-    content: NotRequired[Annotated[str, Field(alias="content")]]
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
-    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
-    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    match_id: NotRequired[Annotated[uuid.UUID, Field(alias="match_id")]]
-    position: NotRequired[Annotated[int, Field(alias="position")]]
-    side: NotRequired[Annotated[PublicMatchSide, Field(alias="side")]]
-    speaker: NotRequired[Annotated[PublicMessageSide, Field(alias="speaker")]]
-
-class PublicAnalysisJobs(BaseModel):
-    analysis_id: Optional[uuid.UUID] = Field(alias="analysis_id")
-    attempts: int = Field(alias="attempts")
-    created_at: datetime.datetime = Field(alias="created_at")
-    finished_at: Optional[datetime.datetime] = Field(alias="finished_at")
-    game_id: Optional[uuid.UUID] = Field(alias="game_id")
-    id: uuid.UUID = Field(alias="id")
-    idempotency_key: Optional[str] = Field(alias="idempotency_key")
-    kind: PublicJobKind = Field(alias="kind")
-    last_error: Optional[str] = Field(alias="last_error")
-    match_id: Optional[uuid.UUID] = Field(alias="match_id")
-    queue_msg_id: Optional[int] = Field(alias="queue_msg_id")
-    started_at: Optional[datetime.datetime] = Field(alias="started_at")
-    status: PublicJobStatus = Field(alias="status")
-    updated_at: datetime.datetime = Field(alias="updated_at")
-    user_id: Optional[uuid.UUID] = Field(alias="user_id")
-
-class PublicAnalysisJobsInsert(TypedDict):
-    analysis_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="analysis_id")]]
-    attempts: NotRequired[Annotated[int, Field(alias="attempts")]]
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    finished_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="finished_at")]]
-    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    idempotency_key: NotRequired[Annotated[Optional[str], Field(alias="idempotency_key")]]
-    kind: Annotated[PublicJobKind, Field(alias="kind")]
-    last_error: NotRequired[Annotated[Optional[str], Field(alias="last_error")]]
-    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
-    queue_msg_id: NotRequired[Annotated[Optional[int], Field(alias="queue_msg_id")]]
-    started_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="started_at")]]
-    status: NotRequired[Annotated[PublicJobStatus, Field(alias="status")]]
-    updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
-    user_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="user_id")]]
-
-class PublicAnalysisJobsUpdate(TypedDict):
-    analysis_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="analysis_id")]]
-    attempts: NotRequired[Annotated[int, Field(alias="attempts")]]
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    finished_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="finished_at")]]
-    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    idempotency_key: NotRequired[Annotated[Optional[str], Field(alias="idempotency_key")]]
-    kind: NotRequired[Annotated[PublicJobKind, Field(alias="kind")]]
-    last_error: NotRequired[Annotated[Optional[str], Field(alias="last_error")]]
-    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
-    queue_msg_id: NotRequired[Annotated[Optional[int], Field(alias="queue_msg_id")]]
-    started_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="started_at")]]
-    status: NotRequired[Annotated[PublicJobStatus, Field(alias="status")]]
-    updated_at: NotRequired[Annotated[datetime.datetime, Field(alias="updated_at")]]
-    user_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="user_id")]]
-
-class PublicGames(BaseModel):
-    accuracy: Optional[float] = Field(alias="accuracy")
-    created_at: datetime.datetime = Field(alias="created_at")
-    description: Optional[str] = Field(alias="description")
-    end_reason: Optional[PublicMatchEndReason] = Field(alias="end_reason")
-    ended_at: Optional[datetime.datetime] = Field(alias="ended_at")
-    id: uuid.UUID = Field(alias="id")
-    mode: PublicGameMode = Field(alias="mode")
-    share_slug: Optional[str] = Field(alias="share_slug")
-    status: PublicGameStatus = Field(alias="status")
-    title: Optional[str] = Field(alias="title")
-    user_id: Optional[uuid.UUID] = Field(alias="user_id")
-
-class PublicGamesInsert(TypedDict):
-    accuracy: NotRequired[Annotated[Optional[float], Field(alias="accuracy")]]
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    description: NotRequired[Annotated[Optional[str], Field(alias="description")]]
-    end_reason: NotRequired[Annotated[Optional[PublicMatchEndReason], Field(alias="end_reason")]]
-    ended_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="ended_at")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    mode: Annotated[PublicGameMode, Field(alias="mode")]
-    share_slug: NotRequired[Annotated[Optional[str], Field(alias="share_slug")]]
-    status: NotRequired[Annotated[PublicGameStatus, Field(alias="status")]]
-    title: NotRequired[Annotated[Optional[str], Field(alias="title")]]
-    user_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="user_id")]]
-
-class PublicGamesUpdate(TypedDict):
-    accuracy: NotRequired[Annotated[Optional[float], Field(alias="accuracy")]]
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    description: NotRequired[Annotated[Optional[str], Field(alias="description")]]
-    end_reason: NotRequired[Annotated[Optional[PublicMatchEndReason], Field(alias="end_reason")]]
-    ended_at: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="ended_at")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    mode: NotRequired[Annotated[PublicGameMode, Field(alias="mode")]]
-    share_slug: NotRequired[Annotated[Optional[str], Field(alias="share_slug")]]
-    status: NotRequired[Annotated[PublicGameStatus, Field(alias="status")]]
-    title: NotRequired[Annotated[Optional[str], Field(alias="title")]]
-    user_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="user_id")]]
-
-class PublicSoloGames(BaseModel):
-    base_seconds: int = Field(alias="base_seconds")
-    exchanges: int = Field(alias="exchanges")
-    game_id: uuid.UUID = Field(alias="game_id")
-    increment_seconds: int = Field(alias="increment_seconds")
-    is_practice: bool = Field(alias="is_practice")
-    persona_id: Optional[uuid.UUID] = Field(alias="persona_id")
-    rating_delta: int = Field(alias="rating_delta")
-    turn_deadline: Optional[datetime.datetime] = Field(alias="turn_deadline")
-
-class PublicSoloGamesInsert(TypedDict):
-    base_seconds: NotRequired[Annotated[int, Field(alias="base_seconds")]]
-    exchanges: NotRequired[Annotated[int, Field(alias="exchanges")]]
-    game_id: Annotated[uuid.UUID, Field(alias="game_id")]
-    increment_seconds: NotRequired[Annotated[int, Field(alias="increment_seconds")]]
-    is_practice: NotRequired[Annotated[bool, Field(alias="is_practice")]]
-    persona_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="persona_id")]]
-    rating_delta: NotRequired[Annotated[int, Field(alias="rating_delta")]]
-    turn_deadline: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="turn_deadline")]]
-
-class PublicSoloGamesUpdate(TypedDict):
-    base_seconds: NotRequired[Annotated[int, Field(alias="base_seconds")]]
-    exchanges: NotRequired[Annotated[int, Field(alias="exchanges")]]
-    game_id: NotRequired[Annotated[uuid.UUID, Field(alias="game_id")]]
-    increment_seconds: NotRequired[Annotated[int, Field(alias="increment_seconds")]]
-    is_practice: NotRequired[Annotated[bool, Field(alias="is_practice")]]
-    persona_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="persona_id")]]
-    rating_delta: NotRequired[Annotated[int, Field(alias="rating_delta")]]
-    turn_deadline: NotRequired[Annotated[Optional[datetime.datetime], Field(alias="turn_deadline")]]
-
-class PublicScreenshotGames(BaseModel):
-    attested_consent: bool = Field(alias="attested_consent")
-    game_id: uuid.UUID = Field(alias="game_id")
-    provisional_rating: Optional[int] = Field(alias="provisional_rating")
-    transcript_hash: Optional[str] = Field(alias="transcript_hash")
-
-class PublicScreenshotGamesInsert(TypedDict):
-    attested_consent: NotRequired[Annotated[bool, Field(alias="attested_consent")]]
-    game_id: Annotated[uuid.UUID, Field(alias="game_id")]
-    provisional_rating: NotRequired[Annotated[Optional[int], Field(alias="provisional_rating")]]
-    transcript_hash: NotRequired[Annotated[Optional[str], Field(alias="transcript_hash")]]
-
-class PublicScreenshotGamesUpdate(TypedDict):
-    attested_consent: NotRequired[Annotated[bool, Field(alias="attested_consent")]]
-    game_id: NotRequired[Annotated[uuid.UUID, Field(alias="game_id")]]
-    provisional_rating: NotRequired[Annotated[Optional[int], Field(alias="provisional_rating")]]
-    transcript_hash: NotRequired[Annotated[Optional[str], Field(alias="transcript_hash")]]
-
-class PublicPuzzles(BaseModel):
-    created_at: datetime.datetime = Field(alias="created_at")
-    difficulty: int = Field(alias="difficulty")
-    gender: PublicGender = Field(alias="gender")
-    id: uuid.UUID = Field(alias="id")
-    is_active: bool = Field(alias="is_active")
-    persona_id: Optional[uuid.UUID] = Field(alias="persona_id")
-    prompt: str = Field(alias="prompt")
-    slug: str = Field(alias="slug")
-
-class PublicPuzzlesInsert(TypedDict):
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    difficulty: NotRequired[Annotated[int, Field(alias="difficulty")]]
-    gender: Annotated[PublicGender, Field(alias="gender")]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    is_active: NotRequired[Annotated[bool, Field(alias="is_active")]]
-    persona_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="persona_id")]]
-    prompt: Annotated[str, Field(alias="prompt")]
-    slug: Annotated[str, Field(alias="slug")]
-
-class PublicPuzzlesUpdate(TypedDict):
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    difficulty: NotRequired[Annotated[int, Field(alias="difficulty")]]
-    gender: NotRequired[Annotated[PublicGender, Field(alias="gender")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    is_active: NotRequired[Annotated[bool, Field(alias="is_active")]]
-    persona_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="persona_id")]]
-    prompt: NotRequired[Annotated[str, Field(alias="prompt")]]
-    slug: NotRequired[Annotated[str, Field(alias="slug")]]
-
-class PublicPuzzleSolutions(BaseModel):
-    best_eval_delta: Optional[float] = Field(alias="best_eval_delta")
-    best_move: str = Field(alias="best_move")
-    puzzle_id: uuid.UUID = Field(alias="puzzle_id")
-
-class PublicPuzzleSolutionsInsert(TypedDict):
-    best_eval_delta: NotRequired[Annotated[Optional[float], Field(alias="best_eval_delta")]]
-    best_move: Annotated[str, Field(alias="best_move")]
-    puzzle_id: Annotated[uuid.UUID, Field(alias="puzzle_id")]
-
-class PublicPuzzleSolutionsUpdate(TypedDict):
-    best_eval_delta: NotRequired[Annotated[Optional[float], Field(alias="best_eval_delta")]]
-    best_move: NotRequired[Annotated[str, Field(alias="best_move")]]
-    puzzle_id: NotRequired[Annotated[uuid.UUID, Field(alias="puzzle_id")]]
+    delta: NotRequired[Annotated[int, Field(alias="delta")]]
+    id: NotRequired[Annotated[int, Field(alias="id")]]
+    kind: NotRequired[Annotated[PublicRatingKind, Field(alias="kind")]]
+    rating_after: NotRequired[Annotated[int, Field(alias="rating_after")]]
+    rating_before: NotRequired[Annotated[int, Field(alias="rating_before")]]
+    source_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="source_id")]]
+    source_kind: NotRequired[Annotated[Optional[str], Field(alias="source_kind")]]
+    user_id: NotRequired[Annotated[uuid.UUID, Field(alias="user_id")]]
 
 class PublicPuzzleAttempts(BaseModel):
     eval_delta: Optional[float] = Field(alias="eval_delta")
@@ -682,234 +1024,3 @@ class PublicPuzzleAttemptsUpdate(TypedDict):
     guess: NotRequired[Annotated[str, Field(alias="guess")]]
     puzzle_id: NotRequired[Annotated[uuid.UUID, Field(alias="puzzle_id")]]
     solved: NotRequired[Annotated[bool, Field(alias="solved")]]
-
-class PublicMoves(BaseModel):
-    content: str = Field(alias="content")
-    created_at: datetime.datetime = Field(alias="created_at")
-    eval_after: Optional[float] = Field(alias="eval_after")
-    eval_before: Optional[float] = Field(alias="eval_before")
-    eval_delta: Optional[float] = Field(alias="eval_delta")
-    game_id: uuid.UUID = Field(alias="game_id")
-    id: uuid.UUID = Field(alias="id")
-    position: int = Field(alias="position")
-    side: PublicMessageSide = Field(alias="side")
-
-class PublicMovesInsert(TypedDict):
-    content: Annotated[str, Field(alias="content")]
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
-    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
-    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
-    game_id: Annotated[uuid.UUID, Field(alias="game_id")]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    position: Annotated[int, Field(alias="position")]
-    side: Annotated[PublicMessageSide, Field(alias="side")]
-
-class PublicMovesUpdate(TypedDict):
-    content: NotRequired[Annotated[str, Field(alias="content")]]
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
-    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
-    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
-    game_id: NotRequired[Annotated[uuid.UUID, Field(alias="game_id")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    position: NotRequired[Annotated[int, Field(alias="position")]]
-    side: NotRequired[Annotated[PublicMessageSide, Field(alias="side")]]
-
-class PublicEngineResponses(BaseModel):
-    created_at: datetime.datetime = Field(alias="created_at")
-    game_id: Optional[uuid.UUID] = Field(alias="game_id")
-    id: uuid.UUID = Field(alias="id")
-    latency_ms: Optional[int] = Field(alias="latency_ms")
-    match_id: Optional[uuid.UUID] = Field(alias="match_id")
-    model: str = Field(alias="model")
-    prompt_version: Optional[str] = Field(alias="prompt_version")
-    raw_response: Json[Any] = Field(alias="raw_response")
-    side: Optional[PublicMatchSide] = Field(alias="side")
-
-class PublicEngineResponsesInsert(TypedDict):
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    latency_ms: NotRequired[Annotated[Optional[int], Field(alias="latency_ms")]]
-    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
-    model: Annotated[str, Field(alias="model")]
-    prompt_version: NotRequired[Annotated[Optional[str], Field(alias="prompt_version")]]
-    raw_response: Annotated[Json[Any], Field(alias="raw_response")]
-    side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="side")]]
-
-class PublicEngineResponsesUpdate(TypedDict):
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    latency_ms: NotRequired[Annotated[Optional[int], Field(alias="latency_ms")]]
-    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
-    model: NotRequired[Annotated[str, Field(alias="model")]]
-    prompt_version: NotRequired[Annotated[Optional[str], Field(alias="prompt_version")]]
-    raw_response: NotRequired[Annotated[Json[Any], Field(alias="raw_response")]]
-    side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="side")]]
-
-class PublicGameAnalyses(BaseModel):
-    created_at: datetime.datetime = Field(alias="created_at")
-    description: str = Field(alias="description")
-    game_id: Optional[uuid.UUID] = Field(alias="game_id")
-    id: uuid.UUID = Field(alias="id")
-    job_id: Optional[uuid.UUID] = Field(alias="job_id")
-    latency_ms: Optional[int] = Field(alias="latency_ms")
-    match_id: Optional[uuid.UUID] = Field(alias="match_id")
-    model: str = Field(alias="model")
-    prompt_version: str = Field(alias="prompt_version")
-    raw_response: Json[Any] = Field(alias="raw_response")
-    side: Optional[PublicMatchSide] = Field(alias="side")
-    tags: List[str] = Field(alias="tags")
-    title: str = Field(alias="title")
-
-class PublicGameAnalysesInsert(TypedDict):
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    description: Annotated[str, Field(alias="description")]
-    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    job_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="job_id")]]
-    latency_ms: NotRequired[Annotated[Optional[int], Field(alias="latency_ms")]]
-    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
-    model: Annotated[str, Field(alias="model")]
-    prompt_version: Annotated[str, Field(alias="prompt_version")]
-    raw_response: Annotated[Json[Any], Field(alias="raw_response")]
-    side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="side")]]
-    tags: NotRequired[Annotated[List[str], Field(alias="tags")]]
-    title: Annotated[str, Field(alias="title")]
-
-class PublicGameAnalysesUpdate(TypedDict):
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    description: NotRequired[Annotated[str, Field(alias="description")]]
-    game_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="game_id")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    job_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="job_id")]]
-    latency_ms: NotRequired[Annotated[Optional[int], Field(alias="latency_ms")]]
-    match_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="match_id")]]
-    model: NotRequired[Annotated[str, Field(alias="model")]]
-    prompt_version: NotRequired[Annotated[str, Field(alias="prompt_version")]]
-    raw_response: NotRequired[Annotated[Json[Any], Field(alias="raw_response")]]
-    side: NotRequired[Annotated[Optional[PublicMatchSide], Field(alias="side")]]
-    tags: NotRequired[Annotated[List[str], Field(alias="tags")]]
-    title: NotRequired[Annotated[str, Field(alias="title")]]
-
-class PublicGameAnalysisMoves(BaseModel):
-    analysis_id: uuid.UUID = Field(alias="analysis_id")
-    comment: str = Field(alias="comment")
-    content: str = Field(alias="content")
-    created_at: datetime.datetime = Field(alias="created_at")
-    eval_after: Optional[float] = Field(alias="eval_after")
-    eval_before: Optional[float] = Field(alias="eval_before")
-    eval_delta: Optional[float] = Field(alias="eval_delta")
-    id: uuid.UUID = Field(alias="id")
-    move_id: Optional[uuid.UUID] = Field(alias="move_id")
-    position: int = Field(alias="position")
-    side: PublicMessageSide = Field(alias="side")
-
-class PublicGameAnalysisMovesInsert(TypedDict):
-    analysis_id: Annotated[uuid.UUID, Field(alias="analysis_id")]
-    comment: Annotated[str, Field(alias="comment")]
-    content: Annotated[str, Field(alias="content")]
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
-    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
-    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    move_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="move_id")]]
-    position: Annotated[int, Field(alias="position")]
-    side: NotRequired[Annotated[PublicMessageSide, Field(alias="side")]]
-
-class PublicGameAnalysisMovesUpdate(TypedDict):
-    analysis_id: NotRequired[Annotated[uuid.UUID, Field(alias="analysis_id")]]
-    comment: NotRequired[Annotated[str, Field(alias="comment")]]
-    content: NotRequired[Annotated[str, Field(alias="content")]]
-    created_at: NotRequired[Annotated[datetime.datetime, Field(alias="created_at")]]
-    eval_after: NotRequired[Annotated[Optional[float], Field(alias="eval_after")]]
-    eval_before: NotRequired[Annotated[Optional[float], Field(alias="eval_before")]]
-    eval_delta: NotRequired[Annotated[Optional[float], Field(alias="eval_delta")]]
-    id: NotRequired[Annotated[uuid.UUID, Field(alias="id")]]
-    move_id: NotRequired[Annotated[Optional[uuid.UUID], Field(alias="move_id")]]
-    position: NotRequired[Annotated[int, Field(alias="position")]]
-    side: NotRequired[Annotated[PublicMessageSide, Field(alias="side")]]
-
-class PublicGameRevealUnlocks(BaseModel):
-    game_id: uuid.UUID = Field(alias="game_id")
-    source: PublicUnlockSource = Field(alias="source")
-    unlocked_at: datetime.datetime = Field(alias="unlocked_at")
-    user_id: uuid.UUID = Field(alias="user_id")
-
-class PublicGameRevealUnlocksInsert(TypedDict):
-    game_id: Annotated[uuid.UUID, Field(alias="game_id")]
-    source: NotRequired[Annotated[PublicUnlockSource, Field(alias="source")]]
-    unlocked_at: NotRequired[Annotated[datetime.datetime, Field(alias="unlocked_at")]]
-    user_id: Annotated[uuid.UUID, Field(alias="user_id")]
-
-class PublicGameRevealUnlocksUpdate(TypedDict):
-    game_id: NotRequired[Annotated[uuid.UUID, Field(alias="game_id")]]
-    source: NotRequired[Annotated[PublicUnlockSource, Field(alias="source")]]
-    unlocked_at: NotRequired[Annotated[datetime.datetime, Field(alias="unlocked_at")]]
-    user_id: NotRequired[Annotated[uuid.UUID, Field(alias="user_id")]]
-
-class PublicMatchRevealUnlocks(BaseModel):
-    match_id: uuid.UUID = Field(alias="match_id")
-    source: PublicUnlockSource = Field(alias="source")
-    unlocked_at: datetime.datetime = Field(alias="unlocked_at")
-    user_id: uuid.UUID = Field(alias="user_id")
-
-class PublicMatchRevealUnlocksInsert(TypedDict):
-    match_id: Annotated[uuid.UUID, Field(alias="match_id")]
-    source: NotRequired[Annotated[PublicUnlockSource, Field(alias="source")]]
-    unlocked_at: NotRequired[Annotated[datetime.datetime, Field(alias="unlocked_at")]]
-    user_id: Annotated[uuid.UUID, Field(alias="user_id")]
-
-class PublicMatchRevealUnlocksUpdate(TypedDict):
-    match_id: NotRequired[Annotated[uuid.UUID, Field(alias="match_id")]]
-    source: NotRequired[Annotated[PublicUnlockSource, Field(alias="source")]]
-    unlocked_at: NotRequired[Annotated[datetime.datetime, Field(alias="unlocked_at")]]
-    user_id: NotRequired[Annotated[uuid.UUID, Field(alias="user_id")]]
-
-class PublicMoveReveals(BaseModel):
-    best_move: str = Field(alias="best_move")
-    game_id: uuid.UUID = Field(alias="game_id")
-    move_id: uuid.UUID = Field(alias="move_id")
-
-class PublicMoveRevealsInsert(TypedDict):
-    best_move: Annotated[str, Field(alias="best_move")]
-    game_id: Annotated[uuid.UUID, Field(alias="game_id")]
-    move_id: Annotated[uuid.UUID, Field(alias="move_id")]
-
-class PublicMoveRevealsUpdate(TypedDict):
-    best_move: NotRequired[Annotated[str, Field(alias="best_move")]]
-    game_id: NotRequired[Annotated[uuid.UUID, Field(alias="game_id")]]
-    move_id: NotRequired[Annotated[uuid.UUID, Field(alias="move_id")]]
-
-class PublicMatchMoveReveals(BaseModel):
-    best_move: str = Field(alias="best_move")
-    match_id: uuid.UUID = Field(alias="match_id")
-    match_move_id: uuid.UUID = Field(alias="match_move_id")
-
-class PublicMatchMoveRevealsInsert(TypedDict):
-    best_move: Annotated[str, Field(alias="best_move")]
-    match_id: Annotated[uuid.UUID, Field(alias="match_id")]
-    match_move_id: Annotated[uuid.UUID, Field(alias="match_move_id")]
-
-class PublicMatchMoveRevealsUpdate(TypedDict):
-    best_move: NotRequired[Annotated[str, Field(alias="best_move")]]
-    match_id: NotRequired[Annotated[uuid.UUID, Field(alias="match_id")]]
-    match_move_id: NotRequired[Annotated[uuid.UUID, Field(alias="match_move_id")]]
-
-class PublicGameAnalysisMoveReveals(BaseModel):
-    analysis_id: uuid.UUID = Field(alias="analysis_id")
-    analysis_move_id: uuid.UUID = Field(alias="analysis_move_id")
-    best_line: str = Field(alias="best_line")
-
-class PublicGameAnalysisMoveRevealsInsert(TypedDict):
-    analysis_id: Annotated[uuid.UUID, Field(alias="analysis_id")]
-    analysis_move_id: Annotated[uuid.UUID, Field(alias="analysis_move_id")]
-    best_line: Annotated[str, Field(alias="best_line")]
-
-class PublicGameAnalysisMoveRevealsUpdate(TypedDict):
-    analysis_id: NotRequired[Annotated[uuid.UUID, Field(alias="analysis_id")]]
-    analysis_move_id: NotRequired[Annotated[uuid.UUID, Field(alias="analysis_move_id")]]
-    best_line: NotRequired[Annotated[str, Field(alias="best_line")]]

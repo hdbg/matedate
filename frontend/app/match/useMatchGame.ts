@@ -54,8 +54,10 @@ export interface GameResult {
   description: string;
   accuracy: number;
   ratingDelta: number;
+  rating: number; // post-finish rizz rating; previous = rating - ratingDelta
   interest: number;
   moves: WireMove[];
+  archetypeId: string; // the game_archetypes row to await for the card identity
 }
 
 const BASE_INTEREST = 58;
@@ -233,8 +235,10 @@ export function useMatchGame() {
             description: msg.description,
             accuracy: msg.accuracy,
             ratingDelta: msg.rating_delta,
+            rating: msg.rating,
             interest: interestRef.current,
             moves: msg.moves,
+            archetypeId: msg.archetype_id,
           });
           // The game is over — the socket has no further purpose (a deep review is requested
           // out-of-band via a Supabase RPC, not over this socket), so close it.

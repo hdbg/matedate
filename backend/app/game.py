@@ -48,6 +48,7 @@ from .database_types import (
     PublicSoloGamesInsert,
     PublicSoloGamesUpdate,
 )
+from .archetype.service import enqueue_game_archetype
 from .engine import Engine
 from .grading import accuracy_from_qualities, classify, resolve_eval_after, swing_from_delta
 from .moves_common import END_REASON_LABELS, last_eval, move_out, persona_out, transcript_text
@@ -64,6 +65,11 @@ from .protocol import (
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+# player_ratings.elo_rating starts here (matches the DB default); used only as the pre-finish
+# baseline when a player somehow has no ratings row yet.
+DEFAULT_ELO = 1000
 
 
 # Callback the transport supplies so the service can push a message unprompted (the timeout
@@ -318,7 +324,12 @@ class SoloGameService:
             f"{label} after {len(you_moves)} messages — "
             f"elo {'+' if rating_delta >= 0 else ''}{rating_delta}."
         )
-        await self._write_finish(game, end_reason, accuracy, rating_delta, title, description)
+        rating = await self._write_finish(
+            game, end_reason, accuracy, rating_delta, title, description
+        )
+        # Fire the archetype pass onto its queue (backpressure; the client awaits its row over
+        # realtime). The game is now 'completed', so the enqueue precondition holds.
+        archetype_id = await enqueue_game_archetype(self._db, game.id)
         return FinishMsg(
             end_reason=end_reason,
             accuracy=accuracy,
@@ -327,6 +338,8 @@ class SoloGameService:
             title=title,
             description=description,
             game_id=str(game.id),
+            rating=rating,
+            archetype_id=str(archetype_id),
         )
 
     # -- async DB helpers ---------------------------------------------------
@@ -460,7 +473,9 @@ class SoloGameService:
         rating_delta: int,
         title: str,
         description: str,
-    ) -> None:
+    ) -> int:
+        """Persist the finish and bump the player's rizz rating; return the post-finish elo (so
+        the finish frame / card can show "<rating> ▲<delta>")."""
         games_update: PublicGamesUpdate = {
             "status": "completed",
             "end_reason": end_reason,
@@ -485,11 +500,11 @@ class SoloGameService:
             .execute()
         )
         if not current or not current.data:
-            return
+            return max(0, DEFAULT_ELO + rating_delta)
         before = PublicPlayerRatings.model_validate(current.data).elo_rating
         after = max(0, before + rating_delta)
         if after == before:
-            return
+            return after
         rating_update: PublicPlayerRatingsUpdate = {"elo_rating": after}
         await self._db.table("player_ratings").update(_json_row(rating_update)).eq(
             "user_id", str(game.user_id)
@@ -504,6 +519,7 @@ class SoloGameService:
             "source_id": game.id,
         }
         await self._db.table("rating_history").insert(_json_row(history)).execute()
+        return after
 
 
 # -- pure mappers (shared with the PvP service, adapted to the `moves` row shape) ----

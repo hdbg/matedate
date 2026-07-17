@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ShareCardModal, type ShareCardModalSource } from "@/app/match/components/ShareCardModal";
 import { cn, formatRelativeTime } from "@/app/lib/utils";
 import { categoryMeta, type HistoryCategory, type HistoryItem, type ProfileData } from "../profileData";
 
@@ -28,16 +29,36 @@ const HIGHLIGHT_TONES = {
   plain: "",
 } as const;
 
+/** Conversational games (solo/practice/ranked) have a shareable archetype card. */
+const SHAREABLE: ReadonlySet<HistoryCategory> = new Set<HistoryCategory>(["solo", "practice", "ranked"]);
+
+function shareSourceFor(item: HistoryItem): ShareCardModalSource {
+  return item.category === "ranked"
+    ? { kind: "match", matchId: item.gameId, ownSide: item.ownSide ?? "a" }
+    : { kind: "game", gameId: item.gameId };
+}
+
 interface GameHistoryProps {
   counts: ProfileData["counts"];
   history: HistoryItem[];
 }
 
-/** Filterable game list. Rows with a completed deep review open it; the rest open the replay. */
+/** Filterable game list. Rows open the review; a ⋮ menu re-opens the shareable card. */
 export function GameHistory({ counts, history }: GameHistoryProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<"all" | HistoryCategory>("all");
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [shareSource, setShareSource] = useState<ShareCardModalSource | null>(null);
   const shown = filter === "all" ? history : history.filter((h) => h.category === filter);
+
+  const openReview = (item: HistoryItem) =>
+    router.push(
+      item.analysisId
+        ? `/analysis/${item.analysisId}`
+        : item.category === "ranked"
+          ? `/analysis/match/${item.gameId}` // gameId holds the match id here
+          : `/analysis/game/${item.gameId}`,
+    );
 
   return (
     <div>
@@ -66,81 +87,116 @@ export function GameHistory({ counts, history }: GameHistoryProps) {
         <div className="flex flex-col gap-2.5 lg:gap-[11px]">
           {shown.map((item) => {
             const meta = categoryMeta(item.category);
+            const canShare = SHAREABLE.has(item.category);
             return (
-              <button
+              <div
                 key={item.gameId}
-                type="button"
-                onClick={() =>
-                  router.push(
-                    item.analysisId
-                      ? `/analysis/${item.analysisId}`
-                      : item.category === "ranked"
-                        ? `/analysis/match/${item.gameId}` // gameId holds the match id here
-                        : `/analysis/game/${item.gameId}`,
-                  )
-                }
-                className="flex cursor-pointer items-center gap-3 rounded-[18px] border border-ink/[0.07] bg-white p-3.5 text-left shadow-[0_3px_9px_rgba(39,35,32,0.05)] transition-[transform,box-shadow] duration-[120ms] hover:-translate-y-0.5 hover:shadow-[0_9px_20px_rgba(39,35,32,0.11)] lg:gap-4 lg:px-[18px] lg:py-4"
+                className="relative flex items-center gap-3 rounded-[18px] border border-ink/[0.07] bg-white p-3.5 text-left shadow-[0_3px_9px_rgba(39,35,32,0.05)] transition-[transform,box-shadow] duration-[120ms] hover:-translate-y-0.5 hover:shadow-[0_9px_20px_rgba(39,35,32,0.11)] lg:gap-4 lg:px-[18px] lg:py-4"
               >
                 <div
-                  className={cn(
-                    "grid h-[46px] w-[46px] flex-shrink-0 place-items-center rounded-[13px] text-[22px] lg:h-[52px] lg:w-[52px] lg:rounded-[14px] lg:text-[25px]",
-                    meta.iconClassName,
-                  )}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openReview(item)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openReview(item);
+                    }
+                  }}
+                  className="flex flex-1 cursor-pointer items-center gap-3 lg:gap-4"
                 >
-                  {meta.icon}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-[7px] lg:gap-2">
-                    <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[15.5px] font-bold tracking-[-0.01em] lg:text-[17px]">
-                      {item.title}
-                    </span>
-                    <span className="flex-shrink-0 rounded-pill bg-cream-2 px-[7px] py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-ink-soft lg:px-2">
-                      {meta.label}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[11.5px] text-ink-mute lg:gap-2 lg:text-[12.5px]">
-                    {item.accuracy != null && (
-                      <>
-                        <span>{item.accuracy}% acc</span>
-                        <span className="opacity-40">·</span>
-                      </>
-                    )}
-                    {item.highlight && (
-                      <>
-                        <span className={HIGHLIGHT_TONES[item.highlight.tone]}>
-                          {item.highlight.text}
-                        </span>
-                        <span className="opacity-40">·</span>
-                      </>
-                    )}
-                    <span>{formatRelativeTime(item.whenISO)}</span>
-                  </div>
-                </div>
-                <div className="flex flex-shrink-0 flex-col items-end gap-[3px] lg:flex-row lg:items-center lg:gap-4">
-                  <span
+                  <div
                     className={cn(
-                      "rounded-[7px] px-2 py-[3px] font-mono text-[11px] font-bold tracking-[0.04em] lg:rounded-lg lg:px-2.5 lg:py-1",
-                      RESULT_TONES[item.result.tone],
+                      "grid h-[46px] w-[46px] flex-shrink-0 place-items-center rounded-[13px] text-[22px] lg:h-[52px] lg:w-[52px] lg:rounded-[14px] lg:text-[25px]",
+                      meta.iconClassName,
                     )}
                   >
-                    {item.result.label}
-                  </span>
-                  {item.delta != null ? (
+                    {meta.icon}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-[7px] lg:gap-2">
+                      <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[15.5px] font-bold tracking-[-0.01em] lg:text-[17px]">
+                        {item.title}
+                      </span>
+                      <span className="flex-shrink-0 rounded-pill bg-cream-2 px-[7px] py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-ink-soft lg:px-2">
+                        {meta.label}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[11.5px] text-ink-mute lg:gap-2 lg:text-[12.5px]">
+                      {item.accuracy != null && (
+                        <>
+                          <span>{item.accuracy}% acc</span>
+                          <span className="opacity-40">·</span>
+                        </>
+                      )}
+                      {item.highlight && (
+                        <>
+                          <span className={HIGHLIGHT_TONES[item.highlight.tone]}>
+                            {item.highlight.text}
+                          </span>
+                          <span className="opacity-40">·</span>
+                        </>
+                      )}
+                      <span>{formatRelativeTime(item.whenISO)}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-shrink-0 flex-col items-end gap-[3px] lg:flex-row lg:items-center lg:gap-4">
                     <span
                       className={cn(
-                        "font-mono text-[13px] font-bold lg:w-[52px] lg:text-right lg:text-[16px]",
-                        item.delta > 0 ? "text-m-good" : item.delta < 0 ? "text-m-blunder" : "text-ink-mute",
+                        "rounded-[7px] px-2 py-[3px] font-mono text-[11px] font-bold tracking-[0.04em] lg:rounded-lg lg:px-2.5 lg:py-1",
+                        RESULT_TONES[item.result.tone],
                       )}
                     >
-                      {item.delta > 0 ? `+${item.delta}` : item.delta < 0 ? `−${Math.abs(item.delta)}` : "±0"}
+                      {item.result.label}
                     </span>
-                  ) : (
-                    <span className="font-mono text-[12px] font-bold text-ink-mute lg:w-[52px] lg:text-right">
-                      {item.flatLabel}
-                    </span>
-                  )}
+                    {item.delta != null ? (
+                      <span
+                        className={cn(
+                          "font-mono text-[13px] font-bold lg:w-[52px] lg:text-right lg:text-[16px]",
+                          item.delta > 0 ? "text-m-good" : item.delta < 0 ? "text-m-blunder" : "text-ink-mute",
+                        )}
+                      >
+                        {item.delta > 0 ? `+${item.delta}` : item.delta < 0 ? `−${Math.abs(item.delta)}` : "±0"}
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[12px] font-bold text-ink-mute lg:w-[52px] lg:text-right">
+                        {item.flatLabel}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </button>
+
+                {canShare && (
+                  <div className="relative flex-shrink-0">
+                    <button
+                      type="button"
+                      title="More"
+                      aria-label="More actions"
+                      onClick={() => setMenuFor((v) => (v === item.gameId ? null : item.gameId))}
+                      className="grid h-8 w-8 cursor-pointer place-items-center rounded-full border-none bg-transparent text-[18px] leading-none text-ink-mute hover:bg-ink/[0.06] hover:text-ink"
+                    >
+                      ⋮
+                    </button>
+                    {menuFor === item.gameId && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setMenuFor(null)} />
+                        <div className="absolute right-0 top-9 z-50 w-[150px] overflow-hidden rounded-[12px] border border-ink/[0.08] bg-white py-1 shadow-[0_12px_30px_rgba(39,35,32,0.18)]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShareSource(shareSourceFor(item));
+                              setMenuFor(null);
+                            }}
+                            className="flex w-full cursor-pointer items-center gap-2 px-3.5 py-2.5 text-left text-[14px] font-semibold text-ink hover:bg-cream"
+                          >
+                            <span aria-hidden>↗</span> Share Card
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
@@ -158,6 +214,8 @@ export function GameHistory({ counts, history }: GameHistoryProps) {
         <br />
         Cards are pseudonymized before sharing.
       </p>
+
+      {shareSource && <ShareCardModal source={shareSource} onClose={() => setShareSource(null)} />}
     </div>
   );
 }
