@@ -1,0 +1,15 @@
+<!--
+  Signup confirmation email.
+
+  Links to the app's own /auth/confirm handler using the token_hash flow (works on
+  any device, unlike the PKCE ?code= flow). `{{ .RedirectTo }}` is the emailRedirectTo
+  passed at signUp, forwarded as `next` so post-confirmation deep-links survive.
+-->
+<h2>Confirm your MateDate account</h2>
+<p>Tap below to activate your account and start playing.</p>
+<p>
+  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next={{ .RedirectTo }}">
+    Confirm my email
+  </a>
+</p>
+<p>If you didn't create a MateDate account, you can ignore this email.</p>

@@ -1,0 +1,15 @@
+<!--
+  Password recovery email.
+
+  Same token_hash flow as confirmation.html, with type=recovery so /auth/confirm
+  establishes a recovery session and forwards to /auth/reset (via `{{ .RedirectTo }}`,
+  the redirectTo passed to resetPasswordForEmail).
+-->
+<h2>Reset your MateDate password</h2>
+<p>Tap below to choose a new password. This link expires shortly.</p>
+<p>
+  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next={{ .RedirectTo }}">
+    Reset my password
+  </a>
+</p>
+<p>If you didn't request a password reset, you can safely ignore this email.</p>

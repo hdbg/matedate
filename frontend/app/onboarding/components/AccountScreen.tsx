@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/app/components/ui/Button";
 import { Field } from "@/app/components/ui/Field";
@@ -8,12 +9,14 @@ import { BackButton, Eyebrow, OnboardingScreen, Spacer, Sub, Title } from "./chr
 export function AccountScreen({
   submitting,
   error,
+  next,
   onBack,
   onSubmit,
   onSkip,
 }: {
   submitting: boolean;
   error: string | null;
+  next: string;
   onBack: () => void;
   onSubmit: (email: string, password: string) => void;
   onSkip: () => void;
@@ -77,6 +80,12 @@ export function AccountScreen({
       <Button variant="link" disabled={submitting} onClick={onSkip}>
         Skip for now — <b className="text-rosy-deep">I&apos;ll save it later</b>
       </Button>
+      <Link
+        href={`/login?next=${encodeURIComponent(next)}`}
+        className="mt-1 block text-center text-[13px] text-ink-mute"
+      >
+        Already have an account? <b className="text-rosy-deep">Log in</b>
+      </Link>
       <p className="mt-2.5 text-center font-mono text-[11px] leading-[1.5] text-ink-mute">
         By continuing you agree to our Terms. 3-day free trial, then $6.99/week. Cancel anytime.
       </p>

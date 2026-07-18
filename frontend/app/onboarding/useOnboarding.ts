@@ -13,6 +13,7 @@ export type OnboardingStep =
   | "goal"
   | "style"
   | "account"
+  | "verify"
   | "profile"
   | "done";
 
@@ -49,6 +50,7 @@ export function useOnboarding() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   const setUsername = useCallback((raw: string) => {
     setUsernameState(normalizeUsername(raw));
@@ -90,23 +92,72 @@ export function useOnboarding() {
       .eq("id", userData.user.id);
   }, [goal, styles, gender, seeking]);
 
+  /**
+   * Email/password signup. With email confirmation ON, `signUp` returns no session
+   * until the user clicks the link, so we CAN'T PATCH the profile inline. Instead the
+   * quiz answers ride along as user metadata — the `handle_new_user()` DB trigger seeds
+   * the profile row from them the instant the auth user is created (cross-device safe).
+   * `emailRedirectTo` carries the post-confirmation destination (`next`) through the
+   * email so deep-links like `/join/<code>` survive; the `/auth/confirm` handler forwards
+   * to it. On success we land on the "check your email" step, not the profile step.
+   */
   const createAccount = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, next: string) => {
       setSubmitting(true);
       setError(null);
       try {
         const supabase = createClient();
-        const { error: signUpError } = await supabase.auth.signUp({ email, password });
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo:
+              typeof window !== "undefined" ? `${window.location.origin}${next}` : undefined,
+            data: {
+              gender,
+              seeking,
+              dating_goal: goal,
+              texting_style: styles,
+              age_verified_at: new Date().toISOString(),
+            },
+          },
+        });
         if (signUpError) throw signUpError;
-        await saveProfile();
-        setStep("profile");
+        setPendingEmail(email);
+        setStep("verify");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
       } finally {
         setSubmitting(false);
       }
     },
-    [saveProfile],
+    [gender, seeking, goal, styles],
+  );
+
+  /** Re-send the confirmation email for the pending signup (rate-limited server-side). */
+  const resendConfirmation = useCallback(
+    async (next: string) => {
+      if (!pendingEmail) return;
+      setSubmitting(true);
+      setError(null);
+      try {
+        const supabase = createClient();
+        const { error: resendError } = await supabase.auth.resend({
+          type: "signup",
+          email: pendingEmail,
+          options: {
+            emailRedirectTo:
+              typeof window !== "undefined" ? `${window.location.origin}${next}` : undefined,
+          },
+        });
+        if (resendError) throw resendError;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't resend. Try again in a moment.");
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [pendingEmail],
   );
 
   /**
@@ -182,6 +233,7 @@ export function useOnboarding() {
     avatarPreview,
     submitting,
     error,
+    pendingEmail,
     goTo,
     setAgeConfirmed,
     setGender,
@@ -191,6 +243,7 @@ export function useOnboarding() {
     setUsername,
     setAvatarFile,
     createAccount,
+    resendConfirmation,
     skipAccount,
     saveProfileStep,
     skipProfileStep,
