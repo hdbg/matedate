@@ -20,7 +20,8 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "@matedate/icons": ["../../packages/icons/src"]
+      "@matedate/icons": ["../../packages/icons/src"],
+      "@matedate/visuals": ["../../packages/visuals/src"]
     }
   },
   "include": [

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@matedate/icons": "workspace:*",
+    "@matedate/visuals": "workspace:*",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.2",
     "html-to-image": "^1.11.13",

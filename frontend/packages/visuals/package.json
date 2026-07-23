@@ -1,0 +1,19 @@
+{
+  "name": "@matedate/visuals",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@matedate/icons": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "*"
+  },
+  "devDependencies": {
+    "@types/react": "^19"
+  }
+}

@@ -10,7 +10,7 @@ import {
   type TimeControl,
   type VersusMode,
 } from "@/app/lib/game/service";
-import { tierFor } from "@/app/lib/game/tiers";
+import { tierFor } from "@matedate/visuals";
 import { playSound } from "@/app/lib/sound";
 
 /**

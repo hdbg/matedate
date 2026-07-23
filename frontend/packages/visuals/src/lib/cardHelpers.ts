@@ -1,7 +1,12 @@
-import type { WireMove } from "./live";
+import type { WireMove } from "../types";
 
-/** Public site domain shown in the shareable card's "Score yours → <domain>" CTA. */
-export const SITE_DOMAIN = process.env.NEXT_PUBLIC_SITE_DOMAIN ?? "matedate.gg";
+/** Public site domain shown in the shareable card's "Score yours → <domain>" CTA.
+ * Read from `NEXT_PUBLIC_SITE_DOMAIN` when present (Next inlines it at build); the `typeof process`
+ * guard keeps this safe in bundlers that don't provide `process` (e.g. Remotion's browser bundle),
+ * where it falls back to the default. */
+const envDomain =
+  typeof process !== "undefined" && process.env ? process.env.NEXT_PUBLIC_SITE_DOMAIN : undefined;
+export const SITE_DOMAIN = envDomain ?? "matedate.gg";
 
 /** Whether a solo result is a win, from the server's end reason + rating delta. */
 export function isSoloWin(endReason: string, ratingDelta: number): boolean {

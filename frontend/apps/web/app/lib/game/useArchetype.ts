@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSupabase } from "@/app/providers/SupabaseProvider";
 import type { ArchetypeJobRow, GameArchetypeRow } from "@/app/lib/supabase/types";
-import { ARCHETYPES, type Archetype, type ArchetypeKey } from "./archetypes";
+import { ARCHETYPES, type Archetype, type ArchetypeKey } from "@matedate/visuals";
 
 export type ArchetypeStatus = "loading" | "ready" | "failed";
 

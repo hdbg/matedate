@@ -1,47 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isSoloWin, soloResultBadge } from "./cardHelpers";
-import { classifyEvalDelta } from "./service";
+import {
+  isSoloWin,
+  soloResultBadge,
+  toWireMoves,
+  type EvalRow,
+  type ShareCardData,
+} from "@matedate/visuals";
 import type { ArchetypeSource } from "./useArchetype";
-import type { WireMove } from "./live";
 
-/** Everything (besides the archetype) the ShareCard needs to render a historic game/match side.
- * Loaded from the owner/participant-readable source tables. */
-export interface ShareCardData {
-  moves: WireMove[];
-  accuracy: number;
-  accuracySub: string;
-  ratingLabel: string;
-  ratingValue: number | null;
-  ratingDelta: number;
-  unratedLabel?: string;
-  resultLabel: string;
-  resultColor: string;
-  /** Fallback for the share-sheet text before the archetype resolves. */
-  titleFallback: string;
-}
-
-interface EvalRow {
-  position: number;
-  side: "You" | "Match";
-  content: string;
-  eval_delta: number | null;
-  eval_after: number | null;
-}
-
-function toWireMoves(rows: EvalRow[]): WireMove[] {
-  return rows.map((r) =>
-    r.side === "You"
-      ? {
-          position: r.position,
-          side: "You" as const,
-          content: r.content,
-          classification: classifyEvalDelta(r.eval_delta, r.eval_after),
-          swing: r.eval_delta != null ? Math.round((r.eval_delta / 10) * 10) / 10 : null,
-          eval_after: r.eval_after,
-        }
-      : { position: r.position, side: "Match" as const, content: r.content },
-  );
-}
+// The card-data shape + row mapping live in @matedate/visuals (the video app reuses them);
+// re-exported so `ShareCardModal` keeps importing `ShareCardData` from here.
+export type { ShareCardData };
 
 // Loose client typing (frontend Supabase clients are intentionally untyped — see the memory note).
 type DB = SupabaseClient;

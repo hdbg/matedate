@@ -1,14 +1,19 @@
 "use client";
 
 import { createClient } from "../supabase/client";
-import type { MoveClassKey } from "./types";
+import type { MoveClassKey, WireMove } from "@matedate/visuals";
 
 /**
  * Wire protocol for the solo PvE WebSocket backend (`backend/app/protocol.py`).
  * The match screen connects to `/ws?token=<supabase access token>`, receives a
  * `new_game` (or `game_state` on reconnect), sends `move`s, and receives graded
  * `response`s until a `finish`.
+ *
+ * `WireMove` is the shared card/graph input, so it lives in `@matedate/visuals`; re-exported here
+ * so existing `@/app/lib/game/live` imports keep resolving.
  */
+
+export type { WireMove };
 
 export interface WirePersona {
   slug: string;
@@ -16,15 +21,6 @@ export interface WirePersona {
   hint: string;
   opening_line: string;
   suggested_messages: string[];
-}
-
-export interface WireMove {
-  position: number;
-  side: "You" | "Match";
-  content: string;
-  classification?: MoveClassKey | null;
-  swing?: number | null;
-  eval_after?: number | null; // 0-100 interest after this move (You moves) — drives the eval graph
 }
 
 export type ServerMessage =

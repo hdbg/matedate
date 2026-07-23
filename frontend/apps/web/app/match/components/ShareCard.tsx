@@ -1,10 +1,15 @@
 import { forwardRef } from "react";
 import { Logo } from "@/app/components/ui/Logo";
 import { MoveIcon } from "@/app/components/ui/MoveIcon";
-import { ARCHETYPES, type Archetype } from "@/app/lib/game/archetypes";
-import { SITE_DOMAIN, memeMoves, titleParts } from "@/app/lib/game/cardHelpers";
-import { formatSwing } from "@/app/lib/game/service";
-import type { MoveClassKey } from "@/app/lib/game/types";
+import {
+  ARCHETYPES,
+  formatSwing,
+  memeMoves,
+  SITE_DOMAIN,
+  titleParts,
+  type Archetype,
+  type MoveClassKey,
+} from "@matedate/visuals";
 import type { WireMove } from "@/app/lib/game/live";
 import { EvalGraph } from "./EvalGraph";
 

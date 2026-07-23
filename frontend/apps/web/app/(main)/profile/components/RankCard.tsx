@@ -1,5 +1,4 @@
-import type { TierInfo } from "@/app/lib/game/tiers";
-import { PROVISIONAL_GAMES } from "@/app/lib/game/tiers";
+import { PROVISIONAL_GAMES, type TierInfo } from "@matedate/visuals";
 
 interface RankCardProps {
   elo: number;

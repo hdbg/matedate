@@ -5,7 +5,7 @@ import { LogoMark } from "@/app/components/ui/Logo";
 import { LoadingScene } from "@/app/components/ui/LoadingScene";
 import { MoveIcon } from "@/app/components/ui/MoveIcon";
 import { formatSwing, type MoveClassKey } from "@/app/lib/game/service";
-import { ARCHETYPES } from "@/app/lib/game/archetypes";
+import { ARCHETYPES } from "@matedate/visuals";
 import { useArchetype } from "@/app/lib/game/useArchetype";
 import type { WireMove } from "@/app/lib/game/live";
 import type { PvpResult } from "../usePvpGame";

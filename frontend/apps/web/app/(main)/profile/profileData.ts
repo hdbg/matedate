@@ -13,7 +13,7 @@ import type {
   SoloGameRow,
   TextingStyle,
 } from "@/app/lib/supabase/types";
-import { tierFor, type TierInfo } from "@/app/lib/game/tiers";
+import { tierFor, type TierInfo } from "@matedate/visuals";
 
 /** New accounts start at 1000 (the player_ratings default, minted by the signup trigger). */
 const DEFAULT_ELO = 1000;
