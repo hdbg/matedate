@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { MoveBadge } from "@matedate/visuals";
-import { cn } from "@/app/lib/utils";
+import { ChatBubble } from "@matedate/visuals";
 import type { Message } from "../useMatchGame";
 
 function TypingIndicator() {
@@ -19,34 +18,16 @@ function TypingIndicator() {
   );
 }
 
+/** Web adapter: maps a live `Message` onto the shared `ChatBubble`, keeping the entrance animation
+ * class (its @keyframes live in globals.css). */
 function MessageBubble({ message }: { message: Message }) {
-  if (message.side === "system") {
-    return (
-      <div className="animate-bubble-in self-start">
-        <div className="rounded-[20px] rounded-bl-[6px] bg-cream-2 px-[15px] py-[11px] font-mono text-[13px] leading-[1.38]">
-          {message.text}
-        </div>
-      </div>
-    );
-  }
-
-  const isYou = message.side === "you";
   return (
-    <div className={cn("animate-bubble-in flex max-w-[82%] flex-col", isYou ? "self-end items-end" : "self-start")}>
-      <div
-        className={cn(
-          "px-[15px] py-[11px] text-[15px] leading-[1.38]",
-          isYou
-            ? "rounded-[20px] rounded-br-[6px] bg-rosy text-white"
-            : "rounded-[20px] rounded-bl-[6px] bg-white shadow-[0_2px_6px_rgba(39,35,32,0.08)]",
-        )}
-      >
-        {message.text}
-      </div>
-      {message.move && (
-        <MoveBadge classKey={message.move.classKey} swing={message.move.swing} className="mt-1.5" />
-      )}
-    </div>
+    <ChatBubble
+      side={message.side}
+      text={message.text}
+      move={message.move ? { classKey: message.move.classKey, swing: message.move.swing } : undefined}
+      className="animate-bubble-in"
+    />
   );
 }
 

@@ -1,11 +1,17 @@
+import { cn } from "../lib/cn";
+
 interface EvalBarProps {
   /** Persona's interest, 0–100. */
   interest: number;
   personaName: string;
+  /** App-supplied class for the fill's width transition. The web app passes its
+   * `transition-[width] duration-[600ms] …` (a CSS transition it owns); the video app omits it and
+   * animates `interest` frame-by-frame, so the package defines no transition. */
+  fillClassName?: string;
 }
 
 /** The interest meter — a tug-of-war fill between you and the match. */
-export function EvalBar({ interest, personaName }: EvalBarProps) {
+export function EvalBar({ interest, personaName, fillClassName }: EvalBarProps) {
   const rounded = Math.round(interest);
   // Persona names look like "Maya, 26"; use the first name for the label.
   const firstName = personaName.split(",")[0];
@@ -22,10 +28,7 @@ export function EvalBar({ interest, personaName }: EvalBarProps) {
         </span>
       </div>
       <div className="flex h-[14px] overflow-hidden rounded-full bg-ink shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]">
-        <div
-          className="h-full bg-rosy transition-[width] duration-[600ms] ease-[cubic-bezier(0.34,1.2,0.4,1)]"
-          style={{ width: `${rounded}%` }}
-        />
+        <div className={cn("h-full bg-rosy", fillClassName)} style={{ width: `${rounded}%` }} />
       </div>
     </div>
   );

@@ -8,13 +8,12 @@ import { useSupabase } from "@/app/providers/SupabaseProvider";
 import { useSession } from "@/app/providers/SessionProvider";
 import { type TimeControl, type VersusMode } from "@/app/lib/game/service";
 import { AfterGameModal, type AnalysisStatus } from "./components/AfterGameModal";
+import { EvalBar, VerdictFlash } from "@matedate/visuals";
 import { Composer } from "./components/Composer";
 import { CompetitiveStrip } from "./components/CompetitiveStrip";
-import { EvalBar } from "./components/EvalBar";
 import { MatchHeader } from "./components/MatchHeader";
 import { MatchIntro } from "./components/MatchIntro";
 import { MessageThread } from "./components/MessageThread";
-import { VerdictFlash } from "./components/VerdictFlash";
 import { PvpMatchScreen } from "./PvpMatchScreen";
 import { useMatchGame } from "./useMatchGame";
 import type { PvpAction } from "./usePvpGame";
@@ -109,7 +108,11 @@ function MatchScreen() {
             onBack={leave}
           />
           <CompetitiveStrip mode="bot" yourAcc={game.yourAcc} />
-          <EvalBar interest={game.interest} personaName={game.persona.name} />
+          <EvalBar
+            interest={game.interest}
+            personaName={game.persona.name}
+            fillClassName="transition-[width] duration-[600ms] ease-[cubic-bezier(0.34,1.2,0.4,1)]"
+          />
         </aside>
 
         {/* Conversation — thread + composer, capped for readability on desktop. */}
@@ -122,7 +125,14 @@ function MatchScreen() {
             onSend={game.send}
             onPeek={peek}
           />
-          {game.verdict && <VerdictFlash key={game.verdict.id} verdict={game.verdict} />}
+          {game.verdict && (
+            <VerdictFlash
+              key={game.verdict.id}
+              classKey={game.verdict.classKey}
+              swing={game.verdict.swing}
+              className="animate-verdict-pop"
+            />
+          )}
         </main>
       </div>
       {game.persona && game.intro && (

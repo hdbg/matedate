@@ -1,11 +1,20 @@
-import { forwardRef } from "react";
+import { forwardRef, type CSSProperties } from "react";
 import { Logo } from "../brand/Logo";
 import { MoveIcon } from "../game/MoveIcon";
 import { ARCHETYPES, type Archetype } from "../lib/archetypes";
 import { SITE_DOMAIN, memeMoves, titleParts } from "../lib/cardHelpers";
 import { formatSwing } from "../lib/grading";
+import { stagger } from "../lib/progress";
 import type { MoveClassKey, WireMove } from "../types";
 import { EvalGraph } from "./EvalGraph";
+
+/** Staggered reveal for one card section, driven by the sub-range progress `t` (0→1). Returns an
+ * EMPTY style at rest (`t >= 1`) so the web app (which passes `progress={1}`) renders with no inline
+ * style at all — byte-identical to a static card. A Remotion app passes a live `progress` to build
+ * the card up section by section. */
+function reveal(t: number): CSSProperties {
+  return t >= 1 ? {} : { opacity: t, transform: `translateY(${((1 - t) * 8).toFixed(2)}px)` };
+}
 
 export interface ShareCardProps {
   accuracy: number;
@@ -27,6 +36,9 @@ export interface ShareCardProps {
    * "animate-legendary-glow" (its @keyframes); the video app omits it and drives the sweep via
    * `progress`, so the package itself defines no animation. */
   legendaryTitleClassName?: string;
+  /** Overall reveal progress 0→1 (SPEC card build-up for video). Defaults to 1 = fully revealed
+   * static card; each section reveals over its own sub-range. */
+  progress?: number;
 }
 
 /** The exportable shareable card (SPEC §9.1) — the identity + eval graph + meme excerpt + CTA.
@@ -46,6 +58,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
     resultColor,
     capturing,
     legendaryTitleClassName,
+    progress = 1,
   },
   ref,
 ) {
@@ -56,7 +69,10 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
 
   return (
     <div ref={ref} className="overflow-hidden rounded-[22px] bg-ink text-king shadow-[var(--sh-3)]">
-      <div className="flex items-center justify-between px-[17px] pb-[11px] pt-[15px]">
+      <div
+        className="flex items-center justify-between px-[17px] pb-[11px] pt-[15px]"
+        style={reveal(stagger(progress, 0, 0.2))}
+      >
         <Logo markSize={22} wordmarkClassName="text-[18px] tracking-[-0.03em]" />
         <div className="text-right">
           <div className="text-[24px] font-extrabold leading-none tracking-[-0.03em]">
@@ -77,6 +93,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
             ? "[background-image:radial-gradient(120%_90%_at_50%_0%,rgba(227,178,60,.18),transparent_70%)]"
             : ""
         }`}
+        style={reveal(stagger(progress, 0, 0.25))}
       >
         <div
           className={`font-mono text-[9px] uppercase ${
@@ -106,10 +123,15 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
         )}
       </div>
 
-      <EvalGraph moves={moves} />
+      <div style={reveal(stagger(progress, 0.2, 0.35))}>
+        <EvalGraph moves={moves} />
+      </div>
 
       {/* meme moment — the shareable excerpt */}
-      <div className="flex flex-col gap-2 bg-[#332e2a] px-[17px] py-[15px]">
+      <div
+        className="flex flex-col gap-2 bg-[#332e2a] px-[17px] py-[15px]"
+        style={reveal(stagger(progress, 0.35, 0.3))}
+      >
         {meme.map((mv) => (
           <MemeBubble key={mv.position} move={mv} />
         ))}
@@ -124,7 +146,10 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
       </div>
 
       {/* footer — rating (prev + change) + result badge */}
-      <div className="flex items-center justify-between px-[17px] py-3">
+      <div
+        className="flex items-center justify-between px-[17px] py-3"
+        style={reveal(stagger(progress, 0.75, 0.25))}
+      >
         <div className="flex items-baseline gap-[7px]">
           <span className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-ink-mute">
             {ratingLabel}

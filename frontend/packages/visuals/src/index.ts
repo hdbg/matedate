@@ -10,6 +10,7 @@
 export * from "./types";
 export * from "./theme";
 export * from "./lib/cn";
+export * from "./lib/progress";
 export * from "./lib/grading";
 export * from "./lib/archetypes";
 export * from "./lib/tiers";
@@ -20,5 +21,8 @@ export * from "./lib/cardData";
 export * from "./brand/Wordmark";
 export * from "./brand/Logo";
 export * from "./game/MoveIcon";
+export * from "./game/VerdictFlash";
+export * from "./game/EvalBar";
+export * from "./game/ChatBubble";
 export * from "./card/EvalGraph";
 export * from "./card/ShareCard";

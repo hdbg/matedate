@@ -6,15 +6,14 @@ import { AppShell } from "@/app/components/ui/AppShell";
 import { useSession } from "@/app/providers/SessionProvider";
 import { useSupabase } from "@/app/providers/SupabaseProvider";
 import { TIME_CONTROL_LABEL, type TimeControl } from "@/app/lib/game/service";
+import { EvalBar, VerdictFlash } from "@matedate/visuals";
 import { Composer } from "./components/Composer";
-import { EvalBar } from "./components/EvalBar";
 import { MatchHeader } from "./components/MatchHeader";
 import { MatchIntro } from "./components/MatchIntro";
 import { MessageThread } from "./components/MessageThread";
 import { OpponentPanel } from "./components/OpponentPanel";
 import { PvpResultModal, type PvpAnalysisStatus } from "./components/PvpResultModal";
 import { InviteWait, SearchingOverlay } from "./components/PvpWaiting";
-import { VerdictFlash } from "./components/VerdictFlash";
 import { usePvpGame, type PvpAction } from "./usePvpGame";
 
 interface PvpMatchScreenProps {
@@ -155,7 +154,11 @@ export function PvpMatchScreen({ action, timeControl }: PvpMatchScreenProps) {
             clock={game.oppClock}
             turn={game.turn}
           />
-          <EvalBar interest={game.interest} personaName={game.persona.name} />
+          <EvalBar
+            interest={game.interest}
+            personaName={game.persona.name}
+            fillClassName="transition-[width] duration-[600ms] ease-[cubic-bezier(0.34,1.2,0.4,1)]"
+          />
         </aside>
 
         {/* Conversation — thread + composer, capped for readability on desktop. */}
@@ -175,7 +178,14 @@ export function PvpMatchScreen({ action, timeControl }: PvpMatchScreenProps) {
             onSend={game.send}
             onPeek={peek}
           />
-          {game.verdict && <VerdictFlash key={game.verdict.id} verdict={game.verdict} />}
+          {game.verdict && (
+            <VerdictFlash
+              key={game.verdict.id}
+              classKey={game.verdict.classKey}
+              swing={game.verdict.swing}
+              className="animate-verdict-pop"
+            />
+          )}
         </main>
       </div>
 
