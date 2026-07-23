@@ -1,81 +1,17 @@
 @import "tailwindcss";
 
-/* ---------------------------------------------------------------------------
-   MateDate design tokens — ported from mocks/MateDate Design System.html.
-   Raw CSS variables live in :root for direct var() use; @theme inline exposes
-   them to Tailwind so utilities like bg-rosy / text-ink / rounded-lg work.
---------------------------------------------------------------------------- */
-:root {
-  /* neutrals */
-  --cream: #f1e8d9;
-  --cream-2: #e7dcc8;
-  --paper: #f7f0e3;
-  --ink: #272320;
-  --ink-soft: #4a443c;
-  --ink-mute: #8a8175;
-  --king: #fbf6ec;
+/* Shared design tokens (palette, radii, shadows) live in @matedate/visuals so the web app and the
+   Remotion video app render with an identical theme. Imported via a relative path — Tailwind v4's
+   bare-specifier @import resolver isn't Yarn-PnP aware, so the package path would not resolve. */
+@import "../../../packages/visuals/src/theme.css";
 
-  /* accent */
-  --rosy: #d6536a;
-  --rosy-deep: #b8324c;
-  --rosy-tint: #f3d9de;
+/* Tell Tailwind to scan the workspace packages for utility classes (ShareCard, MoveIcon, Logo, …
+   move there in later steps); without this their classes get purged. */
+@source "../../../packages/visuals/src";
+@source "../../../packages/icons/src";
 
-  /* rank-tier gold (badge/medal on the profile screen) */
-  --gold: #c99a33;
-
-  /* move classification ramp (checkmates are the terminal bounds, SPEC §3) */
-  --m-checkmate-win: #4e8c46;
-  --m-brilliant: #1f9e8a;
-  --m-great: #3a7ca5;
-  --m-good: #5f9a55;
-  --m-inaccuracy: #c99a33;
-  --m-mistake: #cf7a3c;
-  --m-blunder: #b8324c;
-  --m-checkmate-loss: #a3283f;
-
-  /* radii */
-  --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 18px;
-  --r-xl: 26px;
-  --r-pill: 999px;
-
-  /* shadows */
-  --sh-1: 0 2px 6px rgba(39, 35, 32, 0.08);
-  --sh-2: 0 8px 22px rgba(39, 35, 32, 0.12);
-  --sh-3: 0 18px 40px rgba(39, 35, 32, 0.16);
-}
-
+/* Fonts stay app-specific: map Tailwind's font tokens to this app's next/font variables. */
 @theme inline {
-  --color-cream: var(--cream);
-  --color-cream-2: var(--cream-2);
-  --color-paper: var(--paper);
-  --color-ink: var(--ink);
-  --color-ink-soft: var(--ink-soft);
-  --color-ink-mute: var(--ink-mute);
-  --color-king: var(--king);
-
-  --color-rosy: var(--rosy);
-  --color-rosy-deep: var(--rosy-deep);
-  --color-rosy-tint: var(--rosy-tint);
-
-  --color-gold: var(--gold);
-
-  --color-m-checkmate-win: var(--m-checkmate-win);
-  --color-m-brilliant: var(--m-brilliant);
-  --color-m-great: var(--m-great);
-  --color-m-good: var(--m-good);
-  --color-m-inaccuracy: var(--m-inaccuracy);
-  --color-m-mistake: var(--m-mistake);
-  --color-m-blunder: var(--m-blunder);
-  --color-m-checkmate-loss: var(--m-checkmate-loss);
-
-  --radius-sm: var(--r-sm);
-  --radius-md: var(--r-md);
-  --radius-lg: var(--r-lg);
-  --radius-xl: var(--r-xl);
-  --radius-pill: var(--r-pill);
-
   --font-sans: var(--font-bricolage);
   --font-mono: var(--font-space-mono);
 }

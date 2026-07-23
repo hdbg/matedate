@@ -8,6 +8,7 @@
  * single `progress` prop.
  */
 export * from "./types";
+export * from "./theme";
 export * from "./lib/grading";
 export * from "./lib/archetypes";
 export * from "./lib/tiers";
