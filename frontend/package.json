@@ -11,6 +11,8 @@
     "dev": "yarn workspace web dev",
     "build": "yarn workspace web build",
     "start": "yarn workspace web start",
-    "lint": "yarn workspace web lint"
+    "lint": "yarn workspace web lint",
+    "check:packages": "sh scripts/check-packages.sh",
+    "check": "yarn check:packages && yarn workspace web exec tsc --noEmit && yarn workspace web lint"
   }
 }

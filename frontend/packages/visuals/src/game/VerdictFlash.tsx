@@ -7,8 +7,8 @@ interface VerdictFlashProps {
   classKey: MoveClassKey;
   swing: number;
   /** App-supplied animation class for the center-screen pop. The web app passes
-   * "animate-verdict-pop" (its @keyframes live in globals.css); the video app omits it and drives
-   * the motion via `progress`, so the package defines no animation. Re-key the element on each new
+   * "animate-verdict-pop" (its keyframes live in the app's CSS); the video app omits it and drives
+   * the motion via `progress`, so the package defines no motion. Re-key the element on each new
    * verdict so the animation replays. */
   className?: string;
 }

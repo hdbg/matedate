@@ -7,8 +7,8 @@ interface ChatBubbleProps {
   text: string;
   /** The graded verdict shown as a pill under a "you" bubble. */
   move?: { classKey: MoveClassKey; swing: number };
-  /** App-supplied entrance animation class. The web app passes "animate-bubble-in" (its @keyframes
-   * live in globals.css); the video app omits it and drives the entrance via `progress`. */
+  /** App-supplied entrance animation class. The web app passes "animate-bubble-in" (its keyframes
+   * live in the app's CSS); the video app omits it and drives the entrance via `progress`. */
   className?: string;
 }
 

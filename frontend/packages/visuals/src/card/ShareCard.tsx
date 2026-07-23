@@ -33,8 +33,8 @@ export interface ShareCardProps {
   /** True only while capturing the PNG — reveals the CTA band (image-only). */
   capturing: boolean;
   /** Class applied to the legendary title for the app's gold-sweep animation. The web app passes
-   * "animate-legendary-glow" (its @keyframes); the video app omits it and drives the sweep via
-   * `progress`, so the package itself defines no animation. */
+   * "animate-legendary-glow" (its keyframes live in the app's CSS); the video app omits it and
+   * drives the sweep via `progress`, so the package itself defines no motion. */
   legendaryTitleClassName?: string;
   /** Overall reveal progress 0→1 (SPEC card build-up for video). Defaults to 1 = fully revealed
    * static card; each section reveals over its own sub-range. */
