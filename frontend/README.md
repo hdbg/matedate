@@ -45,8 +45,8 @@ no branding, no logic. (The classification glyphs are path-group primitives mean
 
 **`@matedate/visuals`** — depends on `@matedate/icons` + its own theme. Owns the grading vocabulary,
 archetype/tier logic, card-data shapes, the theme (`theme.css` + `theme.ts`), and the
-Logo/Wordmark/MoveIcon/ShareCard/EvalGraph/EvalBar/VerdictFlash/ChatBubble tree. Still pure
-presentational.
+Logo/Wordmark/MoveIcon/ShareCard/EvalGraph/EvalBar/VerdictFlash/ChatBubble/LoadingScene tree. Still
+pure presentational.
 
 **`apps/web`** — everything browser-, session-, or data-bound: Supabase, sound, routing, layout
 shells, the hooks (`useArchetype`, `useShareCard`), the WS clients. It keeps thin re-export bridges

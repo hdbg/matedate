@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ARCHETYPES, formatSwing, LogoMark, MoveIcon, ShareCard, type MoveClassKey } from "@matedate/visuals";
-import { LoadingScene } from "@/app/components/ui/LoadingScene";
+import { ARCHETYPES, formatSwing, LoadingScene, LogoMark, MoveIcon, ShareCard, type MoveClassKey } from "@matedate/visuals";
 import { useArchetype } from "@/app/lib/game/useArchetype";
 import type { WireMove } from "@/app/lib/game/live";
 import type { PvpResult } from "../usePvpGame";

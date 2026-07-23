@@ -2,8 +2,7 @@
 
 import { useEffect } from "react";
 import { QueenIcon } from "@matedate/icons";
-import { ARCHETYPES, isSoloWin, LogoMark, ShareCard, soloResultBadge } from "@matedate/visuals";
-import { LoadingScene } from "@/app/components/ui/LoadingScene";
+import { ARCHETYPES, isSoloWin, LoadingScene, LogoMark, ShareCard, soloResultBadge } from "@matedate/visuals";
 import { useArchetype } from "@/app/lib/game/useArchetype";
 import type { GameResult } from "../useMatchGame";
 import { useShareCard } from "./useShareCard";

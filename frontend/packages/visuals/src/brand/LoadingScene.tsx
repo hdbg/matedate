@@ -1,16 +1,20 @@
+import { KingIcon, QueenIcon } from "@matedate/icons";
+
 /**
  * "Analyzing…" loader — the queen looming over a shaking king with a bursting "!!", ported from
- * mocks/MateDate Loading.html.
+ * mocks/MateDate Loading.html. Shown in the after-game card slot while the archetype classification
+ * is still being computed (and as a fullscreen overlay).
  *
  * Two variants:
  * - `fullscreen` (default): a fixed, full-viewport overlay.
- * - `inline`: fills its container (a rounded dark panel), used in the after-game card slot while
- *   the archetype classification is still being computed.
+ * - `inline`: fills its container (a rounded dark panel), used in the after-game/share-card slot.
  *
- * Decorative chess pieces come from @matedate/icons (inline SVG, no /public root).
+ * Motion follows the package rule: the `animate-*` classes are app-supplied Tailwind utilities, so
+ * the consuming app must define these looping keyframes in its own CSS (the web app has them in
+ * `apps/web/app/globals.css`): `queen-loom`, `king-bob`, `king-shake`, `bang-burst`, `floor-pulse`,
+ * `loading-dot`. Without them the scene renders static (graceful degradation) — the package itself
+ * defines no CSS animation.
  */
-import { KingIcon, QueenIcon } from "@matedate/icons";
-
 export function LoadingScene({
   status = "Analyzing your moves",
   inline = false,

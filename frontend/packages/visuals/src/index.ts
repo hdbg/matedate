@@ -20,6 +20,7 @@ export * from "./lib/cardData";
 // Brand + card + game visuals (pure presentational; see the package rules in this dir).
 export * from "./brand/Wordmark";
 export * from "./brand/Logo";
+export * from "./brand/LoadingScene";
 export * from "./game/MoveIcon";
 export * from "./game/VerdictFlash";
 export * from "./game/EvalBar";

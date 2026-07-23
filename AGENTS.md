@@ -300,7 +300,8 @@ PvP `pvp.py::_finish` → `enqueue_match_archetype` for **both sides** (each pla
 > **Paths in this section are under `frontend/apps/web/`** (the app moved into the workspace).
 > The **shared visuals were extracted** to `@matedate/visuals` (`frontend/packages/visuals`) and
 > `@matedate/icons`: the `ShareCard` tree, `EvalGraph`, `MoveIcon`/`MoveBadge`, `Logo`/`Wordmark`,
-> `EvalBar`, `VerdictFlash`, `ChatBubble`, the grading vocab (`MOVE_CLASSES`/`formatSwing`/
+> `EvalBar`, `VerdictFlash`, `ChatBubble`, `LoadingScene` (the archetype-waiting loader), the
+> grading vocab (`MOVE_CLASSES`/`formatSwing`/
 > `classify*`/`MoveClassKey`), `WireMove`/`ShareCardData`/`toWireMoves`, and `archetypes`/`tiers`/
 > `cardHelpers` now live there and are imported from `@matedate/visuals` (chess pieces + move
 > glyphs from `@matedate/icons`). The web keeps the data/session/hook layer (`useArchetype`,

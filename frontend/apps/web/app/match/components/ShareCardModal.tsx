@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSupabase } from "@/app/providers/SupabaseProvider";
-import { ARCHETYPES, ShareCard } from "@matedate/visuals";
-import { LoadingScene } from "@/app/components/ui/LoadingScene";
+import { ARCHETYPES, LoadingScene, ShareCard } from "@matedate/visuals";
 import { loadShareCardData, type ShareCardData } from "@/app/lib/game/shareCardData";
 import { useArchetypeBySource, type ArchetypeSource } from "@/app/lib/game/useArchetype";
 import { useShareCard } from "./useShareCard";

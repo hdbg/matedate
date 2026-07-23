@@ -7,7 +7,8 @@ layout and commands. Run all `yarn` commands from here.
   changes — read `node_modules/next/dist/docs/` before writing Next code). Everything browser-,
   session-, or data-bound lives here.
 - **`packages/icons/`** (`@matedate/icons`) — pure inline-SVG primitives, zero deps beyond React.
-- **`packages/visuals/`** (`@matedate/visuals`) — branded card/components + theme + card logic;
+- **`packages/visuals/`** (`@matedate/visuals`) — branded card/components (ShareCard, EvalGraph,
+  MoveIcon, Logo/Wordmark, EvalBar, VerdictFlash, ChatBubble, LoadingScene) + theme + card logic;
   depends only on `@matedate/icons`.
 
 ## Editing `packages/*` — hard rules (enforced by `yarn check:packages`)
