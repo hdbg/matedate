@@ -1,5 +1,6 @@
 "use client";
 
+import { PawnIcon } from "@matedate/icons";
 import { cn } from "@/app/lib/utils";
 import { avatarPublicUrl } from "@/app/lib/avatar";
 
@@ -28,8 +29,7 @@ export function Avatar({ path, size, className, previewUrl }: AvatarProps) {
         )}
         style={dims}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/white-pawn.svg" alt="" className="h-[72%] w-[72%]" />
+        <PawnIcon className="h-[72%] w-[72%]" />
       </span>
     );
   }

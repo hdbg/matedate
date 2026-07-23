@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@matedate/icons": ["../../packages/icons/src"]
     }
   },
   "include": [

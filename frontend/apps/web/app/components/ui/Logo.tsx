@@ -1,3 +1,4 @@
+import { KingIcon } from "@matedate/icons";
 import { cn } from "@/app/lib/utils";
 import { Wordmark } from "@/app/components/ui/Wordmark";
 
@@ -25,10 +26,7 @@ export function LogoMark({ size = 28, className }: LogoMarkProps) {
       >
         !!
       </span>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/assets/white-king.svg"
-        alt=""
+      <KingIcon
         className="relative z-[1] origin-bottom rotate-12"
         style={{ width: size, height: size }}
       />

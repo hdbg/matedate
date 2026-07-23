@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { QueenIcon } from "@matedate/icons";
 import { Avatar } from "@/app/components/ui/Avatar";
 import {
   TIME_CONTROL_LABEL,
@@ -234,13 +235,7 @@ export function MatchIntro({
               <>
                 <div className="relative">
                   <div className="grid h-[110px] w-[110px] place-items-center rounded-full border-[3px] border-gold bg-ink/40 shadow-[0_10px_30px_rgba(0,0,0,0.4)]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="/assets/black-queen.svg"
-                      alt=""
-                      aria-hidden
-                      className="h-[68%] w-[68%]"
-                    />
+                    <QueenIcon className="h-[68%] w-[68%]" />
                   </div>
                   {ranked && <TierChip tier={oppTier.glyph} label={oppTier.label} />}
                 </div>

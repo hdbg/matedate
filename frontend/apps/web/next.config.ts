@@ -11,6 +11,8 @@ const RYBBIT_HOST = process.env.RYBBIT_HOST ?? "https://app.rybbit.io";
 // Note: this project uses Yarn PnP, which Turbopack does not resolve here, so
 // the dev/build scripts pass --webpack. Webpack picks up .pnp.cjs correctly.
 const nextConfig: NextConfig = {
+  // Workspace packages ship TypeScript/JSX source (no build step), so Next must transpile them.
+  transpilePackages: ["@matedate/icons"],
   async rewrites() {
     return [
       { source: "/analytics/script.js", destination: `${RYBBIT_HOST}/api/script.js` },

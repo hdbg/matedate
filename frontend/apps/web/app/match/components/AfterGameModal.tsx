@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { QueenIcon } from "@matedate/icons";
 import { LogoMark } from "@/app/components/ui/Logo";
 import { LoadingScene } from "@/app/components/ui/LoadingScene";
 import { ARCHETYPES } from "@/app/lib/game/archetypes";
@@ -99,13 +100,7 @@ export function AfterGameModal({
         {/* result banner */}
         <div className="mb-[18px] text-center">
           <div className="relative mb-1.5 flex h-[66px] items-end justify-center gap-1.5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/assets/black-queen.svg"
-              alt=""
-              aria-hidden
-              className="h-[52px] [filter:drop-shadow(1px_0_0_rgba(39,35,32,0.25))_drop-shadow(-1px_0_0_rgba(39,35,32,0.25))_drop-shadow(0_1px_0_rgba(39,35,32,0.25))_drop-shadow(0_-1px_0_rgba(39,35,32,0.25))]"
-            />
+            <QueenIcon className="h-[52px] w-auto [filter:drop-shadow(1px_0_0_rgba(39,35,32,0.25))_drop-shadow(-1px_0_0_rgba(39,35,32,0.25))_drop-shadow(0_1px_0_rgba(39,35,32,0.25))_drop-shadow(0_-1px_0_rgba(39,35,32,0.25))]" />
             <LogoMark size={64} />
           </div>
           <div className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-rosy-deep">

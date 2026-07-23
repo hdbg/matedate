@@ -643,6 +643,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@matedate/icons@workspace:*, @matedate/icons@workspace:packages/icons":
+  version: 0.0.0-use.local
+  resolution: "@matedate/icons@workspace:packages/icons"
+  dependencies:
+    "@types/react": "npm:^19"
+  peerDependencies:
+    react: "*"
+  languageName: unknown
+  linkType: soft
+
 "@napi-rs/wasm-runtime@npm:^1.1.4":
   version: 1.1.6
   resolution: "@napi-rs/wasm-runtime@npm:1.1.6"
@@ -4634,6 +4644,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "web@workspace:apps/web"
   dependencies:
+    "@matedate/icons": "workspace:*"
     "@supabase/ssr": "npm:^0.12.0"
     "@supabase/supabase-js": "npm:^2.110.2"
     "@tailwindcss/postcss": "npm:^4"

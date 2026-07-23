@@ -1,3 +1,4 @@
+import { QueenIcon } from "@matedate/icons";
 import type { Persona } from "@/app/lib/game/service";
 import { cn } from "@/app/lib/utils";
 
@@ -38,8 +39,7 @@ export function MatchHeader({
 
       <div className="flex min-w-0 flex-1 items-center gap-[11px]">
         <div className="grid h-11 w-11 flex-shrink-0 place-items-center overflow-hidden rounded-[14px] bg-ink">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/assets/black-queen.svg" alt="" aria-hidden className="mt-1.5 h-[38px]" />
+          <QueenIcon className="mt-1.5 h-[38px] w-auto" />
         </div>
         <div className="min-w-0">
           <div className="truncate text-[18px] font-extrabold leading-[1.1] tracking-[-0.02em]">
