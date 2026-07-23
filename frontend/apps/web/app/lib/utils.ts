@@ -1,7 +1,6 @@
-/** Join truthy class names into a single className string. */
-export function cn(...classes: Array<string | false | null | undefined>): string {
-  return classes.filter(Boolean).join(" ");
-}
+// `cn` now lives in @matedate/visuals (shared with the video app); re-exported here so the ~30
+// existing `@/app/lib/utils` importers keep resolving.
+export { cn } from "@matedate/visuals";
 
 /** Compact relative timestamp for list rows: "just now" → "5h ago" → "yesterday" → "Jul 12". */
 export function formatRelativeTime(iso: string, now: Date = new Date()): string {

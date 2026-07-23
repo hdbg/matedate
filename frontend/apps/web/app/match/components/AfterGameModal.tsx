@@ -2,12 +2,10 @@
 
 import { useEffect } from "react";
 import { QueenIcon } from "@matedate/icons";
-import { LogoMark } from "@/app/components/ui/Logo";
+import { ARCHETYPES, isSoloWin, LogoMark, ShareCard, soloResultBadge } from "@matedate/visuals";
 import { LoadingScene } from "@/app/components/ui/LoadingScene";
-import { ARCHETYPES, isSoloWin, soloResultBadge } from "@matedate/visuals";
 import { useArchetype } from "@/app/lib/game/useArchetype";
 import type { GameResult } from "../useMatchGame";
-import { ShareCard } from "./ShareCard";
 import { useShareCard } from "./useShareCard";
 
 /** State of the "Deep analysis" request. It's fire-and-forget: once `requested`, the review runs
@@ -127,6 +125,7 @@ export function AfterGameModal({
             resultLabel={soloResultBadge(result.endReason, win)}
             resultColor={win ? "var(--m-good)" : "var(--m-blunder)"}
             capturing={capturing}
+            legendaryTitleClassName="animate-legendary-glow"
           />
         )}
 

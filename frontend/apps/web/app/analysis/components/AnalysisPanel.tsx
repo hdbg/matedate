@@ -1,4 +1,4 @@
-import { MoveIcon } from "@/app/components/ui/MoveIcon";
+import { MoveIcon } from "@matedate/visuals";
 import { formatSwing, MOVE_CLASSES } from "@/app/lib/game/service";
 import { cn } from "@/app/lib/utils";
 import type { ReviewMove } from "../review";

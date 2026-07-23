@@ -1,6 +1,6 @@
 import { KingIcon } from "@matedate/icons";
-import { cn } from "@/app/lib/utils";
-import { Wordmark } from "@/app/components/ui/Wordmark";
+import { cn } from "../lib/cn";
+import { Wordmark } from "./Wordmark";
 
 interface LogoMarkProps {
   /** King height in px; the marks scale with it. */

@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { AppShell } from "@/app/components/ui/AppShell";
-import { Logo } from "@/app/components/ui/Logo";
+import { Logo } from "@matedate/visuals";
 
 /**
  * Friend-challenge landing: the link a creator shares (`/join/<code>`). The unguessable

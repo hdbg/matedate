@@ -1,5 +1,5 @@
-import type { WireMove } from "@/app/lib/game/live";
-import { MOVE_CLASSES, classifySwing, type MoveClassKey } from "@/app/lib/game/types";
+import { classifySwing, MOVE_CLASSES } from "../lib/grading";
+import type { MoveClassKey, WireMove } from "../types";
 
 /** Move classes worth flagging with a colored dot on the graph (the dramatic ones). */
 const DOT_CLASSES: ReadonlySet<MoveClassKey> = new Set<MoveClassKey>([

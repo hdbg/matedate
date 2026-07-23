@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { MoveBadge } from "@/app/components/ui/MoveIcon";
+import { MoveBadge } from "@matedate/visuals";
 import { cn } from "@/app/lib/utils";
 import type { ReviewThreadItem } from "../review";
 

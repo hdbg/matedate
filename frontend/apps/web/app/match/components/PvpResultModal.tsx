@@ -1,15 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LogoMark } from "@/app/components/ui/Logo";
+import { ARCHETYPES, formatSwing, LogoMark, MoveIcon, ShareCard, type MoveClassKey } from "@matedate/visuals";
 import { LoadingScene } from "@/app/components/ui/LoadingScene";
-import { MoveIcon } from "@/app/components/ui/MoveIcon";
-import { formatSwing, type MoveClassKey } from "@/app/lib/game/service";
-import { ARCHETYPES } from "@matedate/visuals";
 import { useArchetype } from "@/app/lib/game/useArchetype";
 import type { WireMove } from "@/app/lib/game/live";
 import type { PvpResult } from "../usePvpGame";
-import { ShareCard } from "./ShareCard";
 import { useShareCard } from "./useShareCard";
 
 /** State of the "Deep analysis" request — fire-and-forget, same contract as the solo modal:
@@ -148,6 +144,7 @@ export function PvpResultModal({
             resultLabel={`⚔️ ${badge.label}`}
             resultColor={resultColor}
             capturing={capturing}
+            legendaryTitleClassName="animate-legendary-glow"
           />
         )}
 

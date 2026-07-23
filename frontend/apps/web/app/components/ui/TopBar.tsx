@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Logo } from "@/app/components/ui/Logo";
+import { Logo } from "@matedate/visuals";
 import { NotificationsBell } from "@/app/components/ui/NotificationsBell";
 import { TABS, type TabLabel } from "@/app/components/ui/TabBar";
 import { cn } from "@/app/lib/utils";

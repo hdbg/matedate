@@ -9,14 +9,15 @@ import {
   InaccuracyGlyph,
   MistakeGlyph,
 } from "@matedate/icons";
-import { formatSwing, MOVE_CLASSES, type MoveClassKey } from "@/app/lib/game/service";
-import { cn } from "@/app/lib/utils";
+import { formatSwing, MOVE_CLASSES } from "../lib/grading";
+import type { MoveClassKey } from "../types";
+import { cn } from "../lib/cn";
 
 /**
  * Move-classification icon family, ported from mocks/MateDate Move Icons.html: a white knockout
  * glyph on a disc that reads `currentColor`, one per engine verdict (Brilliant … Blunder plus the
- * terminal checkmates). The glyph artwork lives in `@matedate/icons` (shared with the video app);
- * this composes it over the semantically-colored disc.
+ * terminal checkmates). The glyph artwork lives in `@matedate/icons`; this composes it over the
+ * semantically-colored disc.
  */
 const GLYPHS: Record<MoveClassKey, ComponentType> = {
   checkmate_win: CheckmateWinGlyph,

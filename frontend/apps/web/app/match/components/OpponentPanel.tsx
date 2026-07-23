@@ -1,7 +1,7 @@
 "use client";
 
 import { Avatar } from "@/app/components/ui/Avatar";
-import { MoveIcon } from "@/app/components/ui/MoveIcon";
+import { MoveIcon } from "@matedate/visuals";
 import type { WireOppMove } from "@/app/lib/game/pvpLive";
 import { cn } from "@/app/lib/utils";
 import type { PvpOpponent } from "../usePvpGame";

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Button } from "@/app/components/ui/Button";
-import { MoveIcon } from "@/app/components/ui/MoveIcon";
+import { MoveIcon } from "@matedate/visuals";
 import { OnboardingScreen, Spacer, Sub, Title } from "./chrome";
 
 function Stat({ value, label, valueClassName }: { value: ReactNode; label: string; valueClassName?: string }) {

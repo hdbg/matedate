@@ -1,4 +1,4 @@
-import { cn } from "@/app/lib/utils";
+import { cn } from "../lib/cn";
 
 interface WordmarkProps {
   className?: string;

@@ -1,4 +1,4 @@
-import { MoveIcon } from "@/app/components/ui/MoveIcon";
+import { MoveIcon } from "@matedate/visuals";
 import { formatSwing, MOVE_CLASSES } from "@/app/lib/game/service";
 import type { VerdictState } from "../useMatchGame";
 

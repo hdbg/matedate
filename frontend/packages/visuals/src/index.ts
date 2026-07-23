@@ -9,8 +9,16 @@
  */
 export * from "./types";
 export * from "./theme";
+export * from "./lib/cn";
 export * from "./lib/grading";
 export * from "./lib/archetypes";
 export * from "./lib/tiers";
 export * from "./lib/cardHelpers";
 export * from "./lib/cardData";
+
+// Brand + card + game visuals (pure presentational; see the package rules in this dir).
+export * from "./brand/Wordmark";
+export * from "./brand/Logo";
+export * from "./game/MoveIcon";
+export * from "./card/EvalGraph";
+export * from "./card/ShareCard";

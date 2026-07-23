@@ -1,16 +1,10 @@
 import { forwardRef } from "react";
-import { Logo } from "@/app/components/ui/Logo";
-import { MoveIcon } from "@/app/components/ui/MoveIcon";
-import {
-  ARCHETYPES,
-  formatSwing,
-  memeMoves,
-  SITE_DOMAIN,
-  titleParts,
-  type Archetype,
-  type MoveClassKey,
-} from "@matedate/visuals";
-import type { WireMove } from "@/app/lib/game/live";
+import { Logo } from "../brand/Logo";
+import { MoveIcon } from "../game/MoveIcon";
+import { ARCHETYPES, type Archetype } from "../lib/archetypes";
+import { SITE_DOMAIN, memeMoves, titleParts } from "../lib/cardHelpers";
+import { formatSwing } from "../lib/grading";
+import type { MoveClassKey, WireMove } from "../types";
 import { EvalGraph } from "./EvalGraph";
 
 export interface ShareCardProps {
@@ -29,6 +23,10 @@ export interface ShareCardProps {
   resultColor: string;
   /** True only while capturing the PNG — reveals the CTA band (image-only). */
   capturing: boolean;
+  /** Class applied to the legendary title for the app's gold-sweep animation. The web app passes
+   * "animate-legendary-glow" (its @keyframes); the video app omits it and drives the sweep via
+   * `progress`, so the package itself defines no animation. */
+  legendaryTitleClassName?: string;
 }
 
 /** The exportable shareable card (SPEC §9.1) — the identity + eval graph + meme excerpt + CTA.
@@ -47,6 +45,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
     resultLabel,
     resultColor,
     capturing,
+    legendaryTitleClassName,
   },
   ref,
 ) {
@@ -89,7 +88,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
         <h2
           className={`mt-1 text-[25px] font-extrabold leading-[1.02] tracking-[-0.035em] ${
             meta?.legendary
-              ? "animate-legendary-glow bg-[linear-gradient(100deg,#f6d878,#e3b23c_45%,#fff_55%,#f6d878)] bg-[length:200%_auto] bg-clip-text text-transparent"
+              ? `${legendaryTitleClassName ?? ""} bg-[linear-gradient(100deg,#f6d878,#e3b23c_45%,#fff_55%,#f6d878)] bg-[length:200%_auto] bg-clip-text text-transparent`
               : "text-king"
           }`}
         >

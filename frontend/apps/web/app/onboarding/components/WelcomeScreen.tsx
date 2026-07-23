@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { Button } from "@/app/components/ui/Button";
 import { HeroScene } from "@/app/components/ui/HeroScene";
-import { MoveIcon } from "@/app/components/ui/MoveIcon";
-import { Wordmark } from "@/app/components/ui/Wordmark";
+import { MoveIcon, Wordmark } from "@matedate/visuals";
 import { OnboardingScreen, Spacer } from "./chrome";
 
 function Feature({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {

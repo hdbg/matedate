@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSupabase } from "@/app/providers/SupabaseProvider";
+import { ARCHETYPES, ShareCard } from "@matedate/visuals";
 import { LoadingScene } from "@/app/components/ui/LoadingScene";
-import { ARCHETYPES } from "@matedate/visuals";
 import { loadShareCardData, type ShareCardData } from "@/app/lib/game/shareCardData";
 import { useArchetypeBySource, type ArchetypeSource } from "@/app/lib/game/useArchetype";
-import { ShareCard } from "./ShareCard";
 import { useShareCard } from "./useShareCard";
 
 /** Source for a historic share card: a solo game, or a PvP match (with the viewer's own side so
@@ -137,6 +136,7 @@ export function ShareCardModal({ source, onClose }: ShareCardModalProps) {
             resultLabel={data.resultLabel}
             resultColor={data.resultColor}
             capturing={capturing}
+            legendaryTitleClassName="animate-legendary-glow"
           />
         )}
 
