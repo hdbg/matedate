@@ -12,10 +12,14 @@
  */
 
 /** Routes a signed-out visitor may see. Everything else redirects to onboarding. */
-const PUBLIC_PATHS = ["/", "/onboarding"];
+const PUBLIC_PATHS = ["/", "/onboarding", "/login", "/forgot-password"];
 
-/** Route prefixes that stay public (e.g. friend-challenge landing pages). */
-const PUBLIC_PREFIXES = ["/join/"];
+/**
+ * Route prefixes that stay public: friend-challenge landing pages, and the auth
+ * link handlers (`/auth/confirm` verifies before a session exists; `/auth/reset`
+ * runs on a recovery session) — the proxy must not bounce these to onboarding.
+ */
+const PUBLIC_PREFIXES = ["/join/", "/auth/"];
 
 export function isPublicPath(pathname: string): boolean {
   return (

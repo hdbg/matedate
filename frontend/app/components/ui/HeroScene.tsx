@@ -20,7 +20,9 @@ export function HeroScene({ className }: HeroSceneProps) {
         className="h-[118px] [filter:drop-shadow(1px_0_0_rgba(241,232,217,0.5))_drop-shadow(-1px_0_0_rgba(241,232,217,0.5))_drop-shadow(0_1px_0_rgba(241,232,217,0.5))_drop-shadow(0_-1px_0_rgba(241,232,217,0.5))]"
       />
       <div className="relative">
-        <span className="absolute left-[57%] top-0.5 text-[44px] font-extrabold tracking-[-0.04em] text-rosy [text-shadow:0_0_22px_rgba(214,83,106,0.5)]">
+        {/* The "!!" sits off the king's top-right corner, angled with the king's lean and behind
+            it (z-0) so it peeks past the cross instead of overlapping — same treatment as LogoMark. */}
+        <span className="absolute left-[74%] top-[-8%] z-0 rotate-[24deg] text-[46px] font-extrabold leading-none tracking-[-0.04em] text-rosy [text-shadow:0_0_22px_rgba(214,83,106,0.5)]">
           !!
         </span>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -28,7 +30,7 @@ export function HeroScene({ className }: HeroSceneProps) {
           src="/assets/white-king.svg"
           alt=""
           aria-hidden
-          className="h-[134px] origin-bottom rotate-12"
+          className="relative z-[1] h-[134px] origin-bottom rotate-12"
         />
       </div>
     </div>

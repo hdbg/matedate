@@ -14,6 +14,7 @@ import { GoalQuizScreen } from "./components/GoalQuizScreen";
 import { IdentityScreen } from "./components/IdentityScreen";
 import { ProfileSetupScreen } from "./components/ProfileSetupScreen";
 import { StyleQuizScreen } from "./components/StyleQuizScreen";
+import { VerifyEmailScreen } from "./components/VerifyEmailScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { isDarkStep, progressValue, useOnboarding } from "./useOnboarding";
 
@@ -54,7 +55,10 @@ function OnboardingFlow() {
             className="animate-screen-in flex flex-1 flex-col overflow-hidden lg:mx-auto lg:w-full lg:max-w-[520px]"
           >
             {step === "welcome" && (
-              <WelcomeScreen onStart={() => goTo("age")} onSignIn={() => goTo("account")} />
+              <WelcomeScreen
+                onStart={() => goTo("age")}
+                onSignIn={() => router.push(`/login?next=${encodeURIComponent(next)}`)}
+              />
             )}
             {step === "age" && (
               <AgeGateScreen
@@ -95,9 +99,18 @@ function OnboardingFlow() {
               <AccountScreen
                 submitting={flow.submitting}
                 error={flow.error}
+                next={next}
                 onBack={() => goTo("style")}
-                onSubmit={flow.createAccount}
+                onSubmit={(email, password) => flow.createAccount(email, password, next)}
                 onSkip={flow.skipAccount}
+              />
+            )}
+            {step === "verify" && (
+              <VerifyEmailScreen
+                email={flow.pendingEmail}
+                submitting={flow.submitting}
+                error={flow.error}
+                onResend={() => flow.resendConfirmation(next)}
               />
             )}
             {step === "profile" && (

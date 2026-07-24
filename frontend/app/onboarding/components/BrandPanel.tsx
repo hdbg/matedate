@@ -1,4 +1,5 @@
 import { HeroScene } from "@/app/components/ui/HeroScene";
+import { MoveIcon } from "@/app/components/ui/MoveIcon";
 import { Wordmark } from "@/app/components/ui/Wordmark";
 import { cn } from "@/app/lib/utils";
 
@@ -18,8 +19,14 @@ export function BrandPanel({ className }: { className?: string }) {
       <Wordmark className="text-center text-[56px] leading-none text-king" />
       <p className="mt-4 max-w-[22rem] text-center text-[17px] leading-[1.5] text-[#cfc6b6]">
         Flirting, graded like a chess engine. Every text gets a verdict —{" "}
-        <span className="font-mono text-m-brilliant">!! Brilliant</span> to{" "}
-        <span className="font-mono text-rosy">?? Blunder</span>.
+        <span className="whitespace-nowrap font-mono text-m-brilliant">
+          <MoveIcon classKey="brilliant" size={16} className="inline align-[-2px]" /> Brilliant
+        </span>{" "}
+        to{" "}
+        <span className="whitespace-nowrap font-mono text-rosy">
+          <MoveIcon classKey="blunder" size={16} className="inline align-[-2px]" /> Blunder
+        </span>
+        .
       </p>
     </div>
   );
