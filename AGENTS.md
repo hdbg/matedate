@@ -5,8 +5,17 @@ messages like chess moves (Brilliant … Blunder). `SPEC.md` is the product spec
 
 ## Layout
 
-- `frontend/` — Next.js (App Router) + React + TypeScript. **Has its own `AGENTS.md`** — this
-  Next.js has breaking changes; read `node_modules/next/dist/docs/` before writing Next code.
+- `frontend/` — a **Yarn workspaces** root (Yarn 4 + PnP; the single install lives here). Contains
+  `apps/web/` (the Next.js App Router + TS + Tailwind v4 app — **has its own `AGENTS.md`**: this
+  Next.js has breaking changes, read `node_modules/next/dist/docs/` before writing Next code) and
+  `packages/{icons,visuals}/` — the shared visual system (`@matedate/icons` inline-SVG primitives,
+  `@matedate/visuals` branded card/components + theme + logic) that the web app renders and a future
+  Remotion video app (`apps/video/`) will reuse pixel-identically. Run yarn from `frontend/`
+  (`yarn dev`/`build`/`check` delegate to the `web` workspace via root scripts, so `task dev` is
+  unchanged). See `frontend/README.md` for the layout + **package boundary rules**: `packages/*`
+  must stay Remotion-renderable (no `next/*`/`remotion`/`framer-motion`/`@/` imports, no
+  `"use client"`, no raw CSS `@keyframes`/`animation:`/`transition:` — motion is `progress`-driven;
+  enforced by `yarn check:packages`). Shared theme tokens: `packages/visuals/src/theme.css`.
 - `backend/` — FastAPI + PydanticAI solo-PvE game engine over WebSocket (details below).
 - `supabase/` — schema, seed, config. **Single pre-launch migration** convention: edit the one
   file `supabase/migrations/20260710111217_initial.sql`, don't add new migrations; re-apply with
@@ -287,6 +296,18 @@ PvP `pvp.py::_finish` → `enqueue_match_archetype` for **both sides** (each pla
   every backend query fails with `permission denied` (42501).
 
 ## Frontend — Match screen
+
+> **Paths in this section are under `frontend/apps/web/`** (the app moved into the workspace).
+> The **shared visuals were extracted** to `@matedate/visuals` (`frontend/packages/visuals`) and
+> `@matedate/icons`: the `ShareCard` tree, `EvalGraph`, `MoveIcon`/`MoveBadge`, `Logo`/`Wordmark`,
+> `EvalBar`, `VerdictFlash`, `ChatBubble`, `LoadingScene` (the archetype-waiting loader), the
+> grading vocab (`MOVE_CLASSES`/`formatSwing`/
+> `classify*`/`MoveClassKey`), `WireMove`/`ShareCardData`/`toWireMoves`, and `archetypes`/`tiers`/
+> `cardHelpers` now live there and are imported from `@matedate/visuals` (chess pieces + move
+> glyphs from `@matedate/icons`). The web keeps the data/session/hook layer (`useArchetype`,
+> `useShareCard`, `loadShareCardData`, the WS clients, `MessageThread`'s scroll container) and thin
+> re-export bridges at `app/lib/game/{types,live,shareCardData}.ts` + `app/lib/utils.ts`, so the
+> descriptions below still read correctly. See `frontend/README.md` for the package boundary rules.
 
 `app/match/useMatchGame.ts` drives gameplay off the backend WS via `app/lib/game/live.ts`
 (`NEXT_PUBLIC_BACKEND_WS_URL`, default `ws://127.0.0.1:8000/ws`). It resolves a Supabase access
